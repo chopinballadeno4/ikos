@@ -311,8 +311,17 @@ private:
   // Entry block
   BasicBlock* _entry_block;
 
-  // Exit block, or null
+  // Unified exit block (successor of all typed exits), or null
   BasicBlock* _exit_block;
+
+  // Normal exit block (normal return flows), or null
+  BasicBlock* _normal_exit_block;
+
+  // Program exit block (process-termination flows, e.g. abort), or null
+  BasicBlock* _program_exit_block;
+
+  // Exception exit block (unhandled exception propagation flows), or null
+  BasicBlock* _exception_exit_block;
 
   // Parent function, or null
   Function* _function;
@@ -412,6 +421,65 @@ public:
 
   /// \brief Set the exit basic block
   void set_exit_block(BasicBlock* bb);
+
+  /// \brief Does it have a normal exit block?
+  bool has_normal_exit_block() const {
+    return this->_normal_exit_block != nullptr;
+  }
+
+  /// \brief Get the normal exit basic block
+  BasicBlock* normal_exit_block() const {
+    ikos_assert_msg(this->_normal_exit_block, "code has no normal exit block");
+    return this->_normal_exit_block;
+  }
+
+  /// \brief Get the normal exit basic block, or null if there is none
+  BasicBlock* normal_exit_block_or_null() const {
+    return this->_normal_exit_block;
+  }
+
+  /// \brief Set the normal exit basic block
+  void set_normal_exit_block(BasicBlock* bb);
+
+  /// \brief Does it have a program exit block?
+  bool has_program_exit_block() const {
+    return this->_program_exit_block != nullptr;
+  }
+
+  /// \brief Get the program exit basic block
+  BasicBlock* program_exit_block() const {
+    ikos_assert_msg(this->_program_exit_block,
+                    "code has no program exit block");
+    return this->_program_exit_block;
+  }
+
+  /// \brief Get the program exit basic block, or null if there is none
+  BasicBlock* program_exit_block_or_null() const {
+    return this->_program_exit_block;
+  }
+
+  /// \brief Set the program exit basic block
+  void set_program_exit_block(BasicBlock* bb);
+
+  /// \brief Does it have an exception exit block?
+  bool has_exception_exit_block() const {
+    return this->_exception_exit_block != nullptr;
+  }
+
+  /// \brief Get the exception exit basic block
+  BasicBlock* exception_exit_block() const {
+    ikos_assert_msg(this->_exception_exit_block,
+                    "code has no exception exit block");
+    return this->_exception_exit_block;
+  }
+
+  /// \brief Get the exception exit basic block, or null if there is none
+  BasicBlock* exception_exit_block_or_null() const {
+    return this->_exception_exit_block;
+  }
+
+  /// \brief Set the exception exit basic block
+  void set_exception_exit_block(BasicBlock* bb);
 
   /// \brief Is it the body of a function?
   bool is_function_body() const { return this->_function != nullptr; }

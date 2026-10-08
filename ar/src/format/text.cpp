@@ -232,6 +232,15 @@ void TextFormatter::format(std::ostream& o,
   if (code->exit_block_or_null() == bb) {
     o << " !exit";
   }
+  if (code->normal_exit_block_or_null() == bb) {
+    o << " !normal-exit";
+  }
+  if (code->program_exit_block_or_null() == bb) {
+    o << " !program-exit";
+  }
+  if (code->exception_exit_block_or_null() == bb) {
+    o << " !exception-exit";
+  }
 
   // predecessors
   if (bb->num_predecessors() > 0) {

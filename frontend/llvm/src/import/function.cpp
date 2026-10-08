@@ -275,29 +275,83 @@ void FunctionImporter::unify_exit_blocks() {
     throw ImportError(buf.str());
   }
 
-  // Merge all the exit blocks
-  llvm::SmallVector< ar::BasicBlock*, 3 > ar_exit_blocks;
+  // Classify terminal blocks by their exit kind:
+  //   ReturnValue  → normal exit  (caller receives control normally)
+  //   Unreachable  → program exit (process terminates, e.g. abort)
+  //   Resume       → exception exit (unhandled exception propagates to caller)
+  llvm::SmallVector< ar::BasicBlock*, 1 > normal_blocks;
+  llvm::SmallVector< ar::BasicBlock*, 3 > program_blocks;
+  llvm::SmallVector< ar::BasicBlock*, 3 > exception_blocks;
 
   for (ar::BasicBlock* bb : *this->_body) {
-    if (!bb->empty() && (ar::isa< ar::ReturnValue >(bb->back()) ||
-                         ar::isa< ar::Unreachable >(bb->back()) ||
-                         ar::isa< ar::Resume >(bb->back()))) {
-      ar_exit_blocks.push_back(bb);
+    if (bb->empty()) {
+      continue;
+    }
+    ar::Statement* last = bb->back();
+    if (ar::isa< ar::ReturnValue >(last)) {
+      normal_blocks.push_back(bb);
+    } else if (ar::isa< ar::Unreachable >(last)) {
+      program_blocks.push_back(bb);
+    } else if (ar::isa< ar::Resume >(last)) {
+      exception_blocks.push_back(bb);
     }
   }
 
-  if (ar_exit_blocks.empty()) {
+  // Build a typed exit block for each non-empty category.
+  // If only one block of that kind exists, it becomes the typed exit directly.
+  // If multiple blocks exist, a new empty merge node is created.
+  auto make_typed_exit =
+      [&](llvm::SmallVector< ar::BasicBlock*, 3 >& blocks,
+          const char* name) -> ar::BasicBlock* {
+    if (blocks.empty()) {
+      return nullptr;
+    }
+    if (blocks.size() == 1) {
+      return blocks[0];
+    }
+    ar::BasicBlock* typed_exit = ar::BasicBlock::create(this->_body);
+    typed_exit->set_name(name);
+    for (ar::BasicBlock* bb : blocks) {
+      bb->add_successor(typed_exit);
+    }
+    return typed_exit;
+  };
+
+  // Reuse the same helper for the single-element normal case.
+  llvm::SmallVector< ar::BasicBlock*, 3 > normal_blocks_wide(normal_blocks.begin(),
+                                                              normal_blocks.end());
+  ar::BasicBlock* normal_exit = make_typed_exit(normal_blocks_wide, "normal-exit");
+  ar::BasicBlock* program_exit = make_typed_exit(program_blocks, "program-exit");
+  ar::BasicBlock* exception_exit =
+      make_typed_exit(exception_blocks, "exception-exit");
+
+  this->_body->set_normal_exit_block(normal_exit);
+  this->_body->set_program_exit_block(program_exit);
+  this->_body->set_exception_exit_block(exception_exit);
+
+  // Build the unified exit for framework compatibility (liveness, fixpoints).
+  // The unified exit is a successor of every typed exit that exists.
+  llvm::SmallVector< ar::BasicBlock*, 3 > typed_exits;
+  if (normal_exit != nullptr) {
+    typed_exits.push_back(normal_exit);
+  }
+  if (program_exit != nullptr) {
+    typed_exits.push_back(program_exit);
+  }
+  if (exception_exit != nullptr) {
+    typed_exits.push_back(exception_exit);
+  }
+
+  if (typed_exits.empty()) {
     return;
-  } else if (ar_exit_blocks.size() == 1) {
-    this->_body->set_exit_block(ar_exit_blocks[0]);
+  } else if (typed_exits.size() == 1) {
+    this->_body->set_exit_block(typed_exits[0]);
   } else {
     ar::BasicBlock* unified_exit = ar::BasicBlock::create(this->_body);
     unified_exit->set_name("unified-exit");
-
-    for (ar::BasicBlock* bb : ar_exit_blocks) {
+    for (ar::BasicBlock* bb : typed_exits) {
       bb->add_successor(unified_exit);
     }
-
     this->_body->set_exit_block(unified_exit);
   }
 }

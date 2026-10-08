@@ -83,9 +83,18 @@ static bool merge_single_block(Code* code, BasicBlock* bb) {
   child->clear_successors();
   // child will be removed later, see remove_unreachable_blocks()
 
-  // Update exit block
+  // Update exit block pointers when the child block is being merged away
   if (code->exit_block_or_null() == child) {
     code->set_exit_block(bb);
+  }
+  if (code->normal_exit_block_or_null() == child) {
+    code->set_normal_exit_block(bb);
+  }
+  if (code->program_exit_block_or_null() == child) {
+    code->set_program_exit_block(bb);
+  }
+  if (code->exception_exit_block_or_null() == child) {
+    code->set_exception_exit_block(bb);
   }
 
   // Update traceability

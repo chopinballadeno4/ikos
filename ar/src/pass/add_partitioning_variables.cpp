@@ -128,35 +128,42 @@ bool AddPartitioningVariablesPass::run_on_function(Function* fun) {
     return false;
   }
 
-  BasicBlock* exit_block = body->exit_block();
+  // Use the normal exit block directly when available (preferred path).
+  // Fall back to the legacy unified-exit predecessor scan for backward
+  // compatibility with code that does not populate typed exit blocks.
   BasicBlock* return_block = nullptr;
-  if (exit_block->empty()) {
-    // Exit block is empty, check the predecessors
-    for (auto it = exit_block->predecessor_begin(),
-              et = exit_block->predecessor_end();
-         it != et;
-         ++it) {
-      BasicBlock* bb = *it;
-
-      if (bb->empty()) {
-        // Predecessor is empty
-        return false;
-      }
-
-      if (isa< Unreachable >(bb->back())) {
-        // Predecessor with an unreachable statement, ignore
-        continue;
-      }
-
-      if (return_block != nullptr) {
-        // Multiple return blocks
-        return false;
-      }
-
-      return_block = bb;
-    }
+  if (body->has_normal_exit_block()) {
+    return_block = body->normal_exit_block();
   } else {
-    return_block = exit_block;
+    BasicBlock* exit_block = body->exit_block();
+    if (exit_block->empty()) {
+      // Exit block is empty, check the predecessors
+      for (auto it = exit_block->predecessor_begin(),
+                et = exit_block->predecessor_end();
+           it != et;
+           ++it) {
+        BasicBlock* bb = *it;
+
+        if (bb->empty()) {
+          // Predecessor is a typed exit merge node, skip it
+          continue;
+        }
+
+        if (isa< Unreachable >(bb->back()) || isa< Resume >(bb->back())) {
+          // Non-normal terminal, ignore
+          continue;
+        }
+
+        if (return_block != nullptr) {
+          // Multiple return blocks
+          return false;
+        }
+
+        return_block = bb;
+      }
+    } else {
+      return_block = exit_block;
+    }
   }
 
   if (return_block == nullptr) {
