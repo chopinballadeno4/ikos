@@ -253,7 +253,12 @@ install(TARGETS ikos-llvm-to-ar
 )
 
 # ikos-import binary
-add_executable(ikos-import src/ikos_import.cpp)
+add_executable(ikos-import
+  src/ikos_import.cpp
+  src/analysis/parameter_symbolic/symbolic_expr.cpp
+  src/analysis/parameter_symbolic/symbolic_state.cpp
+  src/analysis/parameter_symbolic/symbolic_fixpoint.cpp
+)
 if (IKOS_LINK_LLVM_DYLIB)
   set(IKOS_IMPORT_LLVM_LIBS "LLVM")
 else()

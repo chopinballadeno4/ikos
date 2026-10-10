@@ -60,7 +60,10 @@
 
 #include <ikos/frontend/llvm/import.hpp>
 
+#include <ikos/frontend/llvm/analysis/parameter_symbolic/symbolic_fixpoint.hpp>
+
 namespace ar = ikos::ar;
+namespace param_sym = ikos::frontend::parameter_symbolic;
 namespace llvm_to_ar = ikos::frontend::import;
 
 static llvm::cl::opt< std::string > InputFilename(
@@ -120,6 +123,10 @@ static llvm::cl::opt< bool > ShowOperandTypes(
 static llvm::cl::opt< bool > OrderGlobals(
     "order-globals",
     llvm::cl::desc("Order global variables and functions by name"));
+
+static llvm::cl::opt< bool > ParamSymbolic(
+    "param-symbolic",
+    llvm::cl::desc("Run parameter-symbolic analysis and print summaries"));
 
 /// \brief Build import options from command line arguments
 static llvm_to_ar::Importer::ImportOptions make_import_options() {
@@ -214,6 +221,11 @@ int main(int argc, char** argv) {
     // Simplify the control flow graph
     if (!NoSimplifyCFG) {
       ar::SimplifyCFGPass().run(bundle);
+    }
+
+    // Parameter-symbolic analysis (C.4 verification output)
+    if (ParamSymbolic) {
+      param_sym::analyze_bundle(bundle, std::cout);
     }
 
     // Generate output
