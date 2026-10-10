@@ -1,0 +1,26 @@
+#!/bin/bash
+
+progname=$(basename "$0")
+ikos_import="ikos-import"
+file_check="FileCheck"
+
+while [[ ! -z $1 ]]
+do
+    if [[ "$1" = "-h" ]] || [[ "$1" = "-help" ]]; then
+        echo "usage: $progname [--ikos-import IKOS-IMPORT] [--file-check FILE-CHECK]"
+        exit 1
+    elif [[ "$1" = "--ikos-import" ]]; then
+        shift
+        ikos_import=$1
+    elif [[ "$1" = "--file-check" ]]; then
+        shift
+        file_check=$1
+    else
+        echo "error: $progname: unknown command line argument '$1'" >&2
+        exit 1
+    fi
+    shift
+done
+
+"$ikos_import" --format=no --param-symbolic state.ll \
+    | "$file_check" state.ll

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <map>
 #include <ostream>
 #include <string>
@@ -56,6 +57,10 @@ struct SymbolicExpr {
     return coeffs == o.coeffs && constant == o.constant;
   }
   bool operator!=(const SymbolicExpr& o) const { return !(*this == o); }
+  bool operator<(const SymbolicExpr& o) const {
+    if (coeffs != o.coeffs) return coeffs < o.coeffs;
+    return constant < o.constant;
+  }
 
   void dump(std::ostream& o,
             const std::vector<std::string>& param_names) const;
@@ -65,12 +70,20 @@ struct SymbolicExpr {
 // SymbolicLoc — a symbolic memory location
 // ─────────────────────────────────────────────
 struct SymbolicLoc {
-  ar::Variable* var = nullptr;
+  ar::Variable* base = nullptr;
+  SymbolicExpr offset;
   bool callee_local = true; // true = Allocate-created; false = param-relative
 
-  bool operator==(const SymbolicLoc& o) const { return var == o.var; }
-  bool operator!=(const SymbolicLoc& o) const { return var != o.var; }
-  bool operator<(const SymbolicLoc& o) const { return var < o.var; }
+  bool operator==(const SymbolicLoc& o) const {
+    return base == o.base && offset == o.offset;
+  }
+  bool operator!=(const SymbolicLoc& o) const { return !(*this == o); }
+  bool operator<(const SymbolicLoc& o) const {
+    std::less< ar::Variable* > less;
+    if (less(base, o.base)) return true;
+    if (less(o.base, base)) return false;
+    return offset < o.offset;
+  }
 };
 
 // ─────────────────────────────────────────────
@@ -124,6 +137,10 @@ inline SymbolicValue merge_val(const SymbolicValue& a, const SymbolicValue& b) {
 
 void dump_sym_val(std::ostream& o,
                   const SymbolicValue& v,
+                  const std::vector<std::string>& param_names);
+
+void dump_sym_loc(std::ostream& o,
+                  const SymbolicLoc& loc,
                   const std::vector<std::string>& param_names);
 
 } // namespace parameter_symbolic

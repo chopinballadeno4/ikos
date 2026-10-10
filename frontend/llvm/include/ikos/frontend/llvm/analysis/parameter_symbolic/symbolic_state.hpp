@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <ostream>
 #include <string>
 #include <unordered_map>
@@ -21,15 +22,16 @@ namespace parameter_symbolic {
 // SymbolicState — Sigma = (sigma, mu)
 //
 //   sigma : ar::Variable* -> SymbolicValue  (SSA var -> expr/loc/TOP)
-//   mu    : ar::Variable* -> SymbolicValue  (location key -> stored value)
+//   mu    : SymbolicLoc -> SymbolicValue  (location key -> stored value)
 // ---------------------------------------------------------------------------
 class SymbolicState final
     : public core::AbstractDomain< SymbolicState > {
 public:
   using VarMap = std::unordered_map< ar::Variable*, SymbolicValue >;
+  using MemoryMap = std::map< SymbolicLoc, SymbolicValue >;
 
   VarMap sigma;
-  VarMap mu;
+  MemoryMap mu;
   bool _bottom;
 
   // Allocate-created local location variables (callee-local).
@@ -64,9 +66,7 @@ public:
   void normalize() override {}
 
   bool is_bottom() const override { return _bottom; }
-  bool is_top() const override {
-    return !_bottom && sigma.empty() && mu.empty();
-  }
+  bool is_top() const override;
 
   void set_to_bottom() override {
     _bottom = true;

@@ -26,7 +26,7 @@ SymbolicState SymbolicState::make_entry(ar::Function* fun) {
       s.sigma[p] = SymbolicValue::from_expr(SymbolicExpr::from_param(idx));
     } else if (ar::isa<ar::PointerType>(ty)) {
       SymbolicLoc loc;
-      loc.var = p;
+      loc.base = p;
       loc.callee_local = false;
       s.sigma[p] = SymbolicValue::from_loc(loc);
     } else {
@@ -40,22 +40,24 @@ SymbolicState SymbolicState::make_entry(ar::Function* fun) {
 // join_with (in-place pointwise merge)
 // ---------------------------------------------------------------------------
 
-static void merge_map(SymbolicState::VarMap& dst,
-                      const SymbolicState::VarMap& src) {
-  // Merge src into dst.
-  // Keys only in dst: they stay (variable defined only on one path → keep it;
-  //   if the variable is also defined on the other path the PHI assignment
-  //   will update it during block transfer).
-  // Keys only in src: copy over.
-  // Keys in both: MergeVal.
+template < typename Map >
+static void merge_map(Map& dst, const Map& src) {
+  // Missing entries denote TOP. Therefore, an entry present on only one
+  // reachable predecessor is merged with TOP, not copied to the result.
   for (auto it2 = src.begin(); it2 != src.end(); ++it2) {
-    ar::Variable* var = it2->first;
+    const typename Map::key_type& key = it2->first;
     const SymbolicValue& val = it2->second;
-    auto it = dst.find(var);
+    auto it = dst.find(key);
     if (it == dst.end()) {
-      dst[var] = val;
+      dst[key] = SymbolicValue::top();
     } else {
       it->second = merge_val(it->second, val);
+    }
+  }
+
+  for (auto it = dst.begin(); it != dst.end(); ++it) {
+    if (src.find(it->first) == src.end()) {
+      it->second = SymbolicValue::top();
     }
   }
 }
@@ -88,22 +90,31 @@ bool SymbolicState::leq(const SymbolicState& other) const {
   if (is_bottom()) return true;
   if (other.is_bottom()) return false;
 
-  for (auto it2 = sigma.begin(); it2 != sigma.end(); ++it2) {
-    ar::Variable* var = it2->first;
-    const SymbolicValue& val = it2->second;
-    auto it = other.sigma.find(var);
-    if (it == other.sigma.end()) {
-      // other doesn't have this var → treat as TOP → ok
-      continue;
+  auto map_leq = [](const auto& left, const auto& right) {
+    // It is sufficient to inspect non-TOP entries in right. A missing entry
+    // in either map denotes TOP.
+    for (auto it = right.begin(); it != right.end(); ++it) {
+      if (it->second.is_top()) continue;
+      auto left_it = left.find(it->first);
+      if (left_it == left.end() || !val_leq(left_it->second, it->second)) {
+        return false;
+      }
     }
-    if (!val_leq(val, it->second)) return false;
+    return true;
+  };
+
+  if (!map_leq(sigma, other.sigma)) return false;
+  if (!map_leq(mu, other.mu)) return false;
+  return true;
+}
+
+bool SymbolicState::is_top() const {
+  if (_bottom) return false;
+  for (auto it = sigma.begin(); it != sigma.end(); ++it) {
+    if (!it->second.is_top()) return false;
   }
-  for (auto it2 = mu.begin(); it2 != mu.end(); ++it2) {
-    ar::Variable* var = it2->first;
-    const SymbolicValue& val = it2->second;
-    auto it = other.mu.find(var);
-    if (it == other.mu.end()) continue;
-    if (!val_leq(val, it->second)) return false;
+  for (auto it = mu.begin(); it != mu.end(); ++it) {
+    if (!it->second.is_top()) return false;
   }
   return true;
 }
@@ -142,7 +153,7 @@ SymbolicValue SymbolicState::eval(ar::Value* v) const {
 
 SymbolicValue SymbolicState::load_mem(const SymbolicValue& addr) const {
   if (const SymbolicLoc* loc = addr.get_loc()) {
-    auto it = mu.find(loc->var);
+    auto it = mu.find(*loc);
     if (it != mu.end()) return it->second;
     return SymbolicValue::top();
   }
@@ -152,7 +163,7 @@ SymbolicValue SymbolicState::load_mem(const SymbolicValue& addr) const {
 void SymbolicState::store_mem(const SymbolicValue& addr,
                               const SymbolicValue& val) {
   if (const SymbolicLoc* loc = addr.get_loc()) {
-    mu[loc->var] = val;
+    mu[*loc] = val;
   }
   // If addr is TOP or Expr, we can't track the store → nothing updated.
 }
@@ -274,7 +285,7 @@ void SymbolicState::exec_allocate(ar::Allocate* s) {
   // σ[result] = SymbolicLoc(result)  (the alloca itself is the location)
   ar::LocalVariable* res = s->result();
   SymbolicLoc loc;
-  loc.var = res;
+  loc.base = res;
   loc.callee_local = true;
   sigma[res] = SymbolicValue::from_loc(loc);
   local_allocs.insert(res);
@@ -299,17 +310,29 @@ void SymbolicState::exec_call(ar::Call* s) {
 }
 
 // PointerShift: result = base + sum(factor_i * value_i).
-// If base is a Loc, propagate the same Loc (offset is untracked — over-approx).
-// If any index variable is non-constant, result is still same Loc as base
-// (we lose field granularity but preserve the base-object identity).
+// Preserve a parameter-origin affine offset as Loc(B, delta). If an offset
+// term is not representable, the result location is TOP.
 void SymbolicState::exec_pointer_shift(ar::PointerShift* s) {
   SymbolicValue base = eval(s->pointer());
-  if (base.is_loc()) {
-    // Loc(B, delta): we represent as same base Loc, ignoring numeric offset.
-    sigma[s->result()] = base;
-  } else {
+  const SymbolicLoc* base_loc = base.get_loc();
+  if (!base_loc) {
     sigma[s->result()] = SymbolicValue::top();
+    return;
   }
+
+  SymbolicLoc result = *base_loc;
+  for (auto it = s->term_begin(), et = s->term_end(); it != et; ++it) {
+    ar::PointerShift::Term term = *it;
+    auto factor = term.first.to_z_number();
+    SymbolicValue offset_value = eval(term.second);
+    const SymbolicExpr* offset_expr = offset_value.get_expr();
+    if (!factor.fits< int >() || !offset_expr) {
+      sigma[s->result()] = SymbolicValue::top();
+      return;
+    }
+    result.offset = result.offset + (*offset_expr * factor.to< int >());
+  }
+  sigma[s->result()] = SymbolicValue::from_loc(result);
 }
 
 // Invoke behaves like Call but also has an exception destination edge.
@@ -359,11 +382,9 @@ void SymbolicState::dump_compact(std::ostream& o) const {
   for (auto it2 = mu.begin(); it2 != mu.end(); ++it2) {
     if (!first) o << ", ";
     first = false;
-    ar::Variable* var = it2->first;
-    o << "L[";
-    if (var->has_name()) o << var->name();
-    else o << "?";
-    o << "]=>";
+    const SymbolicLoc& loc = it2->first;
+    dump_sym_loc(o, loc, param_names);
+    o << "=>";
     dump_sym_val(o, it2->second, param_names);
   }
   o << "}";
@@ -389,12 +410,11 @@ void dump_state(const SymbolicState& s,
   }
   o << "    mu:\n";
   for (auto it2 = s.mu.begin(); it2 != s.mu.end(); ++it2) {
-    ar::Variable* var = it2->first;
+    const SymbolicLoc& loc = it2->first;
     const SymbolicValue& val = it2->second;
-    o << "      L[";
-    if (var->has_name()) o << var->name();
-    else o << "?";
-    o << "] -> ";
+    o << "      ";
+    dump_sym_loc(o, loc, s.param_names);
+    o << " -> ";
     dump_sym_val(o, val, s.param_names);
     o << "\n";
   }

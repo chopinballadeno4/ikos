@@ -173,12 +173,12 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
       o << "  mu_normal_exit (caller-visible):\n";
       bool any = false;
       for (auto it2 = ns.mu.begin(); it2 != ns.mu.end(); ++it2) {
-        ar::Variable* var = it2->first;
+        const SymbolicLoc& loc = it2->first;
         const SymbolicValue& val = it2->second;
-        if (ns.local_allocs.count(var)) continue;
-        o << "    L[";
-        if (var->has_name()) o << var->name();
-        o << "] -> ";
+        if (ns.local_allocs.count(loc.base)) continue;
+        o << "    ";
+        dump_sym_loc(o, loc, ns.param_names);
+        o << " -> ";
         dump_sym_val(o, val, ns.param_names);
         o << "\n";
         any = true;
@@ -203,12 +203,12 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
       o << "  mu_exception_exit (caller-visible):\n";
       bool any = false;
       for (auto it2 = es.mu.begin(); it2 != es.mu.end(); ++it2) {
-        ar::Variable* var = it2->first;
+        const SymbolicLoc& loc = it2->first;
         const SymbolicValue& val = it2->second;
-        if (es.local_allocs.count(var)) continue;
-        o << "    L[";
-        if (var->has_name()) o << var->name();
-        o << "] -> ";
+        if (es.local_allocs.count(loc.base)) continue;
+        o << "    ";
+        dump_sym_loc(o, loc, es.param_names);
+        o << " -> ";
         dump_sym_val(o, val, es.param_names);
         o << "\n";
         any = true;

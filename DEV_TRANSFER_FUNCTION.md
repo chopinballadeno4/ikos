@@ -56,6 +56,38 @@ caller에서 summary를 실제로 적용하여 normal flow를 pruning하거나 c
 Loc ::= B | Loc(B, δ)
 ```
 
+`δ`는 byte 단위의 parameter-origin affine symbolic expression이다.
+
+```text
+Loc(B, 0) = B
+```
+
+`PointerShift`가 다음과 같고:
+
+```text
+result = base + Σ(factorᵢ × operandᵢ)
+```
+
+`σ(base) = Loc(B, δ_base)`이며 모든 operand가 symbolic expression으로
+환원 가능하면 다음과 같이 offset을 보존한다.
+
+```text
+δ_shift = Σ(factorᵢ × σ(operandᵢ))
+σ(result) = Loc(B, δ_base + δ_shift)
+```
+
+하나의 operand라도 `TOP`이거나 affine symbolic expression으로 표현할 수 없으면:
+
+```text
+σ(result) = TOP
+```
+
+서로 다른 offset의 location은 서로 다른 memory location으로 취급한다.
+
+```text
+Loc(B, δ₁) ≠ Loc(B, δ₂)  if δ₁ ≠ δ₂
+```
+
 formal specification과 구현에서는 source-level parameter 이름에 의존하지 않는다.
 
 따라서 `L_p`, `L_q`, `L_r`와 같은 표기는 설명용 예제에서만 사용할 수 있으며, 실제 구현에서는 AR parameter identity 또는 parameter index를 기준으로 symbolic location을 생성한다.
@@ -115,6 +147,41 @@ MergeVal(v₁, v₂) =
 ```
 
 `μ`에도 동일한 규칙을 적용한다.
+
+### 3.1 Missing entry
+
+구현에서 `σ`와 `μ`는 sparse map으로 표현할 수 있다. 도달 가능한 state의 map에
+key가 존재하지 않는 경우 해당 값은 `TOP`으로 해석한다.
+
+```text
+Lookup(M, k) =
+    M(k)    if k ∈ dom(M)
+    TOP     otherwise
+```
+
+따라서 pointwise merge는 두 map의 key 합집합에 대해 다음과 같이 계산한다.
+
+```text
+(M₁ ⊔ₛ M₂)(k)
+= MergeVal(Lookup(M₁, k), Lookup(M₂, k))
+```
+
+예를 들어:
+
+```text
+M₁(k) = a₀
+k ∉ dom(M₂)
+
+→ MergeVal(a₀, TOP)
+→ TOP
+```
+
+이는 도달 불가능한 state인 `BOTTOM`과 구분한다. `BOTTOM` predecessor는 merge에
+기여하지 않으므로 다음 관계가 성립한다.
+
+```text
+BOTTOM ⊔ₛ Σ = Σ
+```
 
 이 정책은 path correlation을 보존하지 않으므로 정밀도 손실이 발생할 수 있지만, 서로 다른 symbolic relation을 `TOP`으로 추상화하여 soundness를 유지한다.
 
@@ -795,6 +862,14 @@ Invariant 32.
 Invariant 33.
 formal symbolic location은 source-level parameter 이름에 의존하지 않고
 AR parameter identity 또는 parameter index를 기준으로 표현한다.
+
+Invariant 34.
+PointerShift의 affine byte offset은 Loc(B, δ)에 누적하며, 서로 다른 δ의
+location은 서로 다른 memory location으로 취급한다.
+
+Invariant 35.
+도달 가능한 symbolic state에서 map에 존재하지 않는 entry는 TOP으로 해석하고,
+CFG merge 시 다른 predecessor의 값과 MergeVal을 적용한다.
 ```
 
 

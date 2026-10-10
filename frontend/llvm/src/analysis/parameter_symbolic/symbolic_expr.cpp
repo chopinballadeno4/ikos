@@ -38,13 +38,28 @@ void dump_sym_val(std::ostream& o,
   } else if (const SymbolicExpr* e = v.get_expr()) {
     e->dump(o, param_names);
   } else if (const SymbolicLoc* l = v.get_loc()) {
-    if (l->var && l->var->has_name()) {
-      o << "L[" << l->var->name() << "]";
-    } else {
-      o << "L[?]";
-    }
-    if (!l->callee_local) o << "(ext)";
+    dump_sym_loc(o, *l, param_names);
   }
+}
+
+void dump_sym_loc(std::ostream& o,
+                  const SymbolicLoc& loc,
+                  const std::vector<std::string>& param_names) {
+  bool zero_offset = loc.offset.is_const() && loc.offset.constant == 0;
+  if (zero_offset) {
+    o << "L[";
+    if (loc.base && loc.base->has_name()) o << loc.base->name();
+    else o << "?";
+    o << "]";
+  } else {
+    o << "Loc(L[";
+    if (loc.base && loc.base->has_name()) o << loc.base->name();
+    else o << "?";
+    o << "], ";
+    loc.offset.dump(o, param_names);
+    o << ")";
+  }
+  if (!loc.callee_local) o << "(ext)";
 }
 
 } // namespace parameter_symbolic
