@@ -282,29 +282,27 @@ void FunctionImporter::unify_exit_blocks() {
   //              → exception exit (C++ throw propagates to caller)
   //   Unreachable (all other cases)
   //              → program exit  (process terminates, e.g. abort/exit)
-  // Classify terminal blocks into four categories:
+  // Classify terminal blocks into three categories:
   //
-  //   normal_blocks              — ReturnValue terminals → normal_exit
-  //   exception_unreachable_blocks — unreachable blocks on throw paths → exception_exit
-  //   program_unreachable_blocks   — unreachable blocks on abort paths → program_exit
-  //   resume_blocks              — Resume terminals → unified_exit (direct)
+  //   normal_blocks — ReturnValue terminals → normal_exit
+  //   exception_blocks — Resume terminals and unreachable blocks on throw
+  //                      paths → exception_exit
+  //   program_unreachable_blocks — unreachable blocks on abort paths
+  //                                → program_exit
   //
   // Target CFG structure:
   //
   //   return  → normal_exit    → unified_exit
   //   abort   → [unreachable]  → program_exit   → unified_exit
   //   throw   → [unreachable]  → exception_exit → unified_exit
-  //   resume  ─────────────────────────────────→ unified_exit
+  //   resume  → exception_exit → unified_exit
   //
-  // resume goes directly to unified_exit (restoring original IKOS behavior)
-  // because the exception condition is already captured by the throw
-  // unreachable path (both come from the same invoke, so the condition is
-  // identical).
+  // Resume is an exception-propagation terminal and must pass through the
+  // typed exception exit before reaching the compatibility exit.
 
   llvm::SmallVector< ar::BasicBlock*, 1 > normal_blocks;
-  llvm::SmallVector< ar::BasicBlock*, 3 > exception_unreachable_blocks;
+  llvm::SmallVector< ar::BasicBlock*, 3 > exception_blocks;
   llvm::SmallVector< ar::BasicBlock*, 3 > program_unreachable_blocks;
-  llvm::SmallVector< ar::BasicBlock*, 3 > resume_blocks;
   // Deferred: (unreachable_block, throw_predecessors) pairs that need a fresh
   // unreachable block.  Processed after the body iteration loop to avoid
   // invalidating iterators while creating new blocks.
@@ -324,8 +322,7 @@ void FunctionImporter::unify_exit_blocks() {
 
     } else if (ar::isa< ar::Resume >(last)) {
       // Resume: exception propagated from a callee but not handled here.
-      // Goes directly to unified_exit (original IKOS behavior).
-      resume_blocks.push_back(bb);
+      exception_blocks.push_back(bb);
 
     } else if (ar::isa< ar::Unreachable >(last)) {
       // Determine whether this unreachable block is on a throw path
@@ -349,12 +346,20 @@ void FunctionImporter::unify_exit_blocks() {
           is_throw = (call->intrinsic_id() == ar::Intrinsic::LibcppThrow);
         }
         if (is_throw) {
-          exception_unreachable_blocks.push_back(bb);
+          exception_blocks.push_back(bb);
         } else {
           program_unreachable_blocks.push_back(bb);
         }
 
-      } else if (bb->num_statements() == 1 && bb->num_predecessors() > 0) {
+      } else if (bb->num_statements() == 1 && bb->num_predecessors() == 0) {
+        // A reachable predecessor-less terminal can only be the entry block.
+        // Other predecessor-less blocks are dead and will be removed by the
+        // CFG simplifier.
+        if (bb == this->_body->entry_block()) {
+          program_unreachable_blocks.push_back(bb);
+        }
+
+      } else if (bb->num_statements() == 1) {
         // Pattern B: inspect each predecessor.
         llvm::SmallVector< ar::BasicBlock*, 4 > preds(bb->predecessor_begin(),
                                                       bb->predecessor_end());
@@ -380,7 +385,7 @@ void FunctionImporter::unify_exit_blocks() {
 
         } else if (!has_non_throw_pred) {
           // All predecessors are throw → exception path.
-          exception_unreachable_blocks.push_back(bb);
+          exception_blocks.push_back(bb);
 
         } else {
           // Mixed: record for post-loop rerouting.
@@ -394,14 +399,16 @@ void FunctionImporter::unify_exit_blocks() {
   // Handle mixed UnifiedUnreachableBlocks (abort + throw predecessors).
   // Create a fresh unreachable block per mixed block for the throw preds,
   // done outside the body iteration loop to avoid iterator invalidation.
-  for (auto& [uu_bb, throw_preds] : mixed_uu_blocks) {
+  for (auto& mixed_block : mixed_uu_blocks) {
+    ar::BasicBlock* uu_bb = mixed_block.first;
+    auto& throw_preds = mixed_block.second;
     ar::BasicBlock* throw_uu = ar::BasicBlock::create(this->_body);
     throw_uu->push_back(ar::Unreachable::create());
     for (ar::BasicBlock* pred : throw_preds) {
       pred->remove_successor(uu_bb);
       pred->add_successor(throw_uu);
     }
-    exception_unreachable_blocks.push_back(throw_uu);
+    exception_blocks.push_back(throw_uu);
     program_unreachable_blocks.push_back(uu_bb); // abort preds remain
   }
 
@@ -430,20 +437,17 @@ void FunctionImporter::unify_exit_blocks() {
                                                               normal_blocks.end());
   ar::BasicBlock* normal_exit    = make_typed_exit(normal_blocks_wide,           "normal-exit");
   ar::BasicBlock* program_exit   = make_typed_exit(program_unreachable_blocks,   "program-exit");
-  ar::BasicBlock* exception_exit = make_typed_exit(exception_unreachable_blocks, "exception-exit");
+  ar::BasicBlock* exception_exit = make_typed_exit(exception_blocks,             "exception-exit");
 
   this->_body->set_normal_exit_block(normal_exit);
   this->_body->set_program_exit_block(program_exit);
   this->_body->set_exception_exit_block(exception_exit);
 
-  // Build unified exit.  Typed exits and resume blocks are all predecessors.
-  llvm::SmallVector< ar::BasicBlock*, 5 > unified_preds;
+  // Build unified exit. Typed exits are its only predecessors.
+  llvm::SmallVector< ar::BasicBlock*, 3 > unified_preds;
   if (normal_exit    != nullptr) unified_preds.push_back(normal_exit);
   if (program_exit   != nullptr) unified_preds.push_back(program_exit);
   if (exception_exit != nullptr) unified_preds.push_back(exception_exit);
-  for (ar::BasicBlock* bb : resume_blocks) {
-    unified_preds.push_back(bb);
-  }
 
   if (unified_preds.empty()) {
     return;
