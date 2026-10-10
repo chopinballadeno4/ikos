@@ -128,6 +128,17 @@ static llvm::cl::opt< bool > ParamSymbolic(
     "param-symbolic",
     llvm::cl::desc("Run parameter-symbolic analysis and print summaries"));
 
+static llvm::cl::opt< bool > ParamSymbolicTrace(
+    "param-symbolic-trace",
+    llvm::cl::desc(
+        "Emit per-statement sigma/mu state during param-symbolic analysis"));
+
+static llvm::cl::opt< std::string > ParamSymbolicFn(
+    "param-symbolic-fn",
+    llvm::cl::desc("Limit --param-symbolic-trace to this function name"),
+    llvm::cl::value_desc("function"),
+    llvm::cl::init(""));
+
 /// \brief Build import options from command line arguments
 static llvm_to_ar::Importer::ImportOptions make_import_options() {
   llvm_to_ar::Importer::ImportOptions opts;
@@ -225,7 +236,9 @@ int main(int argc, char** argv) {
 
     // Parameter-symbolic analysis (C.4 verification output)
     if (ParamSymbolic) {
-      param_sym::analyze_bundle(bundle, std::cout);
+      std::ostream* trace_out = ParamSymbolicTrace ? &std::cerr : nullptr;
+      param_sym::analyze_bundle(bundle, std::cout, trace_out,
+                                ParamSymbolicFn.getValue());
     }
 
     // Generate output

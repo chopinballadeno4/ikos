@@ -17,10 +17,12 @@ namespace ikos {
 namespace frontend {
 namespace parameter_symbolic {
 
-// Sigma = (sigma, mu)
+// ---------------------------------------------------------------------------
+// SymbolicState — Sigma = (sigma, mu)
 //
-//   sigma : ar::Variable* -> SymbolicValue  (SSA variable -> expr/loc/TOP)
-//   mu    : ar::Variable* -> SymbolicValue  (location var -> stored value)
+//   sigma : ar::Variable* -> SymbolicValue  (SSA var -> expr/loc/TOP)
+//   mu    : ar::Variable* -> SymbolicValue  (location key -> stored value)
+// ---------------------------------------------------------------------------
 class SymbolicState final
     : public core::AbstractDomain< SymbolicState > {
 public:
@@ -30,16 +32,18 @@ public:
   VarMap mu;
   bool _bottom;
 
+  // Allocate-created local location variables (callee-local).
   std::unordered_set< ar::Variable* > local_allocs;
+
+  // Parameter names for pretty-printing.
   std::vector< std::string > param_names;
 
 private:
-  // Private default constructor — satisfies
-  // !std::is_default_constructible<SymbolicState>.
+  // Private default constructor — !std::is_default_constructible<SymbolicState>
   SymbolicState() : _bottom(false) {}
 
 public:
-  // --- Factory ---
+  // --- Factories ---
   static SymbolicState make_bottom() {
     SymbolicState s;
     s._bottom = true;
@@ -47,7 +51,7 @@ public:
   }
   static SymbolicState make_entry(ar::Function* fun);
 
-  // --- Copy / Move (public, satisfies is_copy/move_constructible) ---
+  // --- Copy / Move (public) ---
   SymbolicState(const SymbolicState&) = default;
   SymbolicState(SymbolicState&&) noexcept = default;
   SymbolicState& operator=(const SymbolicState&) = default;
@@ -89,7 +93,10 @@ public:
 
   void dump(std::ostream& o) const override;
 
-  // --- Helpers ---
+  // Compact single-line dump for trace output.
+  void dump_compact(std::ostream& o) const;
+
+  // --- Helpers used by fixpoint ---
   SymbolicValue eval(ar::Value* v) const;
   SymbolicValue load_mem(const SymbolicValue& addr) const;
   void store_mem(const SymbolicValue& addr, const SymbolicValue& val);
@@ -100,12 +107,55 @@ private:
   void exec_unary_op(ar::UnaryOperation* s);
   void exec_binary_op(ar::BinaryOperation* s);
   void exec_allocate(ar::Allocate* s);
+  void exec_pointer_shift(ar::PointerShift* s);
   void exec_load(ar::Load* s);
   void exec_store(ar::Store* s);
   void exec_call(ar::Call* s);
+  void exec_invoke(ar::Invoke* s);
+  void exec_extract_element(ar::ExtractElement* s);
+  void exec_insert_element(ar::InsertElement* s);
+  void exec_shuffle_vector(ar::ShuffleVector* s);
+
   void merge_meta(const SymbolicState& other);
 };
 
+// ---------------------------------------------------------------------------
+// SymbolicConstraint — parameter-based comparison (or trivially true)
+// ---------------------------------------------------------------------------
+struct SymbolicConstraint {
+  enum Kind { KTrue, KParam } kind;
+  ar::Comparison::Predicate predicate; // valid when KParam
+  SymbolicExpr left, right;            // valid when KParam
+
+  static SymbolicConstraint make_true() {
+    SymbolicConstraint c;
+    c.kind = KTrue;
+    c.predicate = ar::Comparison::SIEQ; // unused
+    return c;
+  }
+  static SymbolicConstraint make_param(ar::Comparison::Predicate p,
+                                        const SymbolicExpr& l,
+                                        const SymbolicExpr& r) {
+    SymbolicConstraint c;
+    c.kind = KParam;
+    c.predicate = p;
+    c.left = l;
+    c.right = r;
+    return c;
+  }
+
+  void dump(std::ostream& o, const std::vector< std::string >& names) const;
+
+private:
+  SymbolicConstraint() : kind(KTrue), predicate(ar::Comparison::SIEQ) {}
+};
+
+// Try to substitute sigma into a Comparison, returning a parameter constraint.
+// Returns KTrue if any operand is TOP or non-integer.
+SymbolicConstraint subst_constraint(ar::Comparison* cmp,
+                                    const SymbolicState& s);
+
+// Detailed per-block dump (used in C.4 output).
 void dump_state(const SymbolicState& s,
                 std::ostream& o,
                 const std::string& function_name,

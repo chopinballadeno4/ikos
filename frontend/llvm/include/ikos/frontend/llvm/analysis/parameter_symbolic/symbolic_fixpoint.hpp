@@ -1,5 +1,8 @@
 #pragma once
 
+#include <ostream>
+#include <string>
+
 #include <ikos/ar/semantic/code.hpp>
 #include <ikos/ar/semantic/function.hpp>
 #include <ikos/core/fixpoint/fwd_fixpoint_iterator.hpp>
@@ -11,9 +14,6 @@ namespace frontend {
 namespace parameter_symbolic {
 
 // WTO-based forward fixpoint for one function body.
-//
-// AbstractValue = SymbolicState  (must satisfy InterleavedFwdFixpointIterator
-// requirements: join_with, join_iter, widening, leq, normalize, is_bottom)
 class SymbolicFunctionFixpoint final
     : public core::InterleavedFwdFixpointIterator< ar::Code*, SymbolicState > {
 private:
@@ -22,50 +22,66 @@ private:
 
   ar::Function* _fun;
 
-public:
-  explicit SymbolicFunctionFixpoint(ar::Function* fun);
+  // Trace output: nullptr = disabled.
+  std::ostream* _trace_out;
+  // If non-empty, only trace this function by name.
+  std::string _trace_fn;
 
-  // Propagate the symbolic state through a basic block.
+public:
+  explicit SymbolicFunctionFixpoint(ar::Function* fun,
+                                    std::ostream* trace_out = nullptr,
+                                    const std::string& trace_fn = "");
+
+  // --- InterleavedFwdFixpointIterator interface ---
+
+  // Run transfer functions for each statement in bb.
+  // When trace is active, prints per-statement state after each exec.
   SymbolicState analyze_node(ar::BasicBlock* bb, SymbolicState pre) override;
 
-  // Edge transfer: currently identity (branch constraints are path-insensitive).
+  // Edge transfer: identity (path-insensitive).
   SymbolicState analyze_edge(ar::BasicBlock* src,
                              ar::BasicBlock* dst,
                              SymbolicState pre) override;
 
-  // Widening: same as join for our domain.
+  // Widening: join (our symbolic domain converges in <=2 iterations).
   SymbolicState extrapolate(ar::BasicBlock* head,
                             unsigned iteration,
                             const SymbolicState& before,
                             const SymbolicState& after) override;
 
-  // Narrowing: identity (no narrowing in our domain).
+  // Narrowing: identity.
   SymbolicState refine(ar::BasicBlock* head,
                        unsigned iteration,
                        const SymbolicState& before,
                        const SymbolicState& after) override;
 
-  // Decreasing fixpoint check: stop after 1 narrowing step.
+  // Stop after 1 narrowing step.
   bool is_decreasing_iterations_fixpoint(ar::BasicBlock* head,
                                          unsigned iteration,
                                          const SymbolicState& before,
                                          const SymbolicState& after) override;
 
-  // Called after computing pre/post invariants per block (no-op here).
+  // No-ops (required by ForwardFixpointIterator).
   void process_pre(ar::BasicBlock* /*bb*/,
                    const SymbolicState& /*pre*/) override {}
   void process_post(ar::BasicBlock* /*bb*/,
                     const SymbolicState& /*post*/) override {}
 
-  // Print the symbolic summary for the function (C.4 output).
+  // C.4 summary output: σ/μ at each exit + parameter-based constraints.
   void dump_summary(std::ostream& o) const;
 };
 
-// Top-level entry: analyze one function and print its summary.
-void analyze_function(ar::Function* fun, std::ostream& o);
+// Analyze one function and print its summary.
+void analyze_function(ar::Function* fun,
+                      std::ostream& o,
+                      std::ostream* trace_out = nullptr,
+                      const std::string& trace_fn = "");
 
 // Analyze all functions in a bundle and print summaries.
-void analyze_bundle(ar::Bundle* bundle, std::ostream& o);
+void analyze_bundle(ar::Bundle* bundle,
+                    std::ostream& o,
+                    std::ostream* trace_out = nullptr,
+                    const std::string& trace_fn = "");
 
 } // namespace parameter_symbolic
 } // namespace frontend

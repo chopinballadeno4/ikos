@@ -170,17 +170,29 @@ void SymbolicState::exec(ar::Statement* stmt) {
     exec_binary_op(sb);
   } else if (auto* salloc = ar::dyn_cast<ar::Allocate>(stmt)) {
     exec_allocate(salloc);
+  } else if (auto* sps = ar::dyn_cast<ar::PointerShift>(stmt)) {
+    exec_pointer_shift(sps);
   } else if (auto* sl = ar::dyn_cast<ar::Load>(stmt)) {
     exec_load(sl);
   } else if (auto* sst = ar::dyn_cast<ar::Store>(stmt)) {
     exec_store(sst);
+  } else if (auto* sinv = ar::dyn_cast<ar::Invoke>(stmt)) {
+    exec_invoke(sinv);
   } else if (auto* sc = ar::dyn_cast<ar::Call>(stmt)) {
     exec_call(sc);
+  } else if (auto* see = ar::dyn_cast<ar::ExtractElement>(stmt)) {
+    exec_extract_element(see);
+  } else if (auto* sie = ar::dyn_cast<ar::InsertElement>(stmt)) {
+    exec_insert_element(sie);
+  } else if (auto* ssv = ar::dyn_cast<ar::ShuffleVector>(stmt)) {
+    exec_shuffle_vector(ssv);
   }
+  // Comparison: path-insensitive, no sigma update (collected separately).
   // LandingPad: result -> TOP.
   if (auto* lp = ar::dyn_cast<ar::LandingPad>(stmt)) {
     sigma[lp->result()] = SymbolicValue::top();
   }
+  // Resume, ReturnValue, Unreachable: no sigma update.
 }
 
 void SymbolicState::exec_assignment(ar::Assignment* s) {
@@ -281,12 +293,43 @@ void SymbolicState::exec_store(ar::Store* s) {
 }
 
 void SymbolicState::exec_call(ar::Call* s) {
-  // Conservative: result → TOP; we don't model callee effects on μ.
   if (s->has_result()) {
     sigma[s->result()] = SymbolicValue::top();
   }
-  // Global/pointer memory could be modified → we currently don't invalidate μ.
-  // (Future work: model side effects from callee summaries.)
+}
+
+// PointerShift: result = base + sum(factor_i * value_i).
+// If base is a Loc, propagate the same Loc (offset is untracked — over-approx).
+// If any index variable is non-constant, result is still same Loc as base
+// (we lose field granularity but preserve the base-object identity).
+void SymbolicState::exec_pointer_shift(ar::PointerShift* s) {
+  SymbolicValue base = eval(s->pointer());
+  if (base.is_loc()) {
+    // Loc(B, delta): we represent as same base Loc, ignoring numeric offset.
+    sigma[s->result()] = base;
+  } else {
+    sigma[s->result()] = SymbolicValue::top();
+  }
+}
+
+// Invoke behaves like Call but also has an exception destination edge.
+// We model it conservatively: result -> TOP, exception path handled via edge.
+void SymbolicState::exec_invoke(ar::Invoke* s) {
+  if (s->has_result()) {
+    sigma[s->result()] = SymbolicValue::top();
+  }
+}
+
+void SymbolicState::exec_extract_element(ar::ExtractElement* s) {
+  sigma[s->result()] = SymbolicValue::top();
+}
+
+void SymbolicState::exec_insert_element(ar::InsertElement* s) {
+  sigma[s->result()] = SymbolicValue::top();
+}
+
+void SymbolicState::exec_shuffle_vector(ar::ShuffleVector* s) {
+  sigma[s->result()] = SymbolicValue::top();
 }
 
 // ---------------------------------------------------------------------------
@@ -295,6 +338,35 @@ void SymbolicState::exec_call(ar::Call* s) {
 
 void SymbolicState::dump(std::ostream& o) const {
   dump_state(*this, o, "", "", "state");
+}
+
+// Compact single-line dump for trace output: "sigma:{v->e,...} mu:{L[v]->e,...}"
+void SymbolicState::dump_compact(std::ostream& o) const {
+  if (is_bottom()) { o << "[BOTTOM]"; return; }
+  o << "sigma:{";
+  bool first = true;
+  for (auto it2 = sigma.begin(); it2 != sigma.end(); ++it2) {
+    if (!first) o << ", ";
+    first = false;
+    ar::Variable* var = it2->first;
+    if (var->has_name()) o << var->name();
+    else o << "?";
+    o << "=>";
+    dump_sym_val(o, it2->second, param_names);
+  }
+  o << "} mu:{";
+  first = true;
+  for (auto it2 = mu.begin(); it2 != mu.end(); ++it2) {
+    if (!first) o << ", ";
+    first = false;
+    ar::Variable* var = it2->first;
+    o << "L[";
+    if (var->has_name()) o << var->name();
+    else o << "?";
+    o << "]=>";
+    dump_sym_val(o, it2->second, param_names);
+  }
+  o << "}";
 }
 
 void dump_state(const SymbolicState& s,
@@ -326,6 +398,49 @@ void dump_state(const SymbolicState& s,
     dump_sym_val(o, val, s.param_names);
     o << "\n";
   }
+}
+
+// ---------------------------------------------------------------------------
+// SymbolicConstraint
+// ---------------------------------------------------------------------------
+
+static const char* pred_str(ar::Comparison::Predicate p) {
+  switch (p) {
+    case ar::Comparison::SIEQ: return "==";
+    case ar::Comparison::SINE: return "!=";
+    case ar::Comparison::SIGT: return ">";
+    case ar::Comparison::SIGE: return ">=";
+    case ar::Comparison::SILT: return "<";
+    case ar::Comparison::SILE: return "<=";
+    case ar::Comparison::UIEQ: return "u==";
+    case ar::Comparison::UINE: return "u!=";
+    case ar::Comparison::UIGT: return "u>";
+    case ar::Comparison::UIGE: return "u>=";
+    case ar::Comparison::UILT: return "u<";
+    case ar::Comparison::UILE: return "u<=";
+    default: return "??";
+  }
+}
+
+void SymbolicConstraint::dump(std::ostream& o,
+                               const std::vector< std::string >& names) const {
+  if (kind == KTrue) { o << "true"; return; }
+  left.dump(o, names);
+  o << " " << pred_str(predicate) << " ";
+  right.dump(o, names);
+}
+
+// Substitute sigma into a Comparison to get a parameter-based constraint.
+// Only handles integer predicates; returns KTrue otherwise.
+SymbolicConstraint subst_constraint(ar::Comparison* cmp,
+                                    const SymbolicState& s) {
+  if (!cmp->is_integer_predicate()) return SymbolicConstraint::make_true();
+  SymbolicValue lv = s.eval(cmp->left());
+  SymbolicValue rv = s.eval(cmp->right());
+  const SymbolicExpr* le = lv.get_expr();
+  const SymbolicExpr* re = rv.get_expr();
+  if (!le || !re) return SymbolicConstraint::make_true();
+  return SymbolicConstraint::make_param(cmp->predicate(), *le, *re);
 }
 
 } // namespace parameter_symbolic
