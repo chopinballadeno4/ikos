@@ -258,6 +258,7 @@ add_executable(ikos-import
   src/analysis/parameter_symbolic/symbolic_expr.cpp
   src/analysis/parameter_symbolic/symbolic_state.cpp
   src/analysis/parameter_symbolic/symbolic_fixpoint.cpp
+  src/analysis/parameter_symbolic/function_summary.cpp
 )
 if (IKOS_LINK_LLVM_DYLIB)
   set(IKOS_IMPORT_LLVM_LIBS "LLVM")

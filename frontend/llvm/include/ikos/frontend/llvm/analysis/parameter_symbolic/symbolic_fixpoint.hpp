@@ -7,6 +7,7 @@
 #include <ikos/ar/semantic/function.hpp>
 #include <ikos/core/fixpoint/fwd_fixpoint_iterator.hpp>
 
+#include <ikos/frontend/llvm/analysis/parameter_symbolic/function_summary.hpp>
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/symbolic_state.hpp>
 
 namespace ikos {
@@ -67,21 +68,24 @@ public:
   void process_post(ar::BasicBlock* /*bb*/,
                     const SymbolicState& /*post*/) override {}
 
-  // C.4 summary output: σ/μ at each exit + parameter-based constraints.
+  // Build a structured FunctionSummary from the fixpoint results.
+  FunctionSummary build_summary() const;
+
+  // C.4 summary output: delegates to build_summary().dump(o).
   void dump_summary(std::ostream& o) const;
 };
 
-// Analyze one function and print its summary.
-void analyze_function(ar::Function* fun,
-                      std::ostream& o,
-                      std::ostream* trace_out = nullptr,
-                      const std::string& trace_fn = "");
+// Analyze one function, print its summary, and return the FunctionSummary.
+FunctionSummary analyze_function(ar::Function* fun,
+                                 std::ostream& o,
+                                 std::ostream* trace_out = nullptr,
+                                 const std::string& trace_fn = "");
 
-// Analyze all functions in a bundle and print summaries.
-void analyze_bundle(ar::Bundle* bundle,
-                    std::ostream& o,
-                    std::ostream* trace_out = nullptr,
-                    const std::string& trace_fn = "");
+// Analyze all functions in a bundle, print summaries, and return a SummaryStore.
+SummaryStore analyze_bundle(ar::Bundle* bundle,
+                            std::ostream& o,
+                            std::ostream* trace_out = nullptr,
+                            const std::string& trace_fn = "");
 
 } // namespace parameter_symbolic
 } // namespace frontend
