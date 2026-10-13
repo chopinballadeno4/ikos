@@ -43,6 +43,7 @@
 
 #include <ikos/analyzer/analysis/execution_engine/inliner.hpp>
 #include <ikos/analyzer/analysis/execution_engine/numerical.hpp>
+#include <ikos/analyzer/analysis/parameter_symbolic.hpp>
 #include <ikos/analyzer/analysis/pointer/pointer.hpp>
 #include <ikos/analyzer/analysis/value/interprocedural/sequential/function_fixpoint.hpp>
 #include <ikos/ar/format/text.hpp>
@@ -139,6 +140,10 @@ void FunctionFixpoint::run(AbstractDomain inv) {
 
   // Compute the fixpoint
   FwdFixpointIterator::run(std::move(inv));
+
+  // Retain the summary in the main analysis context. Summary application is
+  // deliberately left to the separate pruning phase.
+  build_and_store_function_summary(this->_ctx, this->_function);
 
   // Clear post invariants, save a lot of memory
   this->clear_post();

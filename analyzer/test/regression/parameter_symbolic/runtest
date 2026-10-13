@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -e
+
+ikos_analyzer="ikos-analyzer"
+file_check="FileCheck"
+input=""
+
+while [[ $# -gt 0 ]]
+do
+    case "$1" in
+        --ikos-analyzer)
+            shift
+            ikos_analyzer="$1"
+            ;;
+        --file-check)
+            shift
+            file_check="$1"
+            ;;
+        --input)
+            shift
+            input="$1"
+            ;;
+        *)
+            echo "error: unknown command line argument '$1'" >&2
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/ikos-summary.XXXXXX")
+trap 'rm -rf "$tmpdir"' EXIT
+
+"$ikos_analyzer" \
+    -a=dbg \
+    --entry-points=summary_paths \
+    --no-checks \
+    --no-pointer \
+    --no-liveness \
+    --no-widening-hints \
+    --progress=no \
+    --trace-ar-stmts \
+    --log=all \
+    -o "$tmpdir/output.db" \
+    "$input" \
+    | "$file_check" "$input"

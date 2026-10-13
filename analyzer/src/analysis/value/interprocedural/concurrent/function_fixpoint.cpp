@@ -45,6 +45,7 @@
 
 #include <ikos/analyzer/analysis/execution_engine/concurrent_inliner.hpp>
 #include <ikos/analyzer/analysis/execution_engine/numerical.hpp>
+#include <ikos/analyzer/analysis/parameter_symbolic.hpp>
 #include <ikos/analyzer/analysis/pointer/pointer.hpp>
 #include <ikos/analyzer/analysis/value/interprocedural/concurrent/function_fixpoint.hpp>
 
@@ -94,6 +95,7 @@ FunctionFixpoint::FunctionFixpoint(Context& ctx,
 
 void FunctionFixpoint::run(AbstractDomain inv) {
   FwdFixpointIterator::run(std::move(inv));
+  build_and_store_function_summary(this->_ctx, this->_function);
 }
 
 AbstractDomain FunctionFixpoint::extrapolate(ar::BasicBlock* head,

@@ -197,6 +197,7 @@ add_executable(ikos-analyzer
   src/analysis/liveness.cpp
   src/analysis/memory_location.cpp
   src/analysis/option.cpp
+  src/analysis/parameter_symbolic.cpp
   src/analysis/pointer/constraint.cpp
   src/analysis/pointer/function.cpp
   src/analysis/pointer/pointer.cpp
@@ -276,6 +277,10 @@ add_executable(ikos-analyzer
   src/util/progress.cpp
   src/util/source_location.cpp
   src/util/timer.cpp
+  ../frontend/llvm/src/analysis/parameter_symbolic/function_summary.cpp
+  ../frontend/llvm/src/analysis/parameter_symbolic/symbolic_expr.cpp
+  ../frontend/llvm/src/analysis/parameter_symbolic/symbolic_fixpoint.cpp
+  ../frontend/llvm/src/analysis/parameter_symbolic/symbolic_state.cpp
 )
 if (IKOS_LINK_LLVM_DYLIB)
   set(IKOS_ANALYZER_LLVM_LIBS "LLVM")

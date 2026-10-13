@@ -48,6 +48,7 @@
 #include <ikos/ar/semantic/bundle.hpp>
 
 #include <ikos/analyzer/analysis/option.hpp>
+#include <ikos/frontend/llvm/analysis/parameter_symbolic/function_summary.hpp>
 
 namespace ikos {
 namespace analyzer {
@@ -103,6 +104,12 @@ public:
 
   /// \brief Pointer analysis, or null
   PointerAnalysis* pointer;
+
+  /// \brief Function summaries produced during the value analysis
+  ///
+  /// The store is always present and lives as long as the main analysis
+  /// context. Applying summaries to callers is handled separately.
+  frontend::parameter_symbolic::SummaryStore function_summaries;
 
 public:
   /// \brief Constructor

@@ -1,6 +1,7 @@
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/symbolic_fixpoint.hpp>
 
 #include <iostream>
+#include <unordered_map>
 
 #include <ikos/ar/semantic/bundle.hpp>
 #include <ikos/ar/semantic/function.hpp>
@@ -88,37 +89,55 @@ bool SymbolicFunctionFixpoint::is_decreasing_iterations_fixpoint(
 }
 
 // ---------------------------------------------------------------------------
-// Helper: collect parameter-based constraints from an exit block
+// Helper: compute parameter-based path conditions for every block
 // ---------------------------------------------------------------------------
 
-// Collects Comparison statements from:
-//   (a) the exit block itself — evaluated with pre(exit_bb)
-//   (b) predecessor blocks   — evaluated with pre(pred)
-// This covers both CFG layouts where the branch condition appears in either
-// the exit block or its dispatching predecessor.
-static std::vector< SymbolicConstraint > collect_exit_constraints(
-    const SymbolicFunctionFixpoint& fp,
-    ar::BasicBlock* exit_bb) {
-  std::vector< SymbolicConstraint > cs;
+using BlockConditions =
+    std::unordered_map< ar::BasicBlock*, SymbolicCondition >;
 
-  auto collect_from = [&](ar::BasicBlock* bb, const SymbolicState& state) {
-    if (state.is_bottom()) return;
-    for (ar::Statement* stmt : *bb) {
-      if (auto* cmp = ar::dyn_cast< ar::Comparison >(stmt)) {
-        SymbolicConstraint sc = subst_constraint(cmp, state);
-        if (sc.kind == SymbolicConstraint::KParam) {
-          cs.push_back(sc);
+static BlockConditions compute_block_conditions(
+    const SymbolicFunctionFixpoint& fp,
+    ar::Code* body) {
+  BlockConditions out_conditions;
+  bool changed = true;
+
+  while (changed) {
+    changed = false;
+
+    for (ar::BasicBlock* bb : *body) {
+      SymbolicCondition condition = SymbolicCondition::make_false();
+
+      if (bb == body->entry_block()) {
+        condition = SymbolicCondition::make_true();
+      }
+
+      for (auto pit = bb->predecessor_begin();
+           pit != bb->predecessor_end(); ++pit) {
+        auto it = out_conditions.find(*pit);
+        if (it != out_conditions.end()) condition.join_with(it->second);
+      }
+
+      SymbolicState state = fp.pre(bb);
+      if (state.is_bottom()) {
+        condition = SymbolicCondition::make_false();
+      } else {
+        for (ar::Statement* stmt : *bb) {
+          if (auto* cmp = ar::dyn_cast< ar::Comparison >(stmt)) {
+            condition.add_constraint(subst_constraint(cmp, state));
+          }
+          state.exec(stmt);
         }
       }
-    }
-  };
 
-  collect_from(exit_bb, fp.pre(exit_bb));
-  for (auto pit = exit_bb->predecessor_begin();
-       pit != exit_bb->predecessor_end(); ++pit) {
-    collect_from(*pit, fp.pre(*pit));
+      auto result = out_conditions.emplace(bb, condition);
+      if (result.second || !result.first->second.equals(condition)) {
+        result.first->second = std::move(condition);
+        changed = true;
+      }
+    }
   }
-  return cs;
+
+  return out_conditions;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,15 +164,17 @@ FunctionSummary SymbolicFunctionFixpoint::build_summary() const {
   summary.function = _fun;
 
   ar::Code* body = _fun->body();
+  BlockConditions conditions = compute_block_conditions(*this, body);
 
   // --- Normal exit ---
   ar::BasicBlock* nb = body->normal_exit_block_or_null();
   if (nb) {
     const SymbolicState& ns = this->post(nb);
-    summary.normal.has_exit = true;
     summary.normal.param_names = ns.param_names;
-    if (!ns.is_bottom()) {
-      summary.normal.constraints = collect_exit_constraints(*this, nb);
+    summary.normal.condition = conditions[nb];
+    summary.normal.has_exit =
+        !ns.is_bottom() && !summary.normal.condition.is_false();
+    if (summary.normal.has_exit) {
       summary.normal.mu_exit = filter_mu_caller_visible(ns);
     }
   }
@@ -162,10 +183,11 @@ FunctionSummary SymbolicFunctionFixpoint::build_summary() const {
   ar::BasicBlock* eb = body->exception_exit_block_or_null();
   if (eb) {
     const SymbolicState& es = this->post(eb);
-    summary.exception.has_exit = true;
     summary.exception.param_names = es.param_names;
-    if (!es.is_bottom()) {
-      summary.exception.constraints = collect_exit_constraints(*this, eb);
+    summary.exception.condition = conditions[eb];
+    summary.exception.has_exit =
+        !es.is_bottom() && !summary.exception.condition.is_false();
+    if (summary.exception.has_exit) {
       summary.exception.mu_exit = filter_mu_caller_visible(es);
     }
   }
@@ -223,15 +245,7 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
       }
 
       o << "  C_normal (parameter constraints):\n";
-      if (summary.normal.constraints.empty()) {
-        o << "    true\n";
-      } else {
-        for (const SymbolicConstraint& c : summary.normal.constraints) {
-          o << "    ";
-          c.dump(o, ns.param_names);
-          o << "\n";
-        }
-      }
+      summary.normal.condition.dump(o, ns.param_names, "    ");
     }
   } else {
     o << "\n[normal_exit] none\n";
@@ -259,15 +273,7 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
       }
 
       o << "  C_exception (parameter constraints):\n";
-      if (summary.exception.constraints.empty()) {
-        o << "    true\n";
-      } else {
-        for (const SymbolicConstraint& c : summary.exception.constraints) {
-          o << "    ";
-          c.dump(o, es.param_names);
-          o << "\n";
-        }
-      }
+      summary.exception.condition.dump(o, es.param_names, "    ");
     }
   } else {
     o << "\n[exception_exit] none\n";
@@ -287,7 +293,7 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
 // ---------------------------------------------------------------------------
 
 FunctionSummary analyze_function(ar::Function* fun,
-                                 std::ostream& o,
+                                 std::ostream* summary_out,
                                  std::ostream* trace_out,
                                  const std::string& trace_fn) {
   if (!fun->is_definition()) return FunctionSummary{};
@@ -300,7 +306,7 @@ FunctionSummary analyze_function(ar::Function* fun,
 
   SymbolicFunctionFixpoint fp(fun, trace_out, trace_fn);
   fp.run(SymbolicState::make_entry(fun));
-  fp.dump_summary(o);
+  if (summary_out != nullptr) fp.dump_summary(*summary_out);
   return fp.build_summary();
 }
 
@@ -312,7 +318,7 @@ SummaryStore analyze_bundle(ar::Bundle* bundle,
   for (auto it = bundle->function_begin(); it != bundle->function_end(); ++it) {
     ar::Function* fun = *it;
     if (fun->is_definition()) {
-      FunctionSummary s = analyze_function(fun, o, trace_out, trace_fn);
+      FunctionSummary s = analyze_function(fun, &o, trace_out, trace_fn);
       store.put(fun, std::move(s));
     }
   }

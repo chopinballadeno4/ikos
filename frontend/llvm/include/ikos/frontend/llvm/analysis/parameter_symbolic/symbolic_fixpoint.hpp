@@ -75,9 +75,10 @@ public:
   void dump_summary(std::ostream& o) const;
 };
 
-// Analyze one function, print its summary, and return the FunctionSummary.
+// Analyze one function and return the FunctionSummary.
+// If summary_out is not null, print the development summary output.
 FunctionSummary analyze_function(ar::Function* fun,
-                                 std::ostream& o,
+                                 std::ostream* summary_out = nullptr,
                                  std::ostream* trace_out = nullptr,
                                  const std::string& trace_fn = "");
 

@@ -197,6 +197,17 @@ C_normal(f) = ⋁ᵢ C_normal,i
 C_exception(f) = ⋁ᵢ C_exception,i
 ```
 
+구현에서는 exit condition을 DNF(Disjunctive Normal Form)로 보관한다.
+
+```text
+ExitCondition = OR<Conjunction>
+Conjunction   = AND<SymbolicConstraint>
+```
+
+즉 내부 `Conjunction`의 constraint는 논리곱이고, 여러 `Conjunction`은
+논리합이다. 경로가 하나도 없으면 `false`, constraint가 하나도 없는
+도달 가능한 경로가 있으면 `true`이다.
+
 
 ## 6. SubstConstraint의 TOP 처리
 
@@ -256,6 +267,10 @@ C_normal = true
 `true`는 정상 종료 조건에 대해 caller에게 제공할 수 있는 유효한 parameter constraint가 없음을 의미한다.
 
 이 방식은 실제 정상 종료 조건보다 약한 조건을 생성하므로 caller pruning 관점에서 보수적인 over-approximation이다.
+
+단, 도달 가능한 exit 경로 자체가 하나도 없는 경우는 `true`가 아니라
+`false`이다. 따라서 "도달 가능한 경로이나 표현 가능한 constraint가 없음"과
+"도달 불가능한 exit"를 구분한다.
 
 
 ## 7. Exit Memory Summary
@@ -737,7 +752,14 @@ notify_leave_cycle()
 단순히 `analyze_node()` 내부에 transfer function만 추가하는 것으로는 충분하지 않으며, predecessor별 symbolic state의 merge와 loop-head symbolic state 관리가 함께 필요하다.
 
 
-## 20. Interprocedural Summary 생성 순서
+## 20. IKOS 본 분석과 Summary 생명주기
+
+`SummaryStore`는 `ikos-import`의 임시 결과가 아니라 IKOS 본 분석의
+`Context`가 소유한다. 분석 context가 생성될 때 함께 생성되고 본 분석이
+종료될 때까지 유지된다.
+
+Summary 생성과 저장은 별도 옵션으로 활성화하거나 비활성화하지 않는다.
+옵션은 개발용 출력과 trace 여부에만 영향을 준다.
 
 IKOS의 기존 interprocedural analysis는 별도의 전체 call graph를 먼저 생성하는 방식이 아니라 call을 만나면 callee를 분석하는 top-down 방식으로 동작한다.
 
@@ -761,76 +783,44 @@ Summary(f)
 Summary(main)
 ```
 
-따라서 현재 설계에서는 별도의 call graph 또는 SCC 기반 summary 생성 framework를 추가하지 않는다.
+각 함수의 fixpoint가 완료되면 해당 함수의 `FunctionSummary`를 생성하여
+`Context::function_summaries`에 저장한다. 따라서 현재 설계에서는 별도의 call
+graph 또는 SCC 기반 summary 생성 framework를 추가하지 않는다.
+
+Intraprocedural 분석에서도 함수 fixpoint가 완료되는 동일한 시점에 summary를
+저장한다.
 
 
-## 21. Callee Summary가 없는 경우
+## 21. Summary 생성 단계의 비간섭 원칙
 
-다음 원칙을 사용한다.
-
-```text
-callee summary unavailable
-≠
-caller summary unavailable
-```
-
-callee summary를 사용할 수 없는 call을 만난 경우:
+본 단계는 함수 summary를 생성하고 저장만 한다.
 
 ```text
-1. 해당 call에서 callee summary 기반 처리를 수행하지 않는다.
-2. IKOS의 기존 conservative call semantics를 사용한다.
-3. caller symbolic analysis는 계속한다.
-4. caller에서 독립적으로 표현 가능한 summary는 계속 생성한다.
+Function fixpoint → FunctionSummary 생성 → SummaryStore 저장
 ```
 
-즉 callee summary 부재는 precision loss를 발생시킬 수 있지만 caller 전체 summary 생성을 즉시 포기하는 조건은 아니다.
+이 단계에서는 callee summary를 조회하거나 caller state에 적용하지 않는다.
+따라서 summary의 존재 여부는 기존 Call/Invoke transfer, normal/exception
+successor, caller abstract state에 영향을 주지 않는다.
 
 
-## 22. Recursion
+## 22. Recursion과 저장
 
-IKOS의 기존 recursion detection을 사용한다.
+함수 분석 순서와 recursion 처리는 IKOS의 기존 동작을 그대로 사용한다.
+Summary 생성 단계는 recursion 판단이나 call semantics를 변경하지 않는다.
 
-현재 함수 또는 현재 call context에 이미 존재하는 함수를 다시 호출하는 경우 recursive call로 판단한다.
-
-Recursive call에서는 callee로 다시 내려가지 않고 IKOS의 기존 conservative unknown internal call 처리를 사용한다.
-
-따라서:
-
-```text
-recursive call
-→ callee summary application 불가
-→ conservative call semantics
-→ caller 분석 계속
-```
-
-별도의 recursive FunctionSummary fixpoint 또는 SCC 분석은 현재 범위에서 구현하지 않는다.
+한 함수가 여러 call context에서 분석되더라도 현재 summary는 formal
+parameter 기준의 함수 단위 결과이므로 `SummaryStore`에는 함수당 하나만
+저장한다. 별도의 recursive FunctionSummary fixpoint 또는 SCC 분석은 현재
+범위에서 구현하지 않는다.
 
 
-## 23. Multiple Possible Callees
+## 23. Call Target과 Summary 생성의 분리
 
-Call target resolution 결과에 대해 현재 다음 정책을 사용한다.
-
-```text
-PossibleCallees(call) = {g}
-```
-
-이고 `Summary(g)`가 존재하면 해당 summary를 사용할 수 있다.
-
-```text
-|PossibleCallees(call)| = 0
-```
-
-이면 unresolved call로 처리한다.
-
-```text
-|PossibleCallees(call)| > 1
-```
-
-이면 ambiguous call로 처리한다.
-
-현재 버전에서는 ambiguous call에서 여러 summary를 결합하여 적용하지 않는다.
-
-다만 각 possible callee 자체의 분석 및 summary 저장은 독립적으로 수행될 수 있다.
+Unresolved call 및 multiple possible callees의 summary 적용 정책은 pruning
+명세에서 정의한다. 본 단계에서는 IKOS 본 분석이 실제로 완료한 각 함수의
+summary를 독립적으로 저장할 뿐, call target에 summary를 선택하거나 적용하지
+않는다.
 
 
 ## 24. Caller-Visible Summary 원칙
@@ -912,11 +902,11 @@ return-value relation
 
 17. return value summary는 현재 생성하지 않는다.
 
-18. callee summary를 얻을 수 없어도 caller 분석은 계속한다.
+18. SummaryStore는 IKOS 본 분석 Context가 소유하고 분석 종료까지 유지한다.
 
-19. recursive call은 IKOS의 기존 conservative recursion 처리에 맡긴다.
+19. 함수 fixpoint가 완료되면 summary를 생성하여 함수당 하나를 저장한다.
 
-20. multiple possible callees인 call에는 현재 summary를 적용하지 않는다.
+20. Summary 생성 단계에서는 caller state 또는 기존 call semantics를 변경하지 않는다.
 ```
 
 

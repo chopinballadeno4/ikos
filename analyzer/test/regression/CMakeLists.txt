@@ -25,3 +25,15 @@ add_analysis_test(pointer-compare pcmp)
 add_analysis_test(function-call fca)
 add_analysis_test(double-free dfa)
 add_analysis_test(soundness sound)
+
+# Verify that parameter-symbolic summaries are generated from the main value
+# analysis and remain available through its Context-owned SummaryStore. The
+# trace option only controls observability; summary creation is unconditional.
+if (BASH_EXECUTABLE AND LLVM_FILE_CHECK_EXECUTABLE)
+  add_test(NAME "analysis-parameter-symbolic-summary"
+           COMMAND ${BASH_EXECUTABLE}
+             "${CMAKE_CURRENT_SOURCE_DIR}/parameter_symbolic/runtest"
+             --ikos-analyzer "$<TARGET_FILE:ikos-analyzer>"
+             --file-check "${LLVM_FILE_CHECK_EXECUTABLE}"
+             --input "${CMAKE_SOURCE_DIR}/frontend/llvm/test/regression/parameter_symbolic/summary.ll")
+endif()

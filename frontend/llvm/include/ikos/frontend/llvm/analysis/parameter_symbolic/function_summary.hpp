@@ -1,9 +1,9 @@
 #pragma once
 
 #include <map>
+#include <mutex>
 #include <ostream>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include <ikos/ar/semantic/function.hpp>
@@ -16,19 +16,50 @@ namespace frontend {
 namespace parameter_symbolic {
 
 // ---------------------------------------------------------------------------
+// SymbolicCondition
+//
+// Exit condition in disjunctive normal form (DNF):
+//
+//   (c_11 && ... && c_1n) || ... || (c_m1 && ... && c_mk)
+//
+// `disjuncts.empty()` means false. A single empty conjunction means true.
+//
+// An unrepresentable constraint is abstracted to true by not adding it to its
+// conjunction.
+// ---------------------------------------------------------------------------
+struct SymbolicCondition {
+  using Conjunction = std::vector< SymbolicConstraint >;
+
+  std::vector< Conjunction > disjuncts;
+
+  static SymbolicCondition make_false();
+  static SymbolicCondition make_true();
+
+  bool is_false() const { return disjuncts.empty(); }
+  bool is_true() const;
+
+  /// \brief Add a path alternative (logical OR).
+  void join_with(const SymbolicCondition& other);
+
+  /// \brief Add a constraint to every path (logical AND).
+  void add_constraint(const SymbolicConstraint& constraint);
+
+  bool equals(const SymbolicCondition& other) const;
+
+  void dump(std::ostream& o,
+            const std::vector< std::string >& param_names,
+            const std::string& indent) const;
+};
+
+// ---------------------------------------------------------------------------
 // NormalSummary
 //
 // Represents the caller-visible result of a normal (return) exit.
-//
-//   constraints  : C_normal — conjunction of parameter-based constraints
-//                  derived from SubstConstraint at the normal-exit block.
-//                  Empty list means "true" (no expressible constraint).
-//   mu_exit      : μ_normal_exit — caller-visible memory at normal exit.
-//                  Callee-local Allocate locations are excluded.
+// Callee-local Allocate locations are excluded from mu_exit.
 // ---------------------------------------------------------------------------
 struct NormalSummary {
   bool has_exit = false;
-  std::vector< SymbolicConstraint > constraints;
+  SymbolicCondition condition = SymbolicCondition::make_false();
   std::map< SymbolicLoc, SymbolicValue > mu_exit;
   std::vector< std::string > param_names;
 
@@ -43,7 +74,7 @@ struct NormalSummary {
 // ---------------------------------------------------------------------------
 struct ExceptionSummary {
   bool has_exit = false;
-  std::vector< SymbolicConstraint > constraints;
+  SymbolicCondition condition = SymbolicCondition::make_false();
   std::map< SymbolicLoc, SymbolicValue > mu_exit;
   std::vector< std::string > param_names;
 
@@ -72,12 +103,21 @@ struct FunctionSummary {
 // ---------------------------------------------------------------------------
 class SummaryStore {
 public:
+  SummaryStore() = default;
+  SummaryStore(const SummaryStore&) = delete;
+  SummaryStore& operator=(const SummaryStore&) = delete;
+  SummaryStore(SummaryStore&& other) noexcept;
+  SummaryStore& operator=(SummaryStore&& other) noexcept;
+
+  /// \brief Store a summary unless one already exists for the function.
   void put(ar::Function* fun, FunctionSummary summary);
   const FunctionSummary* get(ar::Function* fun) const;
   bool has(ar::Function* fun) const;
 
 private:
-  std::unordered_map< ar::Function*, FunctionSummary > _store;
+  // std::map keeps references stable when another function is inserted.
+  std::map< ar::Function*, FunctionSummary > _store;
+  mutable std::mutex _mutex;
 };
 
 } // namespace parameter_symbolic

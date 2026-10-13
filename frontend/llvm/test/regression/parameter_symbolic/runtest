@@ -24,3 +24,6 @@ done
 
 "$ikos_import" --format=no --param-symbolic state.ll \
     | "$file_check" state.ll
+
+"$ikos_import" --format=no --param-symbolic summary.ll \
+    | "$file_check" summary.ll
