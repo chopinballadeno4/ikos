@@ -1,11 +1,16 @@
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/symbolic_fixpoint.hpp>
 
+#include <functional>
 #include <iostream>
+#include <set>
 #include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #include <ikos/ar/semantic/bundle.hpp>
 #include <ikos/ar/semantic/function.hpp>
 #include <ikos/ar/semantic/statement.hpp>
+#include <ikos/frontend/llvm/analysis/parameter_symbolic/caller_pruning.hpp>
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/function_summary.hpp>
 
 namespace ikos {
@@ -17,10 +22,12 @@ namespace parameter_symbolic {
 // ---------------------------------------------------------------------------
 
 SymbolicFunctionFixpoint::SymbolicFunctionFixpoint(ar::Function* fun,
+                                                   const SummaryStore* store,
                                                    std::ostream* trace_out,
                                                    const std::string& trace_fn)
     : Base(fun->body(), SymbolicState::make_bottom()),
       _fun(fun),
+      _store(store),
       _trace_out(trace_out),
       _trace_fn(trace_fn) {}
 
@@ -47,7 +54,18 @@ SymbolicState SymbolicFunctionFixpoint::analyze_node(ar::BasicBlock* bb,
       *_trace_out << "\n";
     }
 
-    pre.exec(stmt);
+    // For direct Call statements: apply callee memory summary from store
+    // (apply_call_summary internally calls exec; args captured pre-exec).
+    bool via_summary = false;
+    if (_store != nullptr) {
+      if (auto* call = ar::dyn_cast< ar::Call >(stmt)) {
+        apply_call_summary(pre, call, *_store);
+        via_summary = true;
+      }
+    }
+    if (!via_summary) {
+      pre.exec(stmt);
+    }
 
     if (do_trace) {
       *_trace_out << "         => ";
@@ -59,10 +77,26 @@ SymbolicState SymbolicFunctionFixpoint::analyze_node(ar::BasicBlock* bb,
   return pre;
 }
 
-SymbolicState SymbolicFunctionFixpoint::analyze_edge(ar::BasicBlock* /*src*/,
-                                                     ar::BasicBlock* /*dst*/,
+SymbolicState SymbolicFunctionFixpoint::analyze_edge(ar::BasicBlock* src,
+                                                     ar::BasicBlock* dst,
                                                      SymbolicState pre) {
-  return pre; // path-insensitive
+  // Apply Invoke memory summary on the appropriate edge (normal or exception).
+  // In SSA form, an Invoke is always the last statement in its block, so the
+  // post-block state is the post-invoke state.  The Invoke only modifies its
+  // result variable, never its own arguments, so evaluating args in the
+  // post-block state yields the same values as the pre-invoke state.
+  if (_store != nullptr && !pre.is_bottom() && !src->empty()) {
+    if (auto* invoke = ar::dyn_cast< ar::Invoke >(src->back())) {
+      bool is_normal = (dst == invoke->normal_dest());
+      std::vector< SymbolicValue > arg_vals;
+      arg_vals.reserve(invoke->num_arguments());
+      for (auto it = invoke->arg_begin(); it != invoke->arg_end(); ++it) {
+        arg_vals.push_back(pre.eval(*it));
+      }
+      apply_invoke_memory_summary(pre, invoke, is_normal, *_store, arg_vals);
+    }
+  }
+  return pre;
 }
 
 SymbolicState SymbolicFunctionFixpoint::extrapolate(
@@ -293,6 +327,7 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
 // ---------------------------------------------------------------------------
 
 FunctionSummary analyze_function(ar::Function* fun,
+                                 const SummaryStore* store,
                                  std::ostream* summary_out,
                                  std::ostream* trace_out,
                                  const std::string& trace_fn) {
@@ -304,23 +339,76 @@ FunctionSummary analyze_function(ar::Function* fun,
     *trace_out << "\n=== TRACE: " << fun->name() << " ===\n";
   }
 
-  SymbolicFunctionFixpoint fp(fun, trace_out, trace_fn);
+  SymbolicFunctionFixpoint fp(fun, store, trace_out, trace_fn);
   fp.run(SymbolicState::make_entry(fun));
   if (summary_out != nullptr) fp.dump_summary(*summary_out);
   return fp.build_summary();
 }
 
+// ---------------------------------------------------------------------------
+// Build bottom-up call order (callees before callers) via post-order DFS
+// over the direct-call graph.  Recursive / mutually-recursive groups are
+// handled conservatively: any cycle edge is just skipped.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// Collect all directly-called defined functions inside one function body.
+static std::set< ar::Function* > direct_callees(ar::Function* fun) {
+  std::set< ar::Function* > result;
+  for (ar::BasicBlock* bb : *fun->body()) {
+    for (ar::Statement* stmt : *bb) {
+      ar::CallBase* cb = nullptr;
+      if (auto* c = ar::dyn_cast< ar::Call >(stmt)) cb = c;
+      else if (auto* i = ar::dyn_cast< ar::Invoke >(stmt)) cb = i;
+      if (cb && ar::isa< ar::FunctionPointerConstant >(cb->called())) {
+        ar::Function* callee =
+            ar::cast< ar::FunctionPointerConstant >(cb->called())->function();
+        if (callee->is_definition()) result.insert(callee);
+      }
+    }
+  }
+  return result;
+}
+
+// Post-order DFS: visits callees before callers, writes to `order`.
+static void dfs_postorder(ar::Function* fun,
+                          std::unordered_set< ar::Function* >& visiting,
+                          std::unordered_set< ar::Function* >& visited,
+                          std::vector< ar::Function* >& order) {
+  if (visited.count(fun)) return;
+  if (visiting.count(fun)) return; // back edge (cycle) — skip
+
+  visiting.insert(fun);
+  for (ar::Function* callee : direct_callees(fun)) {
+    dfs_postorder(callee, visiting, visited, order);
+  }
+  visiting.erase(fun);
+  visited.insert(fun);
+  order.push_back(fun);
+}
+
+} // anonymous namespace
+
 SummaryStore analyze_bundle(ar::Bundle* bundle,
                             std::ostream& o,
                             std::ostream* trace_out,
                             const std::string& trace_fn) {
-  SummaryStore store;
+  // Build bottom-up order: callee before caller.
+  std::unordered_set< ar::Function* > visiting, visited;
+  std::vector< ar::Function* > order;
+
   for (auto it = bundle->function_begin(); it != bundle->function_end(); ++it) {
     ar::Function* fun = *it;
     if (fun->is_definition()) {
-      FunctionSummary s = analyze_function(fun, &o, trace_out, trace_fn);
-      store.put(fun, std::move(s));
+      dfs_postorder(fun, visiting, visited, order);
     }
+  }
+
+  SummaryStore store;
+  for (ar::Function* fun : order) {
+    FunctionSummary s = analyze_function(fun, &store, &o, trace_out, trace_fn);
+    store.put(fun, std::move(s));
   }
   return store;
 }

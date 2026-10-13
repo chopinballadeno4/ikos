@@ -23,6 +23,10 @@ private:
 
   ar::Function* _fun;
 
+  // Non-owning pointer to the interprocedural summary store.
+  // Null when running without interprocedural summaries.
+  const SummaryStore* _store;
+
   // Trace output: nullptr = disabled.
   std::ostream* _trace_out;
   // If non-empty, only trace this function by name.
@@ -30,6 +34,7 @@ private:
 
 public:
   explicit SymbolicFunctionFixpoint(ar::Function* fun,
+                                    const SummaryStore* store = nullptr,
                                     std::ostream* trace_out = nullptr,
                                     const std::string& trace_fn = "");
 
@@ -39,7 +44,7 @@ public:
   // When trace is active, prints per-statement state after each exec.
   SymbolicState analyze_node(ar::BasicBlock* bb, SymbolicState pre) override;
 
-  // Edge transfer: identity (path-insensitive).
+  // Edge transfer: applies Invoke memory summaries when _store is available.
   SymbolicState analyze_edge(ar::BasicBlock* src,
                              ar::BasicBlock* dst,
                              SymbolicState pre) override;
@@ -76,13 +81,17 @@ public:
 };
 
 // Analyze one function and return the FunctionSummary.
+// store: interprocedural summaries for callees (null = no summaries).
 // If summary_out is not null, print the development summary output.
 FunctionSummary analyze_function(ar::Function* fun,
+                                 const SummaryStore* store = nullptr,
                                  std::ostream* summary_out = nullptr,
                                  std::ostream* trace_out = nullptr,
                                  const std::string& trace_fn = "");
 
 // Analyze all functions in a bundle, print summaries, and return a SummaryStore.
+// Functions are analyzed in bundle order; callees must appear before callers
+// for interprocedural summary propagation to work.
 SummaryStore analyze_bundle(ar::Bundle* bundle,
                             std::ostream& o,
                             std::ostream* trace_out = nullptr,
