@@ -30,3 +30,6 @@ done
 
 "$ikos_import" --format=no --param-symbolic pruning.ll \
     | "$file_check" pruning.ll
+
+"$ikos_import" --format=no --param-symbolic invoke_pruning.ll \
+    | "$file_check" invoke_pruning.ll

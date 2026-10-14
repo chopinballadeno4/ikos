@@ -60,6 +60,7 @@
 #include <ikos/analyzer/analysis/execution_engine/engine.hpp>
 #include <ikos/analyzer/analysis/execution_engine/fixpoint_cache.hpp>
 #include <ikos/analyzer/analysis/execution_engine/numerical.hpp>
+#include <ikos/analyzer/analysis/parameter_symbolic.hpp>
 #include <ikos/analyzer/analysis/pointer/value.hpp>
 
 namespace ikos {
@@ -202,6 +203,9 @@ private:
     /// \brief Post invariant
     llvm::Optional< AbstractDomain > _post;
 
+    /// \brief Whether the call resolved to exactly one callee
+    bool _summary_applicable;
+
   public:
     /// \brief Constructor
     CalleeWorker(Context& ctx,
@@ -210,14 +214,16 @@ private:
                  FixpointCacheT& callees_cache,
                  ar::CallBase* call,
                  std::vector< CalleeAnalysis >& callee_analyses,
-                 AbstractDomain post)
+                 AbstractDomain post,
+                 bool summary_applicable)
         : _ctx(ctx),
           _engine(engine),
           _caller(caller),
           _callees_cache(callees_cache),
           _call(call),
           _callee_analyses(callee_analyses),
-          _post(std::move(post)) {}
+          _post(std::move(post)),
+          _summary_applicable(summary_applicable) {}
 
     /// \brief Split constructor
     CalleeWorker(CalleeWorker& parent, tbb::split)
@@ -227,7 +233,8 @@ private:
           _callees_cache(parent._callees_cache),
           _call(parent._call),
           _callee_analyses(parent._callee_analyses),
-          _post(llvm::None) {}
+          _post(llvm::None),
+          _summary_applicable(parent._summary_applicable) {}
 
     /// \brief No copy constructor
     CalleeWorker(const CalleeWorker&) = delete;
@@ -292,6 +299,13 @@ private:
 
       // Merge exceptions in caught_exceptions, in case it's an invoke
       engine.inv().merge_propagated_in_caught_exceptions();
+
+      if (this->_summary_applicable) {
+        apply_caller_summary(this->_ctx,
+                             engine.inv(),
+                             this->_call,
+                             analysis.callee);
+      }
 
       if (engine.inv().is_normal_flow_bottom()) {
         // Collect the exception states
@@ -418,6 +432,8 @@ private:
       return;
     }
 
+    const bool summary_applicable = callees.size() == 1;
+
     //
     // Compute the post invariant
     //
@@ -483,7 +499,8 @@ private:
                         this->_callees_cache,
                         call,
                         callee_analyses,
-                        std::move(post));
+                        std::move(post),
+                        summary_applicable);
     tbb::blocked_range< size_t > range(0, callee_analyses.size());
     tbb::parallel_reduce(range, worker);
 

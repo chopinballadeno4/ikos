@@ -36,4 +36,20 @@ if (BASH_EXECUTABLE AND LLVM_FILE_CHECK_EXECUTABLE)
              --ikos-analyzer "$<TARGET_FILE:ikos-analyzer>"
              --file-check "${LLVM_FILE_CHECK_EXECUTABLE}"
              --input "${CMAKE_SOURCE_DIR}/frontend/llvm/test/regression/parameter_symbolic/summary.ll")
+  add_test(NAME "analysis-parameter-symbolic-pruning"
+           COMMAND ${BASH_EXECUTABLE}
+             "${CMAKE_CURRENT_SOURCE_DIR}/parameter_symbolic/runtest"
+             --ikos-analyzer "$<TARGET_FILE:ikos-analyzer>"
+             --file-check "${LLVM_FILE_CHECK_EXECUTABLE}"
+             --input "${CMAKE_SOURCE_DIR}/frontend/llvm/test/regression/parameter_symbolic/pruning.ll"
+             --entry "test_condition"
+             --check-prefix "ANALYZER")
+  add_test(NAME "analysis-parameter-symbolic-invoke-pruning"
+           COMMAND ${BASH_EXECUTABLE}
+             "${CMAKE_CURRENT_SOURCE_DIR}/parameter_symbolic/runtest"
+             --ikos-analyzer "$<TARGET_FILE:ikos-analyzer>"
+             --file-check "${LLVM_FILE_CHECK_EXECUTABLE}"
+             --input "${CMAKE_SOURCE_DIR}/frontend/llvm/test/regression/parameter_symbolic/invoke_pruning.ll"
+             --entry "test_invoke"
+             --check-prefix "ANALYZER")
 endif()

@@ -92,6 +92,33 @@ void SymbolicCondition::join_with(const SymbolicCondition& other) {
   }
 }
 
+void SymbolicCondition::meet_with(const SymbolicCondition& other) {
+  if (this->is_false() || other.is_true()) return;
+  if (other.is_false()) {
+    *this = make_false();
+    return;
+  }
+  if (this->is_true()) {
+    *this = other;
+    return;
+  }
+
+  SymbolicCondition result = make_false();
+  for (const Conjunction& left : this->disjuncts) {
+    for (const Conjunction& right : other.disjuncts) {
+      SymbolicCondition term = make_true();
+      for (const SymbolicConstraint& constraint : left) {
+        term.add_constraint(constraint);
+      }
+      for (const SymbolicConstraint& constraint : right) {
+        term.add_constraint(constraint);
+      }
+      result.join_with(term);
+    }
+  }
+  *this = std::move(result);
+}
+
 void SymbolicCondition::add_constraint(
     const SymbolicConstraint& constraint) {
   if (constraint.kind == SymbolicConstraint::KTrue || this->is_false()) return;
@@ -148,6 +175,10 @@ void SymbolicCondition::dump(
 // ---------------------------------------------------------------------------
 
 void NormalSummary::dump(std::ostream& o) const {
+  if (!available) {
+    o << "  [normal_exit] unavailable\n";
+    return;
+  }
   if (!has_exit) {
     o << "  [normal_exit] none\n";
     return;
@@ -176,6 +207,10 @@ void NormalSummary::dump(std::ostream& o) const {
 // ---------------------------------------------------------------------------
 
 void ExceptionSummary::dump(std::ostream& o) const {
+  if (!available) {
+    o << "  [exception_exit] unavailable\n";
+    return;
+  }
   if (!has_exit) {
     o << "  [exception_exit] none\n";
     return;

@@ -55,6 +55,7 @@
 #include <ikos/analyzer/analysis/execution_engine/engine.hpp>
 #include <ikos/analyzer/analysis/execution_engine/fixpoint_cache.hpp>
 #include <ikos/analyzer/analysis/execution_engine/numerical.hpp>
+#include <ikos/analyzer/analysis/parameter_symbolic.hpp>
 #include <ikos/analyzer/analysis/pointer/value.hpp>
 #include <ikos/analyzer/util/demangle.hpp>
 #include <ikos/analyzer/util/log.hpp>
@@ -229,6 +230,8 @@ private:
       return;
     }
 
+    const bool summary_applicable = callees.size() == 1;
+
     //
     // Compute the post invariant
     //
@@ -334,6 +337,10 @@ private:
 
       // Merge exceptions in caught_exceptions, in case it's an invoke
       engine.inv().merge_propagated_in_caught_exceptions();
+
+      if (summary_applicable) {
+        apply_caller_summary(_ctx, engine.inv(), call, callee);
+      }
 
       if (engine.inv().is_normal_flow_bottom()) {
         // Collect the exception states

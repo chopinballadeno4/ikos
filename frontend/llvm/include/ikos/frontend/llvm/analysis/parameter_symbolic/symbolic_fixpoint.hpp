@@ -76,6 +76,8 @@ public:
   // Build a structured FunctionSummary from the fixpoint results.
   FunctionSummary build_summary() const;
 
+  const SummaryStore* summary_store() const { return this->_store; }
+
   // C.4 summary output: delegates to build_summary().dump(o).
   void dump_summary(std::ostream& o) const;
 };

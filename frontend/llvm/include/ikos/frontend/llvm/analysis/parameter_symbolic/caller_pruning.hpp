@@ -34,6 +34,12 @@ SymbolicValue subst_val_into_caller(const SymbolicValue& callee_val,
                                     ar::Function* callee,
                                     const std::vector< SymbolicValue >& arg_vals);
 
+// Substitute a DNF exit condition into the caller parameter context.
+// An atom with an unrepresentable operand is weakened to true.
+SymbolicCondition subst_condition_into_caller(
+    const SymbolicCondition& callee_condition,
+    const std::vector< SymbolicValue >& arg_vals);
+
 // ---------------------------------------------------------------------------
 // Memory effect application
 // ---------------------------------------------------------------------------
@@ -48,6 +54,13 @@ void apply_memory_summary(SymbolicState& caller_state,
                           const std::map< SymbolicLoc, SymbolicValue >& mu_exit,
                           ar::Function* callee,
                           const std::vector< SymbolicValue >& arg_vals);
+
+// Conservatively invalidate symbolic memory reachable through pointer
+// arguments. This is performed before applying any known exit-memory relation;
+// a missing summary entry never means that memory is unchanged.
+void invalidate_pointer_arguments(
+    SymbolicState& caller_state,
+    const std::vector< SymbolicValue >& arg_vals);
 
 // ---------------------------------------------------------------------------
 // Call / Invoke entry points (called from SymbolicFunctionFixpoint)

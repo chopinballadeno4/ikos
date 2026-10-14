@@ -18,7 +18,7 @@ return 처리, exception 처리 및 memory 처리는 기존 IKOS semantics를 �
 - 단일 callee로 확정되는 direct 또는 resolved indirect call
 - Normal flow와 exception flow의 독립적인 pruning
 - Scalar affine condition의 caller 문맥 치환
-- Pointer/reference parameter를 통한 caller-visible memory effect
+- Pointer/reference parameter를 통한 caller symbolic memory effect
 - `Call`과 `Invoke`의 서로 다른 exception routing
 - 정보가 부족하거나 표현할 수 없을 때의 conservative fallback
 
@@ -571,7 +571,17 @@ A_{c,X}^post = RefineMemory(A_{c,X}^pruned, Effects_{c,X}^A)
 - Alias 또는 overlapping write 충돌이 없다.
 - 해당 relation이 flow `X`의 모든 실행에 대해 성립한다.
 
-Summary memory로 기존 IKOS memory state 전체를 교체하지 않는다.
+IKOS의 interprocedural 분석은 callee를 caller state에서 직접 분석하므로
+`A_{c,X}^base`에 callee의 memory effect가 이미 포함된다. 현재 구현은 같은 write를
+summary로 다시 실행하지 않고 이 기존 결과를 보존한다.
+
+```text
+A_{c,X}^post = A_{c,X}^pruned
+```
+
+즉 현재 `μ_X(g)`는 caller의 보조 symbolic state와 상위 FunctionSummary 합성에
+사용한다. IKOS memory domain에 대한 별도 `RefineMemory` 구현은 후속 범위이며,
+구현되더라도 Summary memory로 기존 IKOS memory state 전체를 교체해서는 안 된다.
 
 ### 8.4 Symbolic memory 적용
 
@@ -1057,7 +1067,44 @@ Call의 caught-to-propagated 변환 또는 Invoke edge 선택
 이 위치에서 normal flow와 exception flow가 모두 존재하므로 동일한 공통 로직으로
 각 flow를 독립적으로 refinement할 수 있다.
 
-### 13.2 후속 확장 대상
+### 13.2 현재 구현 범위
+
+현재 IKOS 본 분석 구현은 interprocedural dynamic inlining에서 callee가 정확히
+하나로 결정되고 callee 분석과 summary 저장이 완료된 경우에만 적용한다.
+
+`SummaryStore`에는 현재 분석 프로세스가 직접 생성한 summary만 들어간다. 별도
+파일이나 외부 입력에서 summary를 역직렬화하지 않으며, 잘못된 parameter index나
+표현 불가능한 operand는 적용 단계에서 해당 atom 또는 entry만 보수적으로 생략한다.
+
+- Normal summary는 `normal` component에만 적용한다.
+- Exception summary는 propagated exception을 `caught_exceptions`로 모은 뒤 해당
+  component에만 적용한다.
+- 명시적인 exception-exit을 분석하지 못했거나 함수 안에 보조 symbolic 분석이
+  예외를 모델링하지 않는 일반 `Call`이 있는 경우 exception summary는
+  `Unavailable`이다. exception-exit 부재만으로 일반 `Call`이 외부로 전파할 수 있는
+  예외 flow를 `Known(false)`로 간주하지 않는다.
+- `Call`의 caught-to-propagated 변환 및 `Invoke`의 edge selection은 기존 IKOS
+  처리를 그대로 사용한다.
+- DNF의 각 conjunction은 같은 base state에서 시작하고, 결과를 IKOS join으로
+  결합한다.
+- IKOS machine-integer API로 직접 표현할 수 있는 constant, 단일 변수와 상수,
+  또는 offset 없는 두 변수 비교만 적용한다. 그 외 atom은 `true`로 약화한다.
+- Unsigned affine comparison은 유한 bitwidth에서 항 이항이 동치가 아닐 수 있으므로
+  direct parameter/constant 형태만 적용한다.
+- Intraprocedural의 context-insensitive call semantics에는 callee별 normal/exception
+  base flow가 없으므로 현재 caller pruning을 적용하지 않는다.
+- 개발용 적용 로그는 기존 `--trace-ar-stmts` 옵션으로만 출력하며, 옵션 유무는
+  pruning 수행 여부에 영향을 주지 않는다.
+
+보조 symbolic 분석에서는 pointer argument가 가리키는 symbolic memory를 먼저
+`TOP`으로 invalidation한 다음, 알려진 flow별 `μ_X(g)`만 다시 적용한다. 여러
+summary entry가 같은 caller symbolic location으로 치환되면서 값이 충돌하면 해당
+location을 `TOP`으로 처리한다.
+
+Wrapping 가능성이 있는 integer add/sub/mul/shift는 affine relation으로 보존하지
+않는다. AR의 `no-wrap` 정보가 있는 연산만 affine symbolic expression으로 유지한다.
+
+### 13.3 후속 확장 대상
 
 다음 항목은 현재 명세의 보수적인 동작을 유지한 상태에서 후속 연구로 확장한다.
 
@@ -1065,8 +1112,8 @@ Call의 caught-to-propagated 변환 또는 Invoke edge 선택
 - Recursive SCC의 fixpoint summary
 - Return-value symbolic summary
 - Global variable과 heap object summary
+- IKOS memory domain에 대한 별도 summary 기반 `RefineMemory`
 - Modifies-set을 이용한 unchanged memory 보존
 - Aggregate, vector 및 byte-range memory relation
 - Disjunctive abstract domain 또는 path partitioning
 - 복잡한 alias relation과 weak update 정밀화
-

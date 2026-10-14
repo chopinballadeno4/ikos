@@ -129,6 +129,69 @@ bool SymbolicFunctionFixpoint::is_decreasing_iterations_fixpoint(
 using BlockConditions =
     std::unordered_map< ar::BasicBlock*, SymbolicCondition >;
 
+static std::vector< SymbolicValue > capture_symbolic_args(
+    const SymbolicState& state,
+    ar::CallBase* call) {
+  std::vector< SymbolicValue > arg_vals;
+  arg_vals.reserve(call->num_arguments());
+  for (auto it = call->arg_begin(); it != call->arg_end(); ++it) {
+    arg_vals.push_back(state.eval(*it));
+  }
+  return arg_vals;
+}
+
+static SymbolicCondition call_exit_condition(
+    const SymbolicState& state,
+    ar::CallBase* call,
+    bool normal,
+    const SummaryStore* store) {
+  if (store == nullptr ||
+      !ar::isa< ar::FunctionPointerConstant >(call->called())) {
+    return SymbolicCondition::make_true();
+  }
+
+  ar::Function* callee =
+      ar::cast< ar::FunctionPointerConstant >(call->called())->function();
+  const FunctionSummary* summary = store->get(callee);
+  if (summary == nullptr) return SymbolicCondition::make_true();
+
+  const SymbolicCondition* condition = nullptr;
+  if (normal) {
+    if (!summary->normal.available) return SymbolicCondition::make_true();
+    if (!summary->normal.has_exit) return SymbolicCondition::make_false();
+    condition = &summary->normal.condition;
+  } else {
+    if (!summary->exception.available) return SymbolicCondition::make_true();
+    if (!summary->exception.has_exit) return SymbolicCondition::make_false();
+    condition = &summary->exception.condition;
+  }
+
+  return subst_condition_into_caller(*condition,
+                                     capture_symbolic_args(state, call));
+}
+
+static SymbolicState state_before_last_statement(
+    const SymbolicFunctionFixpoint& fp,
+    ar::BasicBlock* bb) {
+  SymbolicState state = fp.pre(bb);
+  if (state.is_bottom() || bb->empty()) return state;
+
+  ar::Statement* last = bb->back();
+  for (ar::Statement* stmt : *bb) {
+    if (stmt == last) break;
+    if (auto* call = ar::dyn_cast< ar::Call >(stmt)) {
+      if (fp.summary_store() != nullptr) {
+        apply_call_summary(state, call, *fp.summary_store());
+      } else {
+        state.exec(stmt);
+      }
+    } else {
+      state.exec(stmt);
+    }
+  }
+  return state;
+}
+
 static BlockConditions compute_block_conditions(
     const SymbolicFunctionFixpoint& fp,
     ar::Code* body) {
@@ -148,7 +211,21 @@ static BlockConditions compute_block_conditions(
       for (auto pit = bb->predecessor_begin();
            pit != bb->predecessor_end(); ++pit) {
         auto it = out_conditions.find(*pit);
-        if (it != out_conditions.end()) condition.join_with(it->second);
+        if (it == out_conditions.end()) continue;
+
+        SymbolicCondition predecessor_condition = it->second;
+        ar::BasicBlock* predecessor = *pit;
+        if (!predecessor->empty()) {
+          if (auto* invoke =
+                  ar::dyn_cast< ar::Invoke >(predecessor->back())) {
+            SymbolicState state =
+                state_before_last_statement(fp, predecessor);
+            bool normal = (bb == invoke->normal_dest());
+            predecessor_condition.meet_with(call_exit_condition(
+                state, invoke, normal, fp.summary_store()));
+          }
+        }
+        condition.join_with(predecessor_condition);
       }
 
       SymbolicState state = fp.pre(bb);
@@ -158,6 +235,13 @@ static BlockConditions compute_block_conditions(
         for (ar::Statement* stmt : *bb) {
           if (auto* cmp = ar::dyn_cast< ar::Comparison >(stmt)) {
             condition.add_constraint(subst_constraint(cmp, state));
+          } else if (auto* call = ar::dyn_cast< ar::Call >(stmt)) {
+            condition.meet_with(call_exit_condition(
+                state, call, true, fp.summary_store()));
+            if (fp.summary_store() != nullptr) {
+              apply_call_summary(state, call, *fp.summary_store());
+              continue;
+            }
           }
           state.exec(stmt);
         }
@@ -189,6 +273,15 @@ static std::map< SymbolicLoc, SymbolicValue > filter_mu_caller_visible(
   return result;
 }
 
+static bool has_ordinary_call(ar::Code* body) {
+  for (ar::BasicBlock* bb : *body) {
+    for (ar::Statement* stmt : *bb) {
+      if (ar::isa< ar::Call >(stmt)) return true;
+    }
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // build_summary: construct FunctionSummary from fixpoint results
 // ---------------------------------------------------------------------------
@@ -201,6 +294,9 @@ FunctionSummary SymbolicFunctionFixpoint::build_summary() const {
   BlockConditions conditions = compute_block_conditions(*this, body);
 
   // --- Normal exit ---
+  // Once the function analysis completes, absence of a normal CFG exit is a
+  // known false normal flow rather than an unavailable summary.
+  summary.normal.available = true;
   ar::BasicBlock* nb = body->normal_exit_block_or_null();
   if (nb) {
     const SymbolicState& ns = this->post(nb);
@@ -216,6 +312,10 @@ FunctionSummary SymbolicFunctionFixpoint::build_summary() const {
   // --- Exception exit ---
   ar::BasicBlock* eb = body->exception_exit_block_or_null();
   if (eb) {
+    // The auxiliary symbolic state does not model exceptions propagated by an
+    // ordinary Call. If one exists, the explicit exception-exit paths may not
+    // cover every exceptional execution, so do not expose a pruning condition.
+    summary.exception.available = !has_ordinary_call(body);
     const SymbolicState& es = this->post(eb);
     summary.exception.param_names = es.param_names;
     summary.exception.condition = conditions[eb];
@@ -307,7 +407,11 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
       }
 
       o << "  C_exception (parameter constraints):\n";
-      summary.exception.condition.dump(o, es.param_names, "    ");
+      if (summary.exception.available) {
+        summary.exception.condition.dump(o, es.param_names, "    ");
+      } else {
+        o << "    unavailable (ordinary Call exceptions are not modeled)\n";
+      }
     }
   } else {
     o << "\n[exception_exit] none\n";

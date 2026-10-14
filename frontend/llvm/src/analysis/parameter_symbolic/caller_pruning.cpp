@@ -73,6 +73,35 @@ SymbolicValue subst_val_into_caller(
   return SymbolicValue::from_loc(result_loc);
 }
 
+SymbolicCondition subst_condition_into_caller(
+    const SymbolicCondition& callee_condition,
+    const std::vector< SymbolicValue >& arg_vals) {
+  SymbolicCondition result = SymbolicCondition::make_false();
+
+  for (const SymbolicCondition::Conjunction& conjunction :
+       callee_condition.disjuncts) {
+    SymbolicCondition translated = SymbolicCondition::make_true();
+    for (const SymbolicConstraint& constraint : conjunction) {
+      if (constraint.kind == SymbolicConstraint::KTrue) continue;
+
+      SymbolicValue left =
+          subst_expr_into_caller(constraint.left, arg_vals);
+      SymbolicValue right =
+          subst_expr_into_caller(constraint.right, arg_vals);
+      if (!left.is_expr() || !right.is_expr()) {
+        // Unrepresentable atoms are weakened to true.
+        continue;
+      }
+
+      translated.add_constraint(SymbolicConstraint::make_param(
+          constraint.predicate, left.expr, right.expr));
+    }
+    result.join_with(translated);
+  }
+
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Memory effect application
 // ---------------------------------------------------------------------------
@@ -82,6 +111,7 @@ void apply_memory_summary(
     const std::map< SymbolicLoc, SymbolicValue >& mu_exit,
     ar::Function* callee,
     const std::vector< SymbolicValue >& arg_vals) {
+  std::map< SymbolicLoc, SymbolicValue > translated;
   for (const auto& kv : mu_exit) {
     SymbolicValue target =
         subst_val_into_caller(SymbolicValue::from_loc(kv.first),
@@ -90,9 +120,29 @@ void apply_memory_summary(
     // If we cannot resolve the target location, skip conservatively.
     if (!target.is_loc()) continue;
 
-    SymbolicValue value =
-        subst_val_into_caller(kv.second, callee, arg_vals);
-    caller_state.mu[target.loc] = value;
+    SymbolicValue value = subst_val_into_caller(kv.second, callee, arg_vals);
+    auto result = translated.emplace(target.loc, value);
+    if (!result.second && result.first->second != value) {
+      // Conflicting callee entries alias the same caller location.
+      result.first->second = SymbolicValue::top();
+    }
+  }
+
+  for (const auto& kv : translated) {
+    caller_state.mu[kv.first] = kv.second;
+  }
+}
+
+void invalidate_pointer_arguments(
+    SymbolicState& caller_state,
+    const std::vector< SymbolicValue >& arg_vals) {
+  for (auto it = caller_state.mu.begin(); it != caller_state.mu.end(); ++it) {
+    for (const SymbolicValue& arg : arg_vals) {
+      if (arg.is_loc() && it->first.base == arg.loc.base) {
+        it->second = SymbolicValue::top();
+        break;
+      }
+    }
   }
 }
 
@@ -129,20 +179,23 @@ void apply_call_summary(SymbolicState& state,
   // Capture arg values BEFORE exec: exec may overwrite the result variable,
   // and in pathological SSA we want the pre-call values.
   ar::Function* callee = direct_callee(call);
-  std::vector< SymbolicValue > arg_vals;
+  std::vector< SymbolicValue > arg_vals = capture_args(state, call);
   const FunctionSummary* summary = nullptr;
 
   if (callee != nullptr) {
     summary = store.get(callee);
-    if (summary != nullptr && summary->normal.has_exit &&
-        !summary->normal.mu_exit.empty()) {
-      arg_vals = capture_args(state, call);
-    }
   }
 
   state.exec(call);
+  invalidate_pointer_arguments(state, arg_vals);
 
-  if (summary != nullptr && !arg_vals.empty()) {
+  if (summary == nullptr) return;
+  if (!summary->normal.available) return;
+  if (!summary->normal.has_exit) {
+    state.set_to_bottom();
+    return;
+  }
+  if (!summary->normal.mu_exit.empty()) {
     apply_memory_summary(state,
                          summary->normal.mu_exit,
                          callee,
@@ -157,6 +210,7 @@ void apply_invoke_memory_summary(
     const SummaryStore& store,
     const std::vector< SymbolicValue >& arg_vals) {
   ar::Function* callee = direct_callee(invoke);
+  invalidate_pointer_arguments(state, arg_vals);
   if (callee == nullptr) return;
 
   const FunctionSummary* summary = store.get(callee);
@@ -166,8 +220,14 @@ void apply_invoke_memory_summary(
       is_normal_edge ? summary->normal.mu_exit : summary->exception.mu_exit;
   bool has_exit =
       is_normal_edge ? summary->normal.has_exit : summary->exception.has_exit;
+  bool available = is_normal_edge ? summary->normal.available
+                                  : summary->exception.available;
 
-  if (has_exit && !mu_exit.empty()) {
+  if (!available) {
+    return;
+  } else if (!has_exit) {
+    state.set_to_bottom();
+  } else if (!mu_exit.empty()) {
     apply_memory_summary(state, mu_exit, callee, arg_vals);
   }
 }

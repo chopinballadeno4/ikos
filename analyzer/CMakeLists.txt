@@ -278,6 +278,7 @@ add_executable(ikos-analyzer
   src/util/source_location.cpp
   src/util/timer.cpp
   ../frontend/llvm/src/analysis/parameter_symbolic/function_summary.cpp
+  ../frontend/llvm/src/analysis/parameter_symbolic/caller_pruning.cpp
   ../frontend/llvm/src/analysis/parameter_symbolic/symbolic_expr.cpp
   ../frontend/llvm/src/analysis/parameter_symbolic/symbolic_fixpoint.cpp
   ../frontend/llvm/src/analysis/parameter_symbolic/symbolic_state.cpp

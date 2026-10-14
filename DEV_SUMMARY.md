@@ -119,6 +119,16 @@ ExceptionSummary(f) = {
 }
 ```
 
+각 flow summary는 `Known` 또는 `Unavailable` 상태를 갖는다. 정상 종료 CFG가
+없으면 normal flow는 `Known(false, ∅)`로 표현할 수 있다. 반면 현재 보조 symbolic
+분석이 모든 예외 전파를 포착하지 못하는 경우 exception flow는 `false`로 단정하지
+않고 `Unavailable`로 저장한다.
+
+특히 명시적인 exception-exit이 없거나 함수 내부에 일반 `Call`이 있어 그 call의
+외부 전파 예외를 보조 symbolic 분석이 모델링하지 못하면 exception summary는
+`Unavailable`이다. `Unavailable`은 caller pruning에서 기존 IKOS exception state를
+그대로 유지한다.
+
 Program exit는 caller로 복귀하지 않으므로 caller 적용을 위한 summary를 생성하지 않는다.
 
 현재 연구에서는 return value summary를 생성하지 않는다.
@@ -907,6 +917,8 @@ return-value relation
 19. 함수 fixpoint가 완료되면 summary를 생성하여 함수당 하나를 저장한다.
 
 20. Summary 생성 단계에서는 caller state 또는 기존 call semantics를 변경하지 않는다.
+
+21. 분석하지 못한 exception flow는 false가 아니라 Unavailable로 보관한다.
 ```
 
 

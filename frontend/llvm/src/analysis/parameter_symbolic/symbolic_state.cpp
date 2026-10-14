@@ -248,12 +248,24 @@ void SymbolicState::exec_binary_op(ar::BinaryOperation* s) {
 
   switch (s->op()) {
     case Op::UAdd: case Op::SAdd:
+      if (!s->has_no_wrap()) {
+        sigma[s->result()] = SymbolicValue::top();
+        break;
+      }
       sigma[s->result()] = SymbolicValue::from_expr(*le + *re);
       break;
     case Op::USub: case Op::SSub:
+      if (!s->has_no_wrap()) {
+        sigma[s->result()] = SymbolicValue::top();
+        break;
+      }
       sigma[s->result()] = SymbolicValue::from_expr(*le - *re);
       break;
     case Op::UMul: case Op::SMul:
+      if (!s->has_no_wrap()) {
+        sigma[s->result()] = SymbolicValue::top();
+        break;
+      }
       if (le->is_const()) {
         sigma[s->result()] = SymbolicValue::from_expr(*re * le->constant);
       } else if (re->is_const()) {
@@ -263,7 +275,7 @@ void SymbolicState::exec_binary_op(ar::BinaryOperation* s) {
       }
       break;
     case Op::UShl: case Op::SShl:
-      if (re->is_const()) {
+      if (s->has_no_wrap() && re->is_const()) {
         int shift = re->constant;
         if (shift >= 0 && shift < 32) {
           sigma[s->result()] = SymbolicValue::from_expr(*le * (1 << shift));

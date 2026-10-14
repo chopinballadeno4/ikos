@@ -41,6 +41,9 @@ struct SymbolicCondition {
   /// \brief Add a path alternative (logical OR).
   void join_with(const SymbolicCondition& other);
 
+  /// \brief Conjoin another DNF condition (logical AND).
+  void meet_with(const SymbolicCondition& other);
+
   /// \brief Add a constraint to every path (logical AND).
   void add_constraint(const SymbolicConstraint& constraint);
 
@@ -58,6 +61,7 @@ struct SymbolicCondition {
 // Callee-local Allocate locations are excluded from mu_exit.
 // ---------------------------------------------------------------------------
 struct NormalSummary {
+  bool available = false;
   bool has_exit = false;
   SymbolicCondition condition = SymbolicCondition::make_false();
   std::map< SymbolicLoc, SymbolicValue > mu_exit;
@@ -73,6 +77,7 @@ struct NormalSummary {
 // Structure mirrors NormalSummary.
 // ---------------------------------------------------------------------------
 struct ExceptionSummary {
+  bool available = false;
   bool has_exit = false;
   SymbolicCondition condition = SymbolicCondition::make_false();
   std::map< SymbolicLoc, SymbolicValue > mu_exit;

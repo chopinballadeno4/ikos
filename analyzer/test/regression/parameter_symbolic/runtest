@@ -5,6 +5,8 @@ set -e
 ikos_analyzer="ikos-analyzer"
 file_check="FileCheck"
 input=""
+entry="summary_paths"
+check_prefix="CHECK"
 
 while [[ $# -gt 0 ]]
 do
@@ -21,6 +23,14 @@ do
             shift
             input="$1"
             ;;
+        --entry)
+            shift
+            entry="$1"
+            ;;
+        --check-prefix)
+            shift
+            check_prefix="$1"
+            ;;
         *)
             echo "error: unknown command line argument '$1'" >&2
             exit 1
@@ -34,7 +44,7 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 "$ikos_analyzer" \
     -a=dbg \
-    --entry-points=summary_paths \
+    --entry-points="$entry" \
     --no-checks \
     --no-pointer \
     --no-liveness \
@@ -44,4 +54,4 @@ trap 'rm -rf "$tmpdir"' EXIT
     --log=all \
     -o "$tmpdir/output.db" \
     "$input" \
-    | "$file_check" "$input"
+    | "$file_check" --check-prefix="$check_prefix" "$input"
