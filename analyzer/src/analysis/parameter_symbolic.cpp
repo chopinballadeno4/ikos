@@ -198,6 +198,99 @@ AtomResult apply_atom(value::MemoryAbstractDomain& state,
   return AtomResult::Tautology;
 }
 
+// If `bool_arg` (a 1-bit integer ar::Value) is the result of a pointer ≠ null
+// comparison in the caller body, return the corresponding pointer Variable*.
+// Returns null if the relationship cannot be determined.
+static Variable* find_ptr_for_bool_arg(Context& ctx,
+                                       ar::CallBase* call,
+                                       ar::Value* bool_arg) {
+  auto* iv = ar::dyn_cast< ar::InternalVariable >(bool_arg);
+  if (!iv) return nullptr;
+
+  ar::Code* code = call->parent()->code();
+  ar::Function* caller = code->function_or_null();
+  if (!caller || !caller->is_definition()) return nullptr;
+
+  for (ar::BasicBlock* bb : *caller->body()) {
+    bool has_assign_one = false;
+    for (ar::Statement* stmt : *bb) {
+      if (auto* assign = ar::dyn_cast< ar::Assignment >(stmt)) {
+        if (assign->result() == iv) {
+          if (auto* ic =
+                  ar::dyn_cast< ar::IntegerConstant >(assign->operand())) {
+            if (!ic->value().is_zero()) has_assign_one = true;
+          }
+        }
+      }
+    }
+    if (!has_assign_one) continue;
+
+    // Found a block where iv is assigned a non-zero (true) value.
+    // Check if the same block contains a "ptr != null" Comparison.
+    for (ar::Statement* stmt : *bb) {
+      if (auto* cmp = ar::dyn_cast< ar::Comparison >(stmt)) {
+        if (cmp->predicate() != ar::Comparison::PNE) continue;
+
+        ar::Value* ptr_val = nullptr;
+        if (ar::isa< ar::NullConstant >(cmp->right()) &&
+            cmp->left()->type()->is_pointer()) {
+          ptr_val = cmp->left();
+        } else if (ar::isa< ar::NullConstant >(cmp->left()) &&
+                   cmp->right()->type()->is_pointer()) {
+          ptr_val = cmp->right();
+        }
+        if (!ptr_val) continue;
+
+        const ScalarLit& lit = ctx.lit_factory->get_scalar(ptr_val);
+        if (lit.is_pointer_var()) return lit.var();
+      }
+    }
+  }
+  return nullptr;
+}
+
+// After applying integer constraints from a callee's normal-exit condition,
+// also propagate pointer non-null information: if a bool argument is
+// constrained to true and it came from a "ptr != null" comparison in the
+// caller, assert ptr is non-null.
+static void apply_bool_ptr_nullity(value::MemoryAbstractDomain& state,
+                                   const SymbolicCondition& condition,
+                                   Context& ctx,
+                                   ar::CallBase* call) {
+  for (const SymbolicCondition::Conjunction& conjunction :
+       condition.disjuncts) {
+    for (const SymbolicConstraint& constraint : conjunction) {
+      if (constraint.kind == SymbolicConstraint::KTrue) continue;
+
+      // We only handle the pattern: single-param expr == 1
+      const SymbolicExpr& lhs = constraint.left;
+      const SymbolicExpr& rhs = constraint.right;
+      bool lhs_single_param = (lhs.coeffs.size() == 1 &&
+                                lhs.coeffs.begin()->second == 1 &&
+                                lhs.constant == 0);
+      bool rhs_is_one =
+          (rhs.coeffs.empty() && rhs.constant == 1);
+      bool eq_predicate = (constraint.predicate == ar::Comparison::UIEQ ||
+                           constraint.predicate == ar::Comparison::SIEQ);
+
+      if (!lhs_single_param || !rhs_is_one || !eq_predicate) continue;
+
+      int idx = lhs.coeffs.begin()->first;
+      if (idx < 0 ||
+          static_cast< std::size_t >(idx) >= call->num_arguments()) continue;
+
+      ar::Value* arg = call->argument(static_cast< unsigned >(idx));
+      auto* int_ty = ar::dyn_cast< ar::IntegerType >(arg->type());
+      if (!int_ty || int_ty->bit_width() != 1) continue;
+
+      Variable* ptr_var = find_ptr_for_bool_arg(ctx, call, arg);
+      if (ptr_var) {
+        state.nullity_assert_non_null(ptr_var);
+      }
+    }
+  }
+}
+
 void prune_flow(value::MemoryAbstractDomain& flow,
                 const SymbolicCondition& condition,
                 Context& ctx,
@@ -272,6 +365,10 @@ void apply_caller_summary(Context& ctx,
       invariant.set_normal_flow_to_bottom();
     } else {
       prune_flow(invariant.normal(), summary->normal.condition, ctx, call);
+      apply_bool_ptr_nullity(invariant.normal(),
+                             summary->normal.condition,
+                             ctx,
+                             call);
     }
   }
 

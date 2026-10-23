@@ -224,9 +224,22 @@ void SymbolicState::exec_unary_op(ar::UnaryOperation* s) {
       sigma[s->result()] = operand;
       break;
     case Op::UTrunc:
-    case Op::STrunc:
-      sigma[s->result()] = SymbolicValue::top();
+    case Op::STrunc: {
+      // i*→i1 trunc: if the operand is a single-parameter expr (coefficient 1,
+      // constant 0), preserve it. This handles the standard bool-param ABI
+      // pattern: zext(i1 param → iN) followed by utrunc(iN → i1) is a no-op
+      // when the iN value is always in {0, 1}.
+      auto* rty = ar::dyn_cast< ar::IntegerType >(s->result()->type());
+      const SymbolicExpr* e = operand.get_expr();
+      if (rty && rty->bit_width() == 1 && e != nullptr &&
+          e->constant == 0 && e->coeffs.size() == 1 &&
+          e->coeffs.begin()->second == 1) {
+        sigma[s->result()] = operand;
+      } else {
+        sigma[s->result()] = SymbolicValue::top();
+      }
       break;
+    }
     default:
       sigma[s->result()] = SymbolicValue::top();
       break;
