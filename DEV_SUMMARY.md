@@ -944,6 +944,13 @@ return-value relation
 
 현재 범위에는 Section 9의 제한적인 nullity Boolean-origin 보존만 포함한다. 위 목록의 일반적인 path sensitivity와 임의의 guarded/disjunctive value는 후속 확장이다.
 
+별도로, summary의 NE(`!=`) 조건이 기존 numerical domain 적용 과정에서 손실되는
+정밀도는 현재 수용한다. Summary에 표현 가능한 NE atom은 유지하되, 단일 interval로
+표현할 수 없는 중간 값 제외 정보는 별도 보존하지 않는다. 향후 interval과 결합하는
+zero/non-zero 보조 상태 및 DBZ checker 연계를 도입할 수 있으며, 그 범위와 갱신·병합
+요건은 DEV_PRUNING.md §13.4에서 정의한다. 이는 현재 `Σ=(σ,μ)`나 summary 생성의
+필수 구현 요건이 아니다.
+
 
 ## 26. 핵심 Invariant
 

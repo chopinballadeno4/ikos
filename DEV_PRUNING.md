@@ -1154,6 +1154,15 @@ location을 `TOP`으로 처리한다.
 Wrapping 가능성이 있는 integer add/sub/mul/shift는 affine relation으로 보존하지
 않는다. AR의 `no-wrap` 정보가 있는 연산만 affine symbolic expression으로 유지한다.
 
+현재는 NE(`!=`) 조건을 기존 numerical domain이 표현할 수 있는 범위에서만
+적용한다. 예를 들어 interval `[0,10]`에는 `x != 0`을 적용하여 `[1,10]`으로
+정제할 수 있지만, `[-10,10]`에서 중간의 0만 제외하는 정보는 단일 interval로
+보존하지 못하므로 기존 구간을 유지한다. 표현할 수 없는 제외 정보를 별도 상태에
+저장하거나 이를 위해 상태를 분리하지 않는다. Summary에 표현 가능한 NE atom을
+삭제한다는 뜻은 아니며, 현재 IKOS domain에 적용한 뒤 남지 않는 정밀도를 수용한다.
+따라서 benchmark 11·13·19처럼 normal summary가 정확히 `!= 0`을 포함해도
+DBZ warning이 남을 수 있으며, 이는 현재 범위에서 허용하는 정밀도 한계이다.
+
 ### 13.3 후속 확장 대상
 
 다음 항목은 현재 명세의 보수적인 동작을 유지한 상태에서 후속 연구로 확장한다.
@@ -1167,6 +1176,39 @@ Wrapping 가능성이 있는 integer add/sub/mul/shift는 affine relation으로 
 - Aggregate, vector 및 byte-range memory relation
 - 일반적인 Disjunctive abstract domain 또는 path partitioning (제한적인 nullity Boolean-origin 보존은 현재 범위)
 - 복잡한 alias relation과 weak update 정밀화
+- Interval과 별도의 zero/non-zero 보조 상태 및 DBZ checker 연계 (Section 13.4)
+
+### 13.4 향후 zero/non-zero 보조 상태 확장
+
+향후 non-zero 정밀도가 필요하면 interval 표현은 유지하면서 별도의 보조 상태를
+결합하는 방식으로 확장할 수 있다. 이는 현재 구현 요구사항이 아닌 후속 확장이다.
+
+```text
+ν : MachineIntegerVariable → {BOTTOM, Zero, NonZero, TOP}
+A_extended = A × ν
+```
+
+`Zero`는 값이 0임을, `NonZero`는 0이 아님을 뜻한다. `TOP`은 알 수 없음,
+`BOTTOM`은 모순이다. 예를 들어 interval이 `[-10,10]`이어도 `ν(x)=NonZero`를
+함께 유지하면 0 제외 사실을 보존할 수 있다. 이는 기존 `Σ=(σ,μ)`의 parameter-origin
+표현과 구분하는 분석 상태 확장으로, 별도의 points-to 상태를 도입하는 것은 아니다.
+
+확장 시 다음 사항을 함께 정의해야 한다.
+
+- Flow별 summary 적용에서 `x != 0`은 `NonZero`, `x == 0`은 `Zero`와 교차
+  정제한다. 기존 interval과 보조 상태 사이의 모순도 일관되게 처리한다.
+- Assignment, load, arithmetic, cast 및 call effect에서 값을 바꾸거나 알 수 없게
+  되는 경우 보조 사실을 갱신하거나 무효화한다. Wrapping이나 truncation으로
+  non-zero가 zero가 될 수 있으므로 근거 없이 `NonZero`를 전달하지 않는다.
+- Merge에서는 모든 도달 가능한 incoming state에서 보장하는 사실만 유지한다.
+  `NonZero ⊔ NonZero = NonZero`, `Zero ⊔ NonZero = TOP`이며, 기존 DNF의
+  disjunct별 적용과 normal/exception flow 분리 원칙을 동일하게 따른다.
+- DBZ checker는 기존 도달 가능성·초기화 검사를 유지하고, interval 조회뿐 아니라
+  보조 상태의 `NonZero` 사실도 활용한다. 보조 사실을 저장해 놓고 checker가
+  `int_to_interval()` 결과만 검사하면 이 확장의 정밀도 이득을 얻을 수 없다.
+
+이 확장은 우선 `!= 0`을 대상으로 하며, 일반적인 `x != c`의 제외 값 집합이나
+임의의 disequality relation까지 현재 범위에 포함하는 것은 아니다.
 
 ## 14. Nullity guard 적용 검증 기준
 
