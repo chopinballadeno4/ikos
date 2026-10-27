@@ -22,7 +22,7 @@ caller에서 summary를 실제로 적용하여 normal flow를 pruning하거나 c
 ### 2.1 σ
 
 ```text
-σ : V_SSA → Expr ∪ Loc ∪ {TOP}
+σ : V_SSA → Expr ∪ Loc ∪ {Null} ∪ BoolExpr ∪ {TOP}
 ```
 
 `σ`는 AR SSA variable을 함수 entry 시점의 parameter-origin symbolic expression 또는 symbolic location에 대응시킨다.
@@ -38,7 +38,7 @@ caller에서 summary를 실제로 적용하여 normal flow를 pruning하거나 c
 ### 2.2 μ
 
 ```text
-μ : Loc → Expr ∪ Loc ∪ {TOP}
+μ : Loc → Expr ∪ Loc ∪ {Null} ∪ BoolExpr ∪ {TOP}
 ```
 
 `μ`는 symbolic memory location에 저장된 symbolic value를 나타낸다.
@@ -101,6 +101,20 @@ L₂
 Loc(L₁, δ)
 ```
 
+
+### 2.4 Typed pointer/null/Boolean value
+
+Pointer value와 memory location은 DEV_SUMMARY.md §2.5와 동일하게 구분한다.
+`P_i^0=PtrValue(L_i)`는 nullable entry pointer 값이며, 기존 Loc 표현을 재사용한다.
+Null constant는 별도의 `Null` 값이다. `BoolExpr`는 offset 0인 pointer parameter의
+IsNull/NonNull predicate에 대한 정확한 `{0,1}` 값 관계이다. Integer entry atom과
+unsigned 1-bit parameter의 `{0,1}` range 정보도 보존한다.
+
+Assignment/copy는 확장된 SymbolicValue를 전달한다. ZExt와 Boolean encoding을
+보존하는 same-width bitcast는 origin을 유지한다. Truncation은 operand가 정확히
+`{0,1}`이고 결과가 unsigned 1-bit일 때만 보존한다. SExt가 1을 -1로 바꾸는 경우나
+range를 보장할 수 없는 truncation은 BoolExpr/Boolean origin을 TOP으로 만든다.
+단순히 coefficient가 1인 parameter expression이라는 이유로 range를 가정하지 않는다.
 
 ## 3. CFG Symbolic Merge
 
@@ -183,7 +197,23 @@ k ∉ dom(M₂)
 BOTTOM ⊔ₛ Σ = Σ
 ```
 
-이 정책은 path correlation을 보존하지 않으므로 정밀도 손실이 발생할 수 있지만, 서로 다른 symbolic relation을 `TOP`으로 추상화하여 soundness를 유지한다.
+이 기본 정책 전에 Section 3.2의 Boolean 생성 정규화를 수행한다. 그 외에는
+path correlation을 보존하지 않으며 서로 다른 symbolic relation은 TOP으로 병합한다.
+
+### 3.2 증명 가능한 Boolean 생성 정규화
+
+```text
+branch G:   b=1
+branch ¬G:  b=0
+→ 두 assignment에서 σ(b)=BooleanValue(G)
+→ 합류점에서 동일한 BoolExpr 유지
+```
+
+현재 G는 동일 pointer value와 null의 PEQ/PNE이다. DEV_SUMMARY.md §9의 전체 definition 검사, comparison/assignment-only block,
+acyclic 구성, pointer 재정의 부재 및 모든 entry-to-use 경로의 definition 통과 조건을
+모두 충족할 때만 적용한다. 복제된 branch도 모든 definition이 같은 G를 표현해야 한다. 반대 encoding은 BooleanValue(¬G)이다.
+메모리 merge나 일반적인 loop-dependent predicate에는 이 예외를 확대하지 않는다.
+조건이 불충분하면 상수 assignment와 기존 merge를 그대로 사용한다.
 
 
 ## 4. Branch 처리
@@ -253,7 +283,7 @@ LLVM PHI는 IKOS AR에서 별도의 PHI statement로 유지되지 않을 수 있
 = TOP
 ```
 
-즉 PHI에 대한 별도의 symbolic transfer function을 추가하지 않고 CFG merge를 통해 처리한다.
+일반 PHI는 CFG merge로 처리한다. Boolean 생성 PHI는 Section 3.2의 증명된 관계로 assignment를 정규화한 뒤 CFG merge를 적용한다.
 
 
 ## 6. Loop 처리
@@ -511,7 +541,9 @@ program exit는 caller로 복귀하지 않으므로 caller-visible exit summary�
 
 ## 8. Exit Constraint 환원
 
-각 exit 경로의 IKOS analyzer constraint를 `σ`를 이용하여 parameter-origin condition으로 환원한다.
+각 exit 경로의 AR integer/null Comparison 및 합성된 callee exit condition을 σ로
+parameter-origin condition으로 환원한다. 조건의 출처와 실제 추출 시점을 명시하며,
+이미 liveness로 제거된 값을 최종 invariant에서 다시 얻을 수 있다고 가정하지 않는다.
 
 경로 `i`에 대해:
 
@@ -531,6 +563,24 @@ X ∈ {normal, exception}
 
 
 ### 8.1 SubstConstraint
+
+지원 atom과 환원 규칙은 다음과 같다.
+
+```text
+Atom ::= IntegerComparison | IsNull(P_i^0) | NonNull(P_i^0)
+PEQ(pointer, null) 또는 PEQ(null, pointer) → IsNull(EvalPointer(pointer))
+PNE(pointer, null) 또는 PNE(null, pointer) → NonNull(EvalPointer(pointer))
+BooleanValue(G) == 1 또는 != 0 → G
+BooleanValue(G) == 0 또는 != 1 → ¬G
+¬IsNull(P) → NonNull(P)
+¬NonNull(P) → IsNull(P)
+```
+
+Pointer origin은 외부 parameter base이며 offset이 0일 때 지원한다. Null과 Null의
+비교는 true/false로 계산한다. 그 외 pointer comparison은 임의의 수치 제약으로
+변환하지 않는다. BoolExpr는 exact relation일 때만 부정할 수 있다. TOP의 부정은
+여전히 unknown이며 false로 바꾸지 않는다. Normalization 후 지원하지 않는 atom만
+true로 약화한다. 이 규칙은 DEV_PRUNING.md의 callee-condition 치환에도 동일하게 적용한다.
 
 각 constraint `c`에 대해:
 
@@ -758,7 +808,10 @@ origin(L) = current-callee Allocate
 same symbolic value
 → preserve
 
-different symbolic value
+proved nullity Boolean construction
+→ normalize assignments to the same BoolExpr
+
+different symbolic value (otherwise)
 → TOP
 ```
 
@@ -807,7 +860,7 @@ branch 2:
 5. loop에 대한 보다 정밀한 symbolic invariant 추론
 ```
 
-현재 버전에서는 위 기능을 사용하지 않는다.
+현재 범위에는 Section 3.2의 제한적인 nullity Boolean origin만 포함한다. 일반적인 path partitioning과 임의의 disjunctive value는 후속 확장이다.
 
 
 ## 12. 추가 불변조건
@@ -829,7 +882,7 @@ Invariant 23.
 CFG merge에서 동일한 symbolic value는 그대로 유지한다.
 
 Invariant 24.
-CFG merge에서 서로 다른 symbolic value는 TOP으로 병합한다.
+Boolean 생성 정규화 이후 CFG merge에서 서로 다른 symbolic value는 TOP으로 병합한다.
 
 Invariant 25.
 LLVM PHI에 의해 predecessor별로 동일한 AR variable에 서로 다른 값이

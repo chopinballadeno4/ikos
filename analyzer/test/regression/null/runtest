@@ -75,4 +75,18 @@ if __name__ == '__main__':
                line_checks=[(7, 'error')]))
     t.add(Test('test-9-unsafe.c', 'test-9-unsafe.c', 'nullity', 'error',
                line_checks=[(6, 'error')]))
+    for entry in ('direct_guard', 'boolean_wrapper', 'reversed_boolean',
+                  'null_actual', 'both_guard'):
+        t.add(Test('guard-summary.cpp', 'guard summary: ' + entry,
+                   'nullity', 'safe', entry_points=(entry,)))
+    for entry, line in (('either_guard', 52), ('missing_guard', 57),
+                        ('incomplete_boolean_origin', 65),
+                        ('pointer_either_guard', 94)):
+        t.add(Test('guard-summary.cpp', 'guard summary: ' + entry,
+                   'nullity', 'unsafe', entry_points=(entry,),
+                   line_checks=[(line, 'warning')]))
+    # The same summary must work in the concurrent inliner and without tracing.
+    t.add(Test('guard-summary.cpp', 'concurrent Boolean wrapper',
+               'nullity', 'safe', entry_points=('boolean_wrapper',),
+               options=['-j=2']))
     t.run()

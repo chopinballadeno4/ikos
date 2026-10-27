@@ -21,11 +21,10 @@ namespace parameter_symbolic {
 // ---------------------------------------------------------------------------
 // SymbolicState — Sigma = (sigma, mu)
 //
-//   sigma : ar::Variable* -> SymbolicValue  (SSA var -> expr/loc/TOP)
+//   sigma : ar::Variable* -> SymbolicValue  (SSA var -> expr/pointer/null/Boolean/TOP)
 //   mu    : SymbolicLoc -> SymbolicValue  (location key -> stored value)
 // ---------------------------------------------------------------------------
-class SymbolicState final
-    : public core::AbstractDomain< SymbolicState > {
+class SymbolicState final : public core::AbstractDomain< SymbolicState > {
 public:
   using VarMap = std::unordered_map< ar::Variable*, SymbolicValue >;
   using MemoryMap = std::map< SymbolicLoc, SymbolicValue >;
@@ -120,12 +119,14 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// SymbolicConstraint — parameter-based comparison (or trivially true)
+// SymbolicConstraint — typed parameter comparison/nullity or true/false
 // ---------------------------------------------------------------------------
 struct SymbolicConstraint {
-  enum Kind { KTrue, KParam } kind;
+  enum Kind { KTrue, KFalse, KParam, KNullity } kind;
   ar::Comparison::Predicate predicate; // valid when KParam
   SymbolicExpr left, right;            // valid when KParam
+  int pointer_parameter = -1;          // valid when KNullity
+  bool non_null = true;                // valid when KNullity
 
   static SymbolicConstraint make_true() {
     SymbolicConstraint c;
@@ -134,13 +135,25 @@ struct SymbolicConstraint {
     return c;
   }
   static SymbolicConstraint make_param(ar::Comparison::Predicate p,
-                                        const SymbolicExpr& l,
-                                        const SymbolicExpr& r) {
+                                       const SymbolicExpr& l,
+                                       const SymbolicExpr& r) {
     SymbolicConstraint c;
     c.kind = KParam;
     c.predicate = p;
     c.left = l;
     c.right = r;
+    return c;
+  }
+  static SymbolicConstraint make_false() {
+    SymbolicConstraint c;
+    c.kind = KFalse;
+    return c;
+  }
+  static SymbolicConstraint make_nullity(int parameter, bool non_null) {
+    SymbolicConstraint c;
+    c.kind = KNullity;
+    c.pointer_parameter = parameter;
+    c.non_null = non_null;
     return c;
   }
 
@@ -151,9 +164,30 @@ private:
 };
 
 // Try to substitute sigma into a Comparison, returning a parameter constraint.
-// Returns KTrue if any operand is TOP or non-integer.
+// Unsupported atoms are weakened to KTrue.
 SymbolicConstraint subst_constraint(ar::Comparison* cmp,
                                     const SymbolicState& s);
+
+// Return the entry pointer index only for a zero-offset formal pointer origin.
+int pointer_parameter_index(const SymbolicLoc& pointer);
+SymbolicConstraint nullity_constraint(const SymbolicValue& pointer,
+                                      bool non_null);
+
+// Check every null-comparison/Boolean-assignment definition, including
+// replicated branches. Every path to a non-null use must cross a definition.
+// A null use is reserved for normalizing the assignments before merging.
+struct NullityBoolOrigin {
+  ar::Value* pointer = nullptr;
+  bool non_null = true;
+};
+NullityBoolOrigin find_nullity_bool_origin(ar::Value* boolean,
+                                           ar::Code* code,
+                                           ar::BasicBlock* use);
+
+// Recognize either operand order of a Boolean ==/!= 0/1 constraint.
+bool boolean_constraint_value(const SymbolicConstraint& constraint,
+                              int& parameter,
+                              bool& truth);
 
 // Detailed per-block dump (used in C.4 output).
 void dump_state(const SymbolicState& s,

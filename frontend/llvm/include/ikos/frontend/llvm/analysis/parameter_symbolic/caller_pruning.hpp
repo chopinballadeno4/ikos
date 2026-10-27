@@ -29,6 +29,8 @@ SymbolicValue subst_expr_into_caller(const SymbolicExpr& callee_expr,
 // Substitute a callee SymbolicValue into the caller context.
 // KExpr: scalar substitution via subst_expr_into_caller.
 // KLoc:  maps L.base (callee param var) → caller arg loc, then translates offset.
+// KNull: preserved independently from integer zero.
+// KBool: translates its pointer origin; unknown origins become TOP.
 // KTop:  stays TOP.
 SymbolicValue subst_val_into_caller(const SymbolicValue& callee_val,
                                     ar::Function* callee,

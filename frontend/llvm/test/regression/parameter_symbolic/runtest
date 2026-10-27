@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eo pipefail
+
 progname=$(basename "$0")
 ikos_import="ikos-import"
 file_check="FileCheck"
@@ -33,3 +35,6 @@ done
 
 "$ikos_import" --format=no --param-symbolic invoke_pruning.ll \
     | "$file_check" invoke_pruning.ll
+
+"$ikos_import" --format=no --param-symbolic truncation.ll \
+    | "$file_check" truncation.ll

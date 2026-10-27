@@ -558,3 +558,10 @@ propagating flow(s) └───────────────────
 
 5. unified_exit이 필요하면 종류별 exit 이후에만 구성한다.
 ```
+
+## 15. Boolean origin 분석을 위한 구조 보존
+
+Exit 분리 원칙은 유지한다. Nullity Boolean-origin 복원을 수행하려면 일반 branch의
+predecessor/successor, 각 incoming assignment와 comparison을 식별할 수 있어야 한다.
+CFG 구조만으로 non-null을 가정하지 않는다. 완전한 Boolean 생성 분기의 인식과
+정규화는 DEV_SUMMARY.md §9 및 DEV_TRANSFER_FUNCTION.md §3.2에서 정의한다.

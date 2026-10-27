@@ -13,8 +13,8 @@
 #include <ikos/analyzer/analysis/context.hpp>
 #include <ikos/analyzer/analysis/literal.hpp>
 #include <ikos/analyzer/analysis/parameter_symbolic.hpp>
-#include <ikos/analyzer/util/log.hpp>
 #include <ikos/analyzer/analysis/variable.hpp>
+#include <ikos/analyzer/util/log.hpp>
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/symbolic_fixpoint.hpp>
 
 namespace ikos {
@@ -46,7 +46,8 @@ bool add_symbolic_expr(CallerLinearForm& form,
     }
 
     ar::Value* argument = call->argument(static_cast< unsigned >(index));
-    if (!argument->type()->is_integer()) return false;
+    if (!argument->type()->is_integer())
+      return false;
 
     const ScalarLit& literal = ctx.lit_factory->get_scalar(argument);
     ZNumber coefficient = ZNumber(multiplier) * ZNumber(term.second);
@@ -96,12 +97,18 @@ core::machine_int::Predicate reverse_predicate(
     core::machine_int::Predicate predicate) {
   using P = core::machine_int::Predicate;
   switch (predicate) {
-    case P::EQ: return P::EQ;
-    case P::NE: return P::NE;
-    case P::GT: return P::LT;
-    case P::GE: return P::LE;
-    case P::LT: return P::GT;
-    case P::LE: return P::GE;
+    case P::EQ:
+      return P::EQ;
+    case P::NE:
+      return P::NE;
+    case P::GT:
+      return P::LT;
+    case P::GE:
+      return P::LE;
+    case P::LT:
+      return P::GT;
+    case P::LE:
+      return P::GE;
   }
   ikos_unreachable("unexpected machine integer predicate");
 }
@@ -111,17 +118,65 @@ bool eval_constant_predicate(const ZNumber& left,
                              const ZNumber& right) {
   using P = core::machine_int::Predicate;
   switch (predicate) {
-    case P::EQ: return left == right;
-    case P::NE: return left != right;
-    case P::GT: return left > right;
-    case P::GE: return left >= right;
-    case P::LT: return left < right;
-    case P::LE: return left <= right;
+    case P::EQ:
+      return left == right;
+    case P::NE:
+      return left != right;
+    case P::GT:
+      return left > right;
+    case P::GE:
+      return left >= right;
+    case P::LT:
+      return left < right;
+    case P::LE:
+      return left <= right;
   }
   ikos_unreachable("unexpected machine integer predicate");
 }
 
 enum class AtomResult { Applied, Tautology, Contradiction };
+
+AtomResult apply_pointer_nullity(value::MemoryAbstractDomain& state,
+                                 ar::Value* pointer,
+                                 bool non_null,
+                                 Context& ctx) {
+  if (!pointer->type()->is_pointer())
+    return AtomResult::Tautology;
+  const ScalarLit& literal = ctx.lit_factory->get_scalar(pointer);
+  if (literal.is_null()) {
+    return non_null ? AtomResult::Contradiction : AtomResult::Tautology;
+  }
+  if (!literal.is_pointer_var())
+    return AtomResult::Tautology;
+  if (non_null)
+    state.nullity_assert_non_null(literal.var());
+  else
+    state.nullity_assert_null(literal.var());
+  return state.is_bottom() ? AtomResult::Contradiction : AtomResult::Applied;
+}
+
+AtomResult apply_boolean_nullity(value::MemoryAbstractDomain& state,
+                                 const SymbolicConstraint& constraint,
+                                 Context& ctx,
+                                 ar::CallBase* call) {
+  int index;
+  bool truth;
+  using namespace frontend::parameter_symbolic;
+  if (!boolean_constraint_value(constraint, index, truth) || index < 0 ||
+      static_cast< std::size_t >(index) >= call->num_arguments()) {
+    return AtomResult::Tautology;
+  }
+  NullityBoolOrigin origin =
+      find_nullity_bool_origin(call->argument(static_cast< unsigned >(index)),
+                               call->parent()->code(),
+                               call->parent());
+  if (!origin.pointer)
+    return AtomResult::Tautology;
+  return apply_pointer_nullity(state,
+                               origin.pointer,
+                               truth ? origin.non_null : !origin.non_null,
+                               ctx);
+}
 
 bool is_direct_unsigned_operand(const SymbolicExpr& expr) {
   return expr.coeffs.empty() ||
@@ -135,6 +190,19 @@ AtomResult apply_atom(value::MemoryAbstractDomain& state,
                       ar::CallBase* call) {
   if (constraint.kind == SymbolicConstraint::KTrue) {
     return AtomResult::Tautology;
+  }
+  if (constraint.kind == SymbolicConstraint::KFalse)
+    return AtomResult::Contradiction;
+  if (constraint.kind == SymbolicConstraint::KNullity) {
+    int index = constraint.pointer_parameter;
+    if (index < 0 ||
+        static_cast< std::size_t >(index) >= call->num_arguments()) {
+      return AtomResult::Tautology;
+    }
+    return apply_pointer_nullity(state,
+                                 call->argument(static_cast< unsigned >(index)),
+                                 constraint.non_null,
+                                 ctx);
   }
 
   if (constraint.predicate >= ar::Comparison::_BeginUnsignedIntegerPred &&
@@ -167,7 +235,8 @@ AtomResult apply_atom(value::MemoryAbstractDomain& state,
     if (coefficient != 1 && coefficient != -1) {
       return AtomResult::Tautology;
     }
-    if (coefficient == -1) predicate = reverse_predicate(predicate);
+    if (coefficient == -1)
+      predicate = reverse_predicate(predicate);
 
     auto* type = ar::cast< ar::IntegerType >(variable->type());
     MachineInt constant(-form.constant * coefficient,
@@ -198,104 +267,12 @@ AtomResult apply_atom(value::MemoryAbstractDomain& state,
   return AtomResult::Tautology;
 }
 
-// If `bool_arg` (a 1-bit integer ar::Value) is the result of a pointer ≠ null
-// comparison in the caller body, return the corresponding pointer Variable*.
-// Returns null if the relationship cannot be determined.
-static Variable* find_ptr_for_bool_arg(Context& ctx,
-                                       ar::CallBase* call,
-                                       ar::Value* bool_arg) {
-  auto* iv = ar::dyn_cast< ar::InternalVariable >(bool_arg);
-  if (!iv) return nullptr;
-
-  ar::Code* code = call->parent()->code();
-  ar::Function* caller = code->function_or_null();
-  if (!caller || !caller->is_definition()) return nullptr;
-
-  for (ar::BasicBlock* bb : *caller->body()) {
-    bool has_assign_one = false;
-    for (ar::Statement* stmt : *bb) {
-      if (auto* assign = ar::dyn_cast< ar::Assignment >(stmt)) {
-        if (assign->result() == iv) {
-          if (auto* ic =
-                  ar::dyn_cast< ar::IntegerConstant >(assign->operand())) {
-            if (!ic->value().is_zero()) has_assign_one = true;
-          }
-        }
-      }
-    }
-    if (!has_assign_one) continue;
-
-    // Found a block where iv is assigned a non-zero (true) value.
-    // Check if the same block contains a "ptr != null" Comparison.
-    for (ar::Statement* stmt : *bb) {
-      if (auto* cmp = ar::dyn_cast< ar::Comparison >(stmt)) {
-        if (cmp->predicate() != ar::Comparison::PNE) continue;
-
-        ar::Value* ptr_val = nullptr;
-        if (ar::isa< ar::NullConstant >(cmp->right()) &&
-            cmp->left()->type()->is_pointer()) {
-          ptr_val = cmp->left();
-        } else if (ar::isa< ar::NullConstant >(cmp->left()) &&
-                   cmp->right()->type()->is_pointer()) {
-          ptr_val = cmp->right();
-        }
-        if (!ptr_val) continue;
-
-        const ScalarLit& lit = ctx.lit_factory->get_scalar(ptr_val);
-        if (lit.is_pointer_var()) return lit.var();
-      }
-    }
-  }
-  return nullptr;
-}
-
-// After applying integer constraints from a callee's normal-exit condition,
-// also propagate pointer non-null information: if a bool argument is
-// constrained to true and it came from a "ptr != null" comparison in the
-// caller, assert ptr is non-null.
-static void apply_bool_ptr_nullity(value::MemoryAbstractDomain& state,
-                                   const SymbolicCondition& condition,
-                                   Context& ctx,
-                                   ar::CallBase* call) {
-  for (const SymbolicCondition::Conjunction& conjunction :
-       condition.disjuncts) {
-    for (const SymbolicConstraint& constraint : conjunction) {
-      if (constraint.kind == SymbolicConstraint::KTrue) continue;
-
-      // We only handle the pattern: single-param expr == 1
-      const SymbolicExpr& lhs = constraint.left;
-      const SymbolicExpr& rhs = constraint.right;
-      bool lhs_single_param = (lhs.coeffs.size() == 1 &&
-                                lhs.coeffs.begin()->second == 1 &&
-                                lhs.constant == 0);
-      bool rhs_is_one =
-          (rhs.coeffs.empty() && rhs.constant == 1);
-      bool eq_predicate = (constraint.predicate == ar::Comparison::UIEQ ||
-                           constraint.predicate == ar::Comparison::SIEQ);
-
-      if (!lhs_single_param || !rhs_is_one || !eq_predicate) continue;
-
-      int idx = lhs.coeffs.begin()->first;
-      if (idx < 0 ||
-          static_cast< std::size_t >(idx) >= call->num_arguments()) continue;
-
-      ar::Value* arg = call->argument(static_cast< unsigned >(idx));
-      auto* int_ty = ar::dyn_cast< ar::IntegerType >(arg->type());
-      if (!int_ty || int_ty->bit_width() != 1) continue;
-
-      Variable* ptr_var = find_ptr_for_bool_arg(ctx, call, arg);
-      if (ptr_var) {
-        state.nullity_assert_non_null(ptr_var);
-      }
-    }
-  }
-}
-
 void prune_flow(value::MemoryAbstractDomain& flow,
                 const SymbolicCondition& condition,
                 Context& ctx,
                 ar::CallBase* call) {
-  if (flow.is_bottom() || condition.is_true()) return;
+  if (flow.is_bottom() || condition.is_true())
+    return;
   if (condition.is_false()) {
     flow.set_to_bottom();
     return;
@@ -310,11 +287,15 @@ void prune_flow(value::MemoryAbstractDomain& flow,
     value::MemoryAbstractDomain branch = base;
     for (const SymbolicConstraint& constraint : conjunction) {
       AtomResult atom = apply_atom(branch, constraint, ctx, call);
+      if (atom != AtomResult::Contradiction && !branch.is_bottom()) {
+        atom = apply_boolean_nullity(branch, constraint, ctx, call);
+      }
       if (atom == AtomResult::Contradiction) {
         branch.set_to_bottom();
         break;
       }
-      if (branch.is_bottom()) break;
+      if (branch.is_bottom())
+        break;
     }
     result.join_with(std::move(branch));
   }
@@ -335,10 +316,10 @@ void build_and_store_function_summary(Context& ctx, ar::Function* function) {
 
   frontend::parameter_symbolic::FunctionSummary summary =
       frontend::parameter_symbolic::analyze_function(function,
-                                                      &ctx.function_summaries,
-                                                      output,
-                                                      output,
-                                                      function->name());
+                                                     &ctx.function_summaries,
+                                                     output,
+                                                     output,
+                                                     function->name());
   ctx.function_summaries.put(function, std::move(summary));
 
   if (ctx.opts.trace_ar_statements) {
@@ -353,11 +334,11 @@ void apply_caller_summary(Context& ctx,
                           ar::Function* callee) {
   const frontend::parameter_symbolic::FunctionSummary* summary =
       ctx.function_summaries.get(callee);
-  if (summary == nullptr) return;
+  if (summary == nullptr)
+    return;
 
   if (ctx.opts.trace_ar_statements) {
-    log::debug("Applying caller summary for function '" + callee->name() +
-               "'");
+    log::debug("Applying caller summary for function '" + callee->name() + "'");
   }
 
   if (summary->normal.available) {
@@ -365,10 +346,6 @@ void apply_caller_summary(Context& ctx,
       invariant.set_normal_flow_to_bottom();
     } else {
       prune_flow(invariant.normal(), summary->normal.condition, ctx, call);
-      apply_bool_ptr_nullity(invariant.normal(),
-                             summary->normal.condition,
-                             ctx,
-                             call);
     }
   }
 

@@ -18,11 +18,13 @@ SymbolicValue subst_expr_into_caller(
   for (const auto& kv : callee_expr.coeffs) {
     int idx = kv.first;
     int coeff = kv.second;
-    if (coeff == 0) continue;
+    if (coeff == 0)
+      continue;
     if (idx < 0 || static_cast< std::size_t >(idx) >= arg_vals.size())
       return SymbolicValue::top();
     const SymbolicValue& arg = arg_vals[static_cast< std::size_t >(idx)];
-    if (!arg.is_expr()) return SymbolicValue::top();
+    if (!arg.is_expr())
+      return SymbolicValue::top();
     result = result + (arg.expr * coeff);
   }
 
@@ -33,7 +35,26 @@ SymbolicValue subst_val_into_caller(
     const SymbolicValue& callee_val,
     ar::Function* callee,
     const std::vector< SymbolicValue >& arg_vals) {
-  if (callee_val.is_top()) return SymbolicValue::top();
+  if (callee_val.is_top())
+    return SymbolicValue::top();
+  if (callee_val.is_null())
+    return SymbolicValue::null();
+
+  if (callee_val.is_bool()) {
+    SymbolicValue pointer =
+        subst_val_into_caller(SymbolicValue::from_loc(callee_val.loc),
+                              callee,
+                              arg_vals);
+    if (pointer.is_null()) {
+      return SymbolicValue::from_expr(SymbolicExpr::from_const(
+                                          callee_val.non_null ? 0 : 1),
+                                      true);
+    }
+    if (pointer.is_loc() && pointer_parameter_index(pointer.loc) >= 0) {
+      return SymbolicValue::from_bool(pointer.loc, callee_val.non_null);
+    }
+    return SymbolicValue::top();
+  }
 
   if (callee_val.is_expr()) {
     return subst_expr_into_caller(callee_val.expr, arg_vals);
@@ -45,7 +66,8 @@ SymbolicValue subst_val_into_caller(
   // Find the index of L.base among callee parameters.
   int param_idx = -1;
   int scan = 0;
-  for (auto it = callee->param_begin(); it != callee->param_end(); ++it, ++scan) {
+  for (auto it = callee->param_begin(); it != callee->param_end();
+       ++it, ++scan) {
     if (*it == L.base) {
       param_idx = scan;
       break;
@@ -59,11 +81,17 @@ SymbolicValue subst_val_into_caller(
 
   const SymbolicValue& base_arg =
       arg_vals[static_cast< std::size_t >(param_idx)];
-  if (!base_arg.is_loc()) return SymbolicValue::top();
+  if (base_arg.is_null() && L.offset.is_const() && L.offset.constant == 0) {
+    return SymbolicValue::null();
+  }
+  if (!base_arg.is_loc())
+    return SymbolicValue::top();
 
-  // Translate the callee offset (linear over callee params) into caller context.
+  // Translate the callee offset (linear over callee params) into caller
+  // context.
   SymbolicValue offset_val = subst_expr_into_caller(L.offset, arg_vals);
-  if (!offset_val.is_expr()) return SymbolicValue::top();
+  if (!offset_val.is_expr())
+    return SymbolicValue::top();
 
   SymbolicLoc result_loc;
   result_loc.base = base_arg.loc.base;
@@ -82,19 +110,48 @@ SymbolicCondition subst_condition_into_caller(
        callee_condition.disjuncts) {
     SymbolicCondition translated = SymbolicCondition::make_true();
     for (const SymbolicConstraint& constraint : conjunction) {
-      if (constraint.kind == SymbolicConstraint::KTrue) continue;
+      if (constraint.kind == SymbolicConstraint::KTrue)
+        continue;
+      if (constraint.kind == SymbolicConstraint::KFalse) {
+        translated.add_constraint(constraint);
+        break;
+      }
 
-      SymbolicValue left =
-          subst_expr_into_caller(constraint.left, arg_vals);
-      SymbolicValue right =
-          subst_expr_into_caller(constraint.right, arg_vals);
+      if (constraint.kind == SymbolicConstraint::KNullity) {
+        int index = constraint.pointer_parameter;
+        if (index >= 0 && static_cast< std::size_t >(index) < arg_vals.size()) {
+          translated.add_constraint(
+              nullity_constraint(arg_vals[static_cast< std::size_t >(index)],
+                                 constraint.non_null));
+        }
+        continue;
+      }
+
+      int boolean_index;
+      bool truth;
+      if (boolean_constraint_value(constraint, boolean_index, truth) &&
+          boolean_index >= 0 &&
+          static_cast< std::size_t >(boolean_index) < arg_vals.size() &&
+          arg_vals[static_cast< std::size_t >(boolean_index)].is_bool()) {
+        const SymbolicValue& boolean =
+            arg_vals[static_cast< std::size_t >(boolean_index)];
+        translated.add_constraint(
+            nullity_constraint(SymbolicValue::from_loc(boolean.loc),
+                               truth ? boolean.non_null : !boolean.non_null));
+        continue;
+      }
+
+      SymbolicValue left = subst_expr_into_caller(constraint.left, arg_vals);
+      SymbolicValue right = subst_expr_into_caller(constraint.right, arg_vals);
       if (!left.is_expr() || !right.is_expr()) {
         // Unrepresentable atoms are weakened to true.
         continue;
       }
 
-      translated.add_constraint(SymbolicConstraint::make_param(
-          constraint.predicate, left.expr, right.expr));
+      translated.add_constraint(
+          SymbolicConstraint::make_param(constraint.predicate,
+                                         left.expr,
+                                         right.expr));
     }
     result.join_with(translated);
   }
@@ -106,11 +163,10 @@ SymbolicCondition subst_condition_into_caller(
 // Memory effect application
 // ---------------------------------------------------------------------------
 
-void apply_memory_summary(
-    SymbolicState& caller_state,
-    const std::map< SymbolicLoc, SymbolicValue >& mu_exit,
-    ar::Function* callee,
-    const std::vector< SymbolicValue >& arg_vals) {
+void apply_memory_summary(SymbolicState& caller_state,
+                          const std::map< SymbolicLoc, SymbolicValue >& mu_exit,
+                          ar::Function* callee,
+                          const std::vector< SymbolicValue >& arg_vals) {
   std::map< SymbolicLoc, SymbolicValue > translated;
   for (const auto& kv : mu_exit) {
     SymbolicValue target =
@@ -118,7 +174,8 @@ void apply_memory_summary(
                               callee,
                               arg_vals);
     // If we cannot resolve the target location, skip conservatively.
-    if (!target.is_loc()) continue;
+    if (!target.is_loc())
+      continue;
 
     SymbolicValue value = subst_val_into_caller(kv.second, callee, arg_vals);
     auto result = translated.emplace(target.loc, value);
@@ -134,8 +191,7 @@ void apply_memory_summary(
 }
 
 void invalidate_pointer_arguments(
-    SymbolicState& caller_state,
-    const std::vector< SymbolicValue >& arg_vals) {
+    SymbolicState& caller_state, const std::vector< SymbolicValue >& arg_vals) {
   for (auto it = caller_state.mu.begin(); it != caller_state.mu.end(); ++it) {
     for (const SymbolicValue& arg : arg_vals) {
       if (arg.is_loc() && it->first.base == arg.loc.base) {
@@ -153,7 +209,8 @@ void invalidate_pointer_arguments(
 namespace {
 
 ar::Function* direct_callee(ar::CallBase* call) {
-  if (!ar::isa< ar::FunctionPointerConstant >(call->called())) return nullptr;
+  if (!ar::isa< ar::FunctionPointerConstant >(call->called()))
+    return nullptr;
   return ar::cast< ar::FunctionPointerConstant >(call->called())->function();
 }
 
@@ -189,39 +246,39 @@ void apply_call_summary(SymbolicState& state,
   state.exec(call);
   invalidate_pointer_arguments(state, arg_vals);
 
-  if (summary == nullptr) return;
-  if (!summary->normal.available) return;
+  if (summary == nullptr)
+    return;
+  if (!summary->normal.available)
+    return;
   if (!summary->normal.has_exit) {
     state.set_to_bottom();
     return;
   }
   if (!summary->normal.mu_exit.empty()) {
-    apply_memory_summary(state,
-                         summary->normal.mu_exit,
-                         callee,
-                         arg_vals);
+    apply_memory_summary(state, summary->normal.mu_exit, callee, arg_vals);
   }
 }
 
-void apply_invoke_memory_summary(
-    SymbolicState& state,
-    ar::Invoke* invoke,
-    bool is_normal_edge,
-    const SummaryStore& store,
-    const std::vector< SymbolicValue >& arg_vals) {
+void apply_invoke_memory_summary(SymbolicState& state,
+                                 ar::Invoke* invoke,
+                                 bool is_normal_edge,
+                                 const SummaryStore& store,
+                                 const std::vector< SymbolicValue >& arg_vals) {
   ar::Function* callee = direct_callee(invoke);
   invalidate_pointer_arguments(state, arg_vals);
-  if (callee == nullptr) return;
+  if (callee == nullptr)
+    return;
 
   const FunctionSummary* summary = store.get(callee);
-  if (summary == nullptr) return;
+  if (summary == nullptr)
+    return;
 
   const std::map< SymbolicLoc, SymbolicValue >& mu_exit =
       is_normal_edge ? summary->normal.mu_exit : summary->exception.mu_exit;
   bool has_exit =
       is_normal_edge ? summary->normal.has_exit : summary->exception.has_exit;
-  bool available = is_normal_edge ? summary->normal.available
-                                  : summary->exception.available;
+  bool available =
+      is_normal_edge ? summary->normal.available : summary->exception.available;
 
   if (!available) {
     return;

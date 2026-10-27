@@ -65,6 +65,11 @@ caller의 normal 또는 exception continuation을 정제한다.
 정보로 추적한다. 함수 종료 시에는 callee의 전체 내부 상태를 전달하는 대신
 caller가 관찰할 수 있는 정보만 summary로 압축한다.
 
+현재 범위에는 pointer parameter 값의 nullity 조건과, 그 null 비교에서 생성된
+Boolean 값의 정확한 유래를 보존하는 제한적인 분기 합류 규칙이 포함된다. 예를 들어
+`guard_check(p != nullptr)`가 정상 반환하면 Boolean-origin을 통해 wrapper의 종료
+조건을 `p != nullptr`로 합성한다. 일반적인 경로 전체 보존은 요구하지 않는다.
+
 함수 `g`에 대해 생성되는 핵심 정보는 다음과 같다.
 
 ```text
@@ -97,6 +102,10 @@ require_positive의 정상 반환 조건: 첫 번째 입력 > 0
 기존 abstract state를 정제할 수 있다. 조건과 모순되는 상태는 제거되므로 이후
 분석은 `value > 0`인 실행만 고려한다.
 
+Pointer nullity는 pointer 값 자체의 제약이다. 실제 pointee target을 알 수 없어도
+caller의 actual pointer에 non-null을 적용할 수 있다. 정확한 location 해석은 memory
+effect 적용의 별도 요건이며, 값의 nullity 적용과 구분한다.
+
 Pointer/reference parameter를 통해 관찰 가능한 메모리가 변경되었다면 종료 시점의
 memory summary도 caller 상태에 반영한다. 따라서 caller는 단순히 "메모리가 변경될
 수 있다"는 사실뿐 아니라, 표현 가능한 경우 변경된 값이 입력 parameter 또는
@@ -124,10 +133,10 @@ interprocedural 분석 구조를 제공한다.
 현재 연구는 C/C++ 프로그램을 LLVM IR과 IKOS AR로 변환하여 분석하는 환경을
 대상으로 한다. 주요 범위는 scalar affine relation, pointer/reference parameter,
 parameter-relative memory, normal/exception termination condition 및 Call/Invoke
-이후의 pruning이다.
+이후의 pruning이다. Pointer nullity와 증명 가능한 Boolean 생성 분기의 origin 보존, 알려진 비재귀 callee summary의 wrapper 합성도 현재 범위에 포함한다.
 
 분석의 soundness를 위해 정확히 표현할 수 있는 symbolic relation만 유지한다.
-비선형 연산, 불명확한 pointer target, 지원하지 않는 값 또는 메모리 관계에 대해
+비선형 연산, memory effect에 필요한 불명확한 pointer target, 지원하지 않는 값 또는 메모리 관계에 대해
 임의의 조건을 만들지 않으며, 표현할 수 없는 정보는 보수적으로 추상화한다. 이
 정책은 잘못된 pruning을 피하는 대신 일부 정밀도 향상을 포기하는 방향이다.
 
@@ -140,3 +149,9 @@ CFG merge와 loop 처리, summary 생성 및 caller 적용 규칙의 구체적�
 기존 분석기가 이미 계산한 함수 내부 정보를 **함수 입력 기준의 종료 조건과
 memory effect로 재구성하고, 이를 caller의 continuation에서 다시 활용하는
 interprocedural mechanism**을 제공하는 데 있다.
+
+현재 완료 기준은 benchmark 07/09의 nullity warning 제거와, null에서도 반환 가능한
+OR guard 및 guard 없는 nullable pointer의 warning 유지이다. 보조 state는 Σ=(σ,μ)를
+유지하며 null/pointer/Boolean의 타입 의미를 구분한다. 구체적인 공통 정의와 제한은
+DEV_SUMMARY.md §2.5·9, transfer 규칙은 DEV_TRANSFER_FUNCTION.md §2.4·3.2·8.1,
+caller 적용은 DEV_PRUNING.md §5~7을 따른다.

@@ -10,10 +10,30 @@ namespace {
 
 bool same_constraint(const SymbolicConstraint& lhs,
                      const SymbolicConstraint& rhs) {
-  if (lhs.kind != rhs.kind) return false;
-  if (lhs.kind == SymbolicConstraint::KTrue) return true;
+  if (lhs.kind != rhs.kind)
+    return false;
+  if (lhs.kind == SymbolicConstraint::KTrue ||
+      lhs.kind == SymbolicConstraint::KFalse)
+    return true;
+  if (lhs.kind == SymbolicConstraint::KNullity) {
+    return lhs.pointer_parameter == rhs.pointer_parameter &&
+           lhs.non_null == rhs.non_null;
+  }
   return lhs.predicate == rhs.predicate && lhs.left == rhs.left &&
          lhs.right == rhs.right;
+}
+
+bool contains_opposite_nullity(
+    const SymbolicCondition::Conjunction& conjunction,
+    const SymbolicConstraint& constraint) {
+  for (const SymbolicConstraint& existing : conjunction) {
+    if (existing.kind == SymbolicConstraint::KNullity &&
+        existing.pointer_parameter == constraint.pointer_parameter &&
+        existing.non_null != constraint.non_null) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool contains_constraint(const SymbolicCondition::Conjunction& conjunction,
@@ -27,9 +47,11 @@ bool contains_constraint(const SymbolicCondition::Conjunction& conjunction,
 
 bool same_conjunction(const SymbolicCondition::Conjunction& lhs,
                       const SymbolicCondition::Conjunction& rhs) {
-  if (lhs.size() != rhs.size()) return false;
+  if (lhs.size() != rhs.size())
+    return false;
   for (const SymbolicConstraint& constraint : lhs) {
-    if (!contains_constraint(rhs, constraint)) return false;
+    if (!contains_constraint(rhs, constraint))
+      return false;
   }
   return true;
 }
@@ -66,34 +88,37 @@ bool SymbolicCondition::is_true() const {
 }
 
 void SymbolicCondition::join_with(const SymbolicCondition& other) {
-  if (this->is_true() || other.is_false()) return;
+  if (this->is_true() || other.is_false())
+    return;
   if (other.is_true()) {
     *this = make_true();
     return;
   }
 
   for (const Conjunction& incoming : other.disjuncts) {
-    auto subsuming = std::find_if(
-        this->disjuncts.begin(),
-        this->disjuncts.end(),
-        [&](const Conjunction& existing) {
-          return conjunction_implies(incoming, existing);
-        });
-    if (subsuming != this->disjuncts.end()) continue;
+    auto subsuming =
+        std::find_if(this->disjuncts.begin(),
+                     this->disjuncts.end(),
+                     [&](const Conjunction& existing) {
+                       return conjunction_implies(incoming, existing);
+                     });
+    if (subsuming != this->disjuncts.end())
+      continue;
 
-    this->disjuncts.erase(
-        std::remove_if(this->disjuncts.begin(),
-                       this->disjuncts.end(),
-                       [&](const Conjunction& existing) {
-                         return conjunction_implies(existing, incoming);
-                       }),
-        this->disjuncts.end());
+    this->disjuncts.erase(std::remove_if(this->disjuncts.begin(),
+                                         this->disjuncts.end(),
+                                         [&](const Conjunction& existing) {
+                                           return conjunction_implies(existing,
+                                                                      incoming);
+                                         }),
+                          this->disjuncts.end());
     this->disjuncts.push_back(incoming);
   }
 }
 
 void SymbolicCondition::meet_with(const SymbolicCondition& other) {
-  if (this->is_false() || other.is_true()) return;
+  if (this->is_false() || other.is_true())
+    return;
   if (other.is_false()) {
     *this = make_false();
     return;
@@ -119,9 +144,23 @@ void SymbolicCondition::meet_with(const SymbolicCondition& other) {
   *this = std::move(result);
 }
 
-void SymbolicCondition::add_constraint(
-    const SymbolicConstraint& constraint) {
-  if (constraint.kind == SymbolicConstraint::KTrue || this->is_false()) return;
+void SymbolicCondition::add_constraint(const SymbolicConstraint& constraint) {
+  if (constraint.kind == SymbolicConstraint::KTrue || this->is_false())
+    return;
+  if (constraint.kind == SymbolicConstraint::KFalse) {
+    *this = make_false();
+    return;
+  }
+  if (constraint.kind == SymbolicConstraint::KNullity) {
+    auto new_end =
+        std::remove_if(this->disjuncts.begin(),
+                       this->disjuncts.end(),
+                       [&](const Conjunction& conjunction) {
+                         return contains_opposite_nullity(conjunction,
+                                                          constraint);
+                       });
+    this->disjuncts.erase(new_end, this->disjuncts.end());
+  }
   for (Conjunction& conjunction : this->disjuncts) {
     if (!contains_constraint(conjunction, constraint)) {
       conjunction.push_back(constraint);
@@ -130,23 +169,24 @@ void SymbolicCondition::add_constraint(
 }
 
 bool SymbolicCondition::equals(const SymbolicCondition& other) const {
-  if (this->disjuncts.size() != other.disjuncts.size()) return false;
+  if (this->disjuncts.size() != other.disjuncts.size())
+    return false;
   for (const Conjunction& conjunction : this->disjuncts) {
-    auto matching = std::find_if(
-        other.disjuncts.begin(),
-        other.disjuncts.end(),
-        [&](const Conjunction& candidate) {
-          return same_conjunction(conjunction, candidate);
-        });
-    if (matching == other.disjuncts.end()) return false;
+    auto matching =
+        std::find_if(other.disjuncts.begin(),
+                     other.disjuncts.end(),
+                     [&](const Conjunction& candidate) {
+                       return same_conjunction(conjunction, candidate);
+                     });
+    if (matching == other.disjuncts.end())
+      return false;
   }
   return true;
 }
 
-void SymbolicCondition::dump(
-    std::ostream& o,
-    const std::vector< std::string >& param_names,
-    const std::string& indent) const {
+void SymbolicCondition::dump(std::ostream& o,
+                             const std::vector< std::string >& param_names,
+                             const std::string& indent) const {
   if (this->is_false()) {
     o << indent << "false\n";
     return;
@@ -158,14 +198,18 @@ void SymbolicCondition::dump(
 
   for (std::size_t i = 0; i < this->disjuncts.size(); ++i) {
     o << indent;
-    if (this->disjuncts.size() > 1) o << "(";
+    if (this->disjuncts.size() > 1)
+      o << "(";
     const Conjunction& conjunction = this->disjuncts[i];
     for (std::size_t j = 0; j < conjunction.size(); ++j) {
-      if (j != 0) o << " && ";
+      if (j != 0)
+        o << " && ";
       conjunction[j].dump(o, param_names);
     }
-    if (this->disjuncts.size() > 1) o << ")";
-    if (i + 1 != this->disjuncts.size()) o << " ||";
+    if (this->disjuncts.size() > 1)
+      o << ")";
+    if (i + 1 != this->disjuncts.size())
+      o << " ||";
     o << "\n";
   }
 }
@@ -259,7 +303,8 @@ SummaryStore::SummaryStore(SummaryStore&& other) noexcept {
 }
 
 SummaryStore& SummaryStore::operator=(SummaryStore&& other) noexcept {
-  if (this == &other) return *this;
+  if (this == &other)
+    return *this;
   std::unique_lock< std::mutex > lhs_lock(this->_mutex, std::defer_lock);
   std::unique_lock< std::mutex > rhs_lock(other._mutex, std::defer_lock);
   std::lock(lhs_lock, rhs_lock);
@@ -275,7 +320,8 @@ void SummaryStore::put(ar::Function* fun, FunctionSummary summary) {
 const FunctionSummary* SummaryStore::get(ar::Function* fun) const {
   std::lock_guard< std::mutex > lock(this->_mutex);
   auto it = this->_store.find(fun);
-  if (it == this->_store.end()) return nullptr;
+  if (it == this->_store.end())
+    return nullptr;
   return &it->second;
 }
 

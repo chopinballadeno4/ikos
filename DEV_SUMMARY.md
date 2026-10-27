@@ -17,7 +17,7 @@
 다음 내용은 본 문서의 범위에서 제외한다.
 
 - caller call site에서 `C_normal`을 실제로 적용하는 방법
-- callee parameter와 caller argument의 치환
+- callee parameter와 caller argument 치환의 세부 알고리즘 (합성 시 DEV_PRUNING.md를 참조)
 - caller normal-flow pruning
 - caller memory state에 `μ_exit`를 반영하는 방법
 
@@ -35,7 +35,7 @@
 ### 2.1 σ
 
 ```text
-σ : V_SSA → Expr ∪ Loc ∪ {TOP}
+σ : V_SSA → Expr ∪ Loc ∪ {Null} ∪ BoolExpr ∪ {TOP}
 ```
 
 `σ`는 AR SSA variable의 값을 함수 entry 시점의 parameter-origin expression 또는 symbolic location으로 표현한다.
@@ -51,7 +51,7 @@
 ### 2.2 μ
 
 ```text
-μ : Loc → Expr ∪ Loc ∪ {TOP}
+μ : Loc → Expr ∪ Loc ∪ {Null} ∪ BoolExpr ∪ {TOP}
 ```
 
 `μ`는 symbolic memory location에 저장된 값을 나타낸다.
@@ -88,6 +88,35 @@ L₂
 ```
 
 또는 이에 대응하는 내부 parameter identity를 사용한다.
+
+
+### 2.5 Pointer value와 Boolean origin
+
+`Σ=(σ,μ)`와 별도 `π`를 사용하지 않는 원칙은 유지한다. `Loc`은 memory key로
+사용되며, pointer-valued `σ`/`μ` entry에서는 `PtrValue(Loc)`의 저장 표현으로도
+사용한다. 두 용도의 의미를 구분한다.
+
+```text
+P_i^0 = PtrValue(L_i)    // entry pointer parameter의 값, nullable
+PtrExpr ::= Null | PtrValue(Loc)
+BoolExpr ::= IsNull(P_i^0) | NonNull(P_i^0)
+```
+
+`L_i`의 존재는 non-null, 유효한 allocation 또는 정확한 points-to target의 증거가
+아니다. `Null`은 integer zero나 `TOP`과 구분한다. 현재 nullity summary는 offset이
+0인 parameter-origin pointer만 지원한다. 일반 pointer comparison, derived pointer의
+nullity 및 임의의 Boolean formula는 표현 불가 시 보수적으로 약화한다.
+
+Pointer parameter는 기존 parameter-relative `Loc`으로 초기화하되 pointer value로
+해석할 수 있어야 한다. Integer parameter는 기존 `Expr`로 초기화하며, unsigned
+1-bit parameter에는 값이 `{0,1}`이라는 정보를 함께 유지한다. `BoolParam(i)`는
+이 typed integer entry atom의 논리적 표기이다. Null constant는 `Null`로 평가한다.
+
+`BoolExpr`는 정확한 `{0,1}` encoding의 값 관계이다. `σ(b)=NonNull(P_i^0)`는
+현재 경로에서 pointer가 non-null이라고 가정한다는 뜻이 아니라,
+`b == 1 ⇔ P_i^0 != null`이라는 값의 유래를 뜻한다. Assignment/copy 및 정확한
+Boolean encoding 보존 cast를 통해 전달할 수 있다. Memory에 저장된 값도 확장된
+SymbolicValue를 사용할 수 있으나 기존 invalidation 정책을 따른다.
 
 
 ## 3. Function Summary
@@ -177,7 +206,22 @@ C_exception
 
 ## 5. Exit Condition 생성
 
-각 exit 경로에서 IKOS analyzer가 유지하는 constraint를 symbolic state `σ`를 이용하여 parameter-origin condition으로 환원한다.
+각 exit 경로의 조건을 symbolic state `σ`로 parameter-origin condition으로
+환원한다. 조건의 출처에는 AR `Comparison`의 integer/null 비교와, 이미 알려진
+callee의 flow별 summary를 현재 함수 문맥으로 치환한 조건이 포함된다. 기존 IKOS
+invariant에서 추가 제약을 추출할 경우에도 해당 제약의 타입과 추출 시점을
+명시해야 하며, liveness가 변수를 제거한 뒤 사라진 제약이 남아 있다고 가정하지 않는다.
+
+```text
+C_after_call,X = C_before_call ∧ θ_c(C_X(callee))
+Atom ::= IntegerComparison | IsNull(P_i^0) | NonNull(P_i^0)
+```
+
+Boolean argument의 정확한 origin이 있으면 `BooleanValue(G)==1`은 `G`,
+`BooleanValue(G)==0`은 `¬G`로 환원한다. Nullity 부정은 IsNull/NonNull 사이에서
+전환한다. 먼저 정확하게 치환·정규화한 뒤 표현 불가능한 atom만 true로 약화한다.
+Unknown의 부정을 false로 해석하지 않는다. 이 조건은 실제 exit 입력을 모두
+포함하는 필요조건(over-approximation)이며, 일반적으로 정상 반환의 충분조건은 아니다.
 
 경로 `i`에 대해:
 
@@ -368,7 +412,7 @@ Symbolic state 역시 CFG를 따라 basic block별 상태를 유지한다.
 ```text
 MergeVal(v₁, v₂) =
     v₁     if v₁ = v₂
-    TOP    otherwise
+    TOP    otherwise (아래 Boolean-origin 정규화 이후의 기본 규칙)
 ```
 
 즉:
@@ -413,7 +457,31 @@ Pred₂:
 σ_merge(x) = TOP
 ```
 
-이 정책은 path correlation을 잃지만 soundness를 유지하면서 구현 복잡도를 제한하기 위한 현재 정책이다.
+일반 relation에는 이 기본 정책을 적용한다. 다만 Boolean을 생성하는 완전한
+분기 구조는 pointwise merge 전에 정규화한다.
+
+```text
+G 경로:  b=1       ¬G 경로: b=0
+→ 각 assignment를 b=BooleanValue(G)로 정규화
+→ merge에서 동일한 BoolExpr 유지
+```
+
+현재 지원하는 G는 offset 0인 pointer parameter의 null 비교이다. 모든 definition을
+검사하여 각 assignment가 같은 pointer operand의 PEQ/PNE 조건 아래 G의 올바른
+0/1 encoding을 대입함을 증명한다. 각 definition block은 해당 comparison과
+assignment로만 구성되어야 한다. 두 branch의 기본 diamond뿐 아니라, 여러 Boolean
+인자 평가로 복제된 branch도 전체 definition이 같은 G를 표현하면 지원한다.
+Pointer operand는 동일한 AR value이며, formal parameter는 entry 이후 재대입이
+없어야 하고 그 외 value는 최대 하나의 definition만 가져야 한다.
+Definition block이 cycle에 포함되면 현재 인식 범위에서 제외한다. 사용 위치에서
+origin을 역으로 조회할 때에는 entry에서 use에 이르는 모든 경로가 검증된 assignment
+중 하나를 반드시 통과해야 한다. 단일 merge의 dominance는 이 조건의 특수한 경우이다.
+누락된/추가된 미지원 definition, TOP 또는 초기화되지 않은 경로가 있으면 기본 규칙을
+사용한다. 미지원 definition을 무시한 채 일부 branch만으로 관계를 만들지 않는다.
+
+이 규칙은 임의의 경로 전체를 보존하는 disjunctive state가 아니라, 증명한 Boolean
+값의 유래를 기존 σ에 저장하는 제한적인 확장이다. 일반 memory merge와 loop
+fixpoint 규칙은 유지한다.
 
 
 ## 10. LLVM PHI와 IKOS AR
@@ -435,7 +503,7 @@ LLVM PHI는 IKOS AR에서 명시적인 PHI statement로 남지 않을 수 있다
     ... %.0 ...
 ```
 
-따라서 symbolic analysis에서는 CFG merge 시 동일한 AR variable `%.0`에 대한 predecessor별 symbolic value를 merge해야 한다.
+따라서 symbolic analysis에서는 CFG merge 시 동일한 AR variable `%.0`에 대한 predecessor별 symbolic value를 merge해야 한다. 단, Section 9의 완전한 Boolean 생성 분기는 assignment를 동일한 BoolExpr로 정규화한 뒤 merge한다.
 
 예:
 
@@ -681,7 +749,7 @@ store %2, %.0
 
 ## 18. Branch와 Loop의 통합 CFG 정책
 
-Branch와 loop는 동일한 symbolic merge 원칙을 사용한다.
+증명 가능한 acyclic Boolean 생성 assignment를 정규화한 뒤에는 branch와 loop에 동일한 기본 symbolic merge 원칙을 사용한다.
 
 ```text
 CFG Merge:
@@ -803,15 +871,20 @@ Intraprocedural 분석에서도 함수 fixpoint가 완료되는 동일한 시점
 
 ## 21. Summary 생성 단계의 비간섭 원칙
 
-본 단계는 함수 summary를 생성하고 저장만 한다.
+본 단계는 함수 summary를 생성·합성하여 저장한다.
 
 ```text
 Function fixpoint → FunctionSummary 생성 → SummaryStore 저장
 ```
 
-이 단계에서는 callee summary를 조회하거나 caller state에 적용하지 않는다.
-따라서 summary의 존재 여부는 기존 Call/Invoke transfer, normal/exception
-successor, caller abstract state에 영향을 주지 않는다.
+이 생성 단계는 기존 IKOS abstract invariant나 call execution semantics를 직접
+변경하지 않는다. 다만 현재 함수의 summary를 생성하기 위해 이미 알려진 callee
+summary를 조회하고 parameter-origin 문맥으로 합성할 수 있다. 보조 symbolic
+memory/condition의 합성과 기존 IKOS caller state의 refinement는 구분한다.
+후자는 DEV_PRUNING.md에서 정의한다.
+
+함수당 재사용하는 summary는 함수 entry의 모든 입력에 대해 sound해야 한다.
+특정 caller context에서만 성립하는 제약을 함수 공통 summary로 저장하지 않는다.
 
 
 ## 22. Recursion과 저장
@@ -828,9 +901,9 @@ parameter 기준의 함수 단위 결과이므로 `SummaryStore`에는 함수당
 ## 23. Call Target과 Summary 생성의 분리
 
 Unresolved call 및 multiple possible callees의 summary 적용 정책은 pruning
-명세에서 정의한다. 본 단계에서는 IKOS 본 분석이 실제로 완료한 각 함수의
-summary를 독립적으로 저장할 뿐, call target에 summary를 선택하거나 적용하지
-않는다.
+명세에서 정의한다. Summary 생성 자체는 runtime call target을 선택하거나 변경하지
+않는다. 보조 symbolic 분석에서는 직접 식별된 singleton callee의 알려진 summary를
+조회해 합성하며, unresolved/multiple target에는 보수적 fallback을 적용한다.
 
 
 ## 24. Caller-Visible Summary 원칙
@@ -857,7 +930,7 @@ return-value relation
 
 ## 25. 향후 정밀도 확장
 
-현재 CFG merge는 구현 단순성과 soundness를 우선하여 서로 다른 symbolic value를 `TOP`으로 병합한다.
+현재 CFG merge는 증명 가능한 Boolean 생성 패턴을 먼저 정규화하고, 그 외 서로 다른 symbolic value는 `TOP`으로 병합한다.
 
 향후 다음 방식으로 확장할 수 있다.
 
@@ -869,7 +942,7 @@ return-value relation
 5. loop에 대한 보다 정밀한 symbolic invariant 추론
 ```
 
-현재 버전에서는 위 기능을 구현하지 않는다.
+현재 범위에는 Section 9의 제한적인 nullity Boolean-origin 보존만 포함한다. 위 목록의 일반적인 path sensitivity와 임의의 guarded/disjunctive value는 후속 확장이다.
 
 
 ## 26. 핵심 Invariant
@@ -885,7 +958,7 @@ return-value relation
 
 4. CFG merge에서 동일한 symbolic value는 유지한다.
 
-5. CFG merge에서 서로 다른 symbolic value는 TOP으로 병합한다.
+5. 증명 가능한 nullity Boolean 생성 패턴을 정규화한 뒤, 서로 다른 symbolic value는 TOP으로 병합한다.
 
 6. Loop는 IKOS의 기존 WTO fixpoint lifecycle을 사용한다.
 
@@ -949,7 +1022,8 @@ Transfer-function 명세는 본 문서에서 확정된 다음 정책과 일관�
 
 CFG merge:
     same → same
-    different → TOP
+    proved Boolean construction → 동일 BoolExpr로 정규화
+    different → TOP (그 외 기본 규칙)
 
 Loop:
     IKOS WTO lifecycle + symbolic merge
@@ -995,3 +1069,18 @@ Call / Invoke의 normal/exception successor 처리
 ```
 
 따라서 본 문서는 FunctionSummary의 생성까지를 책임지고, caller-side pruning 및 summary application은 책임지지 않는다.
+
+## 29. Nullity guard 완료 기준
+
+```text
+07: C_normal(guard_non_null) = NonNull(P_0^0)
+09: σ(cond) = BooleanValue(NonNull(P_0^0))
+    C_normal(guard_check) = cond_0 == 1
+    C_normal(check_ptr) = NonNull(P_0^0)
+```
+
+Caller에서는 pointee target을 모르는 actual pointer에도 nullity 조건을 적용하여
+07/09의 역참조 nullity warning을 제거해야 한다. Guard 없는 nullable pointer 및
+`guard_either(ptr != null, flag)`는 warning을 유지해야 한다. 지원하지 않는
+Boolean 생성/cast/derived-pointer relation은 TOP 또는 true로 약화한다.
+Return-value summary나 일반적인 path partitioning은 이 완료 기준의 전제가 아니다.

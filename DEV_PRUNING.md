@@ -77,12 +77,14 @@ call site 처리 과정의 서로 다른 시점을 나타낸다.
 | 기호 | 의미 |
 | --- | --- |
 | `Σ` | Parameter-origin relation을 보존하는 보조 symbolic state |
-| `σ` | Scalar value를 symbolic expression에 연결하는 환경 |
+| `σ` | Scalar/pointer/Boolean value를 parameter-origin symbolic value에 연결하는 환경 |
 | `μ` | Caller-visible location을 symbolic value에 연결하는 memory |
 | `Σ_c^pre` | Call 직전의 symbolic state snapshot |
 | `Σ_{c,X}^base` | 기존 call effect를 보수적으로 적용한 flow `X`의 symbolic state |
 | `Σ_{c,X}^post` | Memory summary까지 적용한 flow `X`의 symbolic state |
-| `Expr` | 지원되는 parameter-origin symbolic expression |
+| `Expr` | 지원되는 parameter-origin affine expression |
+| `PtrExpr` | Null 또는 PtrValue(Loc); pointer 값이며 target의 유효성을 가정하지 않음 |
+| `BoolExpr` | 증명된 nullity predicate의 정확한 0/1 encoding |
 | `Loc` | 지원되는 symbolic memory location |
 | `TOP` | 정확한 symbolic relation을 표현할 수 없음 |
 
@@ -95,7 +97,8 @@ call site 처리 과정의 서로 다른 시점을 나타낸다.
 | 기호 | 의미 |
 | --- | --- |
 | `p_i^0` | Callee 진입 시점의 `i`번째 scalar parameter 값 |
-| `L_i` | Pointer/reference parameter `p_i`가 가리키는 entry location |
+| `P_i^0` | Entry pointer parameter 값, 기존 Loc 표현의 PtrValue(L_i) view |
+| `L_i` | Pointer/reference parameter를 통한 entry memory location |
 | `L + δ` | `L`로부터 정확한 offset `δ`에 있는 derived location |
 | `v^0(L)` | Callee 진입 시점 location `L`의 scalar content |
 | `ℓ^0(L)` | Callee 진입 시점 location `L`의 pointer-valued content |
@@ -297,7 +300,7 @@ Summary_X(g) = Unavailable
 
 ```text
 κ_c : CalleeAtom → CallerARValue | CallerSnapshot | unrepresentable
-θ_c : CalleeAtom → Expr | Loc | TOP
+θ_c : CalleeAtom → Expr | Loc | Null | BoolExpr | TOP
 ```
 
 `κ_c`는 현재 call site의 IKOS state를 즉시 pruning하거나 refinement하기 위한
@@ -325,6 +328,20 @@ Actual argument의 bitwidth, signedness 및 cast 의미를 callee parameter 타�
 `TOP`으로 처리한다.
 
 ### 5.3 Pointer/reference parameter
+
+포인터 값과 메모리 위치의 mapping을 구분한다.
+
+```text
+κ_c(P_i^0) = actual pointer value arg_i
+θ_c(P_i^0) = EvalPointer(arg_i, Σ_c^pre)
+```
+
+Pointer nullity condition 적용에는 정확한 pointee location이나 single-target
+points-to 정보를 요구하지 않는다. κ로 actual pointer에 적용할 수 있으면 θ가 TOP인
+경우에도 현재 caller state를 정제할 수 있다. 따라서 get_ptr() 반환값의 symbolic
+origin이 TOP이어도 actual pointer 변수에 NonNull 조건을 적용할 수 있다.
+
+아래 location mapping의 정확성 요건은 memory 접근/effect에 적용한다.
 
 ```text
 κ_c(L_i) = ResolveLoc(arg_i, A_c^pre)
@@ -427,6 +444,24 @@ Affine expression 내부의 모든 callee entry atom을 재귀적으로 치환�
 
 ### 6.3 표현 가능한 atom
 
+Integer comparison 외에 IsNull(P_i^0), NonNull(P_i^0)를 지원한다. Null constant는
+별도로 보존한다. θ 치환으로 pointer origin이 바뀌면 해당 caller parameter identity를
+사용하고, κ 치환은 actual pointer value를 직접 사용한다. Offset 0의 origin만
+지원하며 derived pointer 관계를 base pointer의 nullity로 대체하지 않는다.
+
+Boolean actual argument는 증명된 exact origin을 이용한다.
+
+```text
+θ_c(cond_i^0) = BooleanValue(G)
+cond_i^0 == 1 또는 != 0 → G
+cond_i^0 == 0 또는 != 1 → ¬G
+```
+
+κ의 Boolean-origin 조회도 전체 definition과 모든 entry-to-use 경로의 definition 통과를
+증명해야 한다(DEV_TRANSFER_FUNCTION.md §3.2). 한 block에서 true assignment와
+pointer comparison을 발견한 것만으로 관계를 가정하지 않는다. Unknown은 부정해도
+unknown이며, 정규화 후 미지원 atom을 true로 약화한다.
+
 Atomic constraint의 모든 operand가 안전하게 치환되면 같은 predicate를 유지한
 caller constraint를 생성한다.
 
@@ -475,6 +510,14 @@ Disjunction 구조는 유지한다. 여기의 논리 disjunction `∨`는 abstra
 ### 7.1 Conjunction 적용
 
 ```text
+Assume(A, NonNull(ptr)) = ptr nullity를 non-null과 교차 정제
+Assume(A, IsNull(ptr))  = ptr nullity를 null과 교차 정제
+```
+
+Contradiction이면 해당 branch는 bottom이다. Pointer target 해석이나 memory access를
+수행하지 않는다. 이 refinement는 integer Assume와 동일하게 conjunction 내부에서 수행한다.
+
+```text
 PruneFlow(A, c_1 ∧ ... ∧ c_n)
     = Assume(...Assume(Assume(A, c_1), c_2)..., c_n)
 ```
@@ -494,6 +537,10 @@ PruneFlow(⊥, C)     = ⊥
 PruneFlow(A, D_1 ∨ ... ∨ D_m)
     = ⊔ { PruneFlow(A, D_i) | PruneFlow(A, D_i) ≠ ⊥ }
 ```
+
+Integer, pointer nullity 및 Boolean-origin refinement는 모두 각 disjunct의 state
+안에서 수행한 후 join한다. 일부 disjunct에만 있는 non-null 조건을 join 뒤의 전체
+state에 강제하지 않는다. 이 규칙은 normal/exception 두 flow에 동일하게 적용한다.
 
 모든 disjunct는 동일한 입력 state `A`에서 독립적으로 시작한다. 하나의 state에
 disjunct를 순차 적용하면 conjunction 의미가 되므로 허용하지 않는다.
@@ -591,7 +638,8 @@ A_{c,X}^post = A_{c,X}^pruned
 ```
 
 정확한 relation은 flow별 base symbolic state에 기록한다. Pointer-valued effect의
-value는 `Loc`으로 저장한다.
+value는 `Loc`의 pointer-value view 또는 `Null`로 저장한다. Boolean-valued effect는
+정확히 표현할 수 있을 때 `BoolExpr`로 전달하고, 기존 memory invalidation을 유지한다.
 
 ### 8.5 `TOP` value
 
@@ -910,7 +958,7 @@ Input(c) = (A_c^pre, Σ_c^pre, Targets(c), Summary(g))
 7. 표현 가능한 memory relation으로 IKOS state를 refinement한다.
 8. Symbolic memory에 정확한 relation을 적용하고 불확실한 relation에는 `TOP` 또는
    invalidation을 적용한다.
-9. 살아남은 `C_{c,X}^Σ`를 caller exit-condition 생성 과정에 전달한다.
+9. 살아남은 `C_{c,X}^Σ`를 caller exit-condition 생성 과정에 전달하고, call 이전 조건과 논리곱으로 합성한다. θ 변환 실패는 독립적인 κ 적용을 취소하지 않는다.
 
 ### 11.5 통합 의사코드
 
@@ -957,7 +1005,8 @@ ApplyCallerSummary(c, A_pre, Sigma_pre):
         post_A_X := RefineMemory(pruned_A_X, effects_A_X)
         post_S_X := ApplySymbolicMemory(base_S_X, effects_S_X)
 
-        forward C_S_X to caller exit-condition construction
+        forward (caller_condition_before_call AND C_S_X)
+            to caller exit-condition construction
         status_X := Applied or PartiallyApplied
 
     return RouteCallOrInvoke(post states and statuses)
@@ -1087,7 +1136,8 @@ Call의 caught-to-propagated 변환 또는 Invoke edge 선택
   처리를 그대로 사용한다.
 - DNF의 각 conjunction은 같은 base state에서 시작하고, 결과를 IKOS join으로
   결합한다.
-- IKOS machine-integer API로 직접 표현할 수 있는 constant, 단일 변수와 상수,
+- Pointer nullity는 actual pointer value에 적용하며, 증명한 Boolean-origin의 nullity도 각 DNF branch 안에서 적용한다.
+- Integer atom은 IKOS machine-integer API로 직접 표현할 수 있는 constant, 단일 변수와 상수,
   또는 offset 없는 두 변수 비교만 적용한다. 그 외 atom은 `true`로 약화한다.
 - Unsigned affine comparison은 유한 bitwidth에서 항 이항이 동치가 아닐 수 있으므로
   direct parameter/constant 형태만 적용한다.
@@ -1115,5 +1165,16 @@ Wrapping 가능성이 있는 integer add/sub/mul/shift는 affine relation으로 
 - IKOS memory domain에 대한 별도 summary 기반 `RefineMemory`
 - Modifies-set을 이용한 unchanged memory 보존
 - Aggregate, vector 및 byte-range memory relation
-- Disjunctive abstract domain 또는 path partitioning
+- 일반적인 Disjunctive abstract domain 또는 path partitioning (제한적인 nullity Boolean-origin 보존은 현재 범위)
 - 복잡한 alias relation과 weak update 정밀화
+
+## 14. Nullity guard 적용 검증 기준
+
+07의 direct pointer guard와 09의 Boolean wrapper는 모두 actual pointer에 non-null을
+전달해야 한다. 09에서는 inner guard의 cond==1이 Boolean-origin 치환으로 wrapper의
+NonNull(P_0^0)가 되어야 한다. --analyses=nullity에서 두 역참조 warning은 0이어야 한다.
+
+반대로 guard가 없거나 `guard_either(ptr != null, flag)`처럼 null에서도 정상 반환할
+수 있으면 warning을 유지한다. Null guard의 반대 encoding, null actual argument,
+추가 incoming definition, unsafe cast 및 미지원 pointer offset도 회귀 검증한다.
+Trace 옵션 유무와 병렬/순차 분석 모두에서 semantic 결과가 같아야 한다.
