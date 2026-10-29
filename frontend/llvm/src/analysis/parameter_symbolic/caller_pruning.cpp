@@ -103,59 +103,72 @@ SymbolicValue subst_val_into_caller(
 
 SymbolicCondition subst_condition_into_caller(
     const SymbolicCondition& callee_condition,
-    const std::vector< SymbolicValue >& arg_vals) {
+    const std::vector< SymbolicValue >& arg_vals,
+    const std::vector< ConditionExpr >& typed_args,
+    bool* fully_substituted) {
   SymbolicCondition result = SymbolicCondition::make_false();
-
-  for (const SymbolicCondition::Conjunction& conjunction :
-       callee_condition.disjuncts) {
-    SymbolicCondition translated = SymbolicCondition::make_true();
-    for (const SymbolicConstraint& constraint : conjunction) {
-      if (constraint.kind == SymbolicConstraint::KTrue)
-        continue;
-      if (constraint.kind == SymbolicConstraint::KFalse) {
-        translated.add_constraint(constraint);
+  if (fully_substituted)
+    *fully_substituted = true;
+  for (const auto& conjunction : callee_condition.disjuncts) {
+    auto translated = SymbolicCondition::make_true();
+    for (const auto& c : conjunction) {
+      SymbolicConstraint atom = SymbolicConstraint::make_unknown();
+      if (c.kind == SymbolicConstraint::KTrue ||
+          c.kind == SymbolicConstraint::KFalse)
+        atom = c;
+      else if (c.kind == SymbolicConstraint::KNullity) {
+        int i = c.pointer_parameter;
+        if (i >= 0 && static_cast< std::size_t >(i) < arg_vals.size())
+          atom = nullity_constraint(arg_vals[static_cast< std::size_t >(i)],
+                                    c.non_null);
+      } else {
+        int bi;
+        bool truth;
+        if (boolean_constraint_value(c, bi, truth) && bi >= 0 &&
+            static_cast< std::size_t >(bi) < arg_vals.size() &&
+            arg_vals[static_cast< std::size_t >(bi)].is_bool()) {
+          const auto& boolean = arg_vals[static_cast< std::size_t >(bi)];
+          atom =
+              nullity_constraint(SymbolicValue::from_loc(boolean.loc),
+                                 truth ? boolean.non_null : !boolean.non_null);
+        } else if (c.kind == SymbolicConstraint::KTyped) {
+          auto subst = [&](int i, uint64_t w, core::Signedness sign) {
+            if (i >= 0 && static_cast< std::size_t >(i) < typed_args.size() &&
+                typed_args[static_cast< std::size_t >(i)])
+              return ConditionExpr::cast(typed_args[static_cast< std::size_t >(
+                                             i)],
+                                         w,
+                                         sign);
+            if (i >= 0 && static_cast< std::size_t >(i) < arg_vals.size() &&
+                arg_vals[static_cast< std::size_t >(i)].is_expr())
+              return condition_expr_from_affine(arg_vals[static_cast<
+                                                             std::size_t >(i)]
+                                                    .expr,
+                                                w,
+                                                sign);
+            return ConditionExpr{};
+          };
+          atom =
+              SymbolicConstraint::make_typed(c.predicate,
+                                             c.typed_left.substitute(subst),
+                                             c.typed_right.substitute(subst));
+        } else if (c.kind == SymbolicConstraint::KParam) {
+          auto l = subst_expr_into_caller(c.left, arg_vals),
+               r = subst_expr_into_caller(c.right, arg_vals);
+          if (l.is_expr() && r.is_expr())
+            atom = SymbolicConstraint::make_param(c.predicate, l.expr, r.expr);
+        }
+      }
+      if (atom.kind == SymbolicConstraint::KUnknown) {
+        if (fully_substituted)
+          *fully_substituted = false;
+        translated = SymbolicCondition::make_false();
         break;
       }
-
-      if (constraint.kind == SymbolicConstraint::KNullity) {
-        int index = constraint.pointer_parameter;
-        if (index >= 0 && static_cast< std::size_t >(index) < arg_vals.size()) {
-          translated.add_constraint(
-              nullity_constraint(arg_vals[static_cast< std::size_t >(index)],
-                                 constraint.non_null));
-        }
-        continue;
-      }
-
-      int boolean_index;
-      bool truth;
-      if (boolean_constraint_value(constraint, boolean_index, truth) &&
-          boolean_index >= 0 &&
-          static_cast< std::size_t >(boolean_index) < arg_vals.size() &&
-          arg_vals[static_cast< std::size_t >(boolean_index)].is_bool()) {
-        const SymbolicValue& boolean =
-            arg_vals[static_cast< std::size_t >(boolean_index)];
-        translated.add_constraint(
-            nullity_constraint(SymbolicValue::from_loc(boolean.loc),
-                               truth ? boolean.non_null : !boolean.non_null));
-        continue;
-      }
-
-      SymbolicValue left = subst_expr_into_caller(constraint.left, arg_vals);
-      SymbolicValue right = subst_expr_into_caller(constraint.right, arg_vals);
-      if (!left.is_expr() || !right.is_expr()) {
-        // Unrepresentable atoms are weakened to true.
-        continue;
-      }
-
-      translated.add_constraint(
-          SymbolicConstraint::make_param(constraint.predicate,
-                                         left.expr,
-                                         right.expr));
+      translated.add_constraint(atom);
     }
     result.join_with(translated);
   }
-
   return result;
 }
 
@@ -248,7 +261,7 @@ void apply_call_summary(SymbolicState& state,
 
   if (summary == nullptr)
     return;
-  if (!summary->normal.available)
+  if (!summary->normal.available || !summary->normal.complete)
     return;
   if (!summary->normal.has_exit) {
     state.set_to_bottom();
@@ -280,7 +293,9 @@ void apply_invoke_memory_summary(SymbolicState& state,
   bool available =
       is_normal_edge ? summary->normal.available : summary->exception.available;
 
-  if (!available) {
+  bool complete =
+      is_normal_edge ? summary->normal.complete : summary->exception.complete;
+  if (!available || !complete) {
     return;
   } else if (!has_exit) {
     state.set_to_bottom();

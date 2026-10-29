@@ -281,6 +281,7 @@ add_executable(ikos-analyzer
   ../frontend/llvm/src/analysis/parameter_symbolic/caller_pruning.cpp
   ../frontend/llvm/src/analysis/parameter_symbolic/symbolic_expr.cpp
   ../frontend/llvm/src/analysis/parameter_symbolic/symbolic_fixpoint.cpp
+  ../frontend/llvm/src/analysis/parameter_symbolic/exit_proof.cpp
   ../frontend/llvm/src/analysis/parameter_symbolic/symbolic_state.cpp
 )
 if (IKOS_LINK_LLVM_DYLIB)

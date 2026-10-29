@@ -97,11 +97,13 @@ MemoryAbstractDomain make_bottom_memory_abstract_value(Context& ctx) {
                            NullityAbstractDomain::bottom()),
       LifetimeAbstractDomain::bottom());
 
-  if (ctx.opts.use_partitioning_domain) {
-    return MemoryAbstractDomain(PartitioningAbstractDomain(inv));
-  } else {
-    return MemoryAbstractDomain(inv);
-  }
+  MemoryAbstractDomain result =
+      ctx.opts.use_partitioning_domain
+          ? MemoryAbstractDomain(PartitioningAbstractDomain(inv))
+          : MemoryAbstractDomain(inv);
+  result.enable_expression_ranges(
+      [](Variable* v) { return v->kind() == Variable::InternalVariableKind; });
+  return result;
 }
 
 /// \brief Create the top memory abstract value
@@ -114,11 +116,13 @@ MemoryAbstractDomain make_top_memory_abstract_value(Context& ctx) {
                            NullityAbstractDomain::top()),
       LifetimeAbstractDomain::top());
 
-  if (ctx.opts.use_partitioning_domain) {
-    return MemoryAbstractDomain(PartitioningAbstractDomain(inv));
-  } else {
-    return MemoryAbstractDomain(inv);
-  }
+  MemoryAbstractDomain result =
+      ctx.opts.use_partitioning_domain
+          ? MemoryAbstractDomain(PartitioningAbstractDomain(inv))
+          : MemoryAbstractDomain(inv);
+  result.enable_expression_ranges(
+      [](Variable* v) { return v->kind() == Variable::InternalVariableKind; });
+  return result;
 }
 
 } // end anonymous namespace

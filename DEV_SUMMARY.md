@@ -6,7 +6,7 @@
 
 본 문서의 범위는 다음과 같다.
 
-- symbolic state `Σ = (σ, μ)`를 이용한 함수 내부 분석
+- symbolic state `Σ = (σ, μ, ρ)`를 이용한 함수 내부 분석
 - CFG branch/merge 처리
 - loop fixpoint 처리
 - normal / exception / program exit 분리
@@ -23,13 +23,64 @@
 
 위 내용은 별도의 Caller Summary Application / Pruning 명세에서 정의한다.
 
+### 1.1 종료 보장 조건의 포함 방향과 안전성
+
+본 명세의 `C_X(f)`는 입력이 조건을 만족하면 flow `X`로 종료함을 보장하는
+**충분조건**이다. 단순히 해당 flow가 가능하다는 필요조건으로 해석하지 않는다.
+`X`는 normal 또는 exception이다. 입력에는 parameter와 필요한 entry-memory 및
+환경 전제가 포함되며, 모든 보장은 명시한 전제 아래에서 성립해야 한다.
+
+```text
+GuaranteedExitInputs_X(f)
+    = 해당 입력에서 허용되는 모든 실행이 유한 시간 안에 정의된 동작으로
+      flow X에 도달하는 입력 집합
+PossibleExitInputs_X(f)
+    = 해당 입력에서 flow X에 도달하는 실행이 존재하는 입력 집합
+
+[[C_X(f)]] ⊆ GuaranteedExitInputs_X(f) ⊆ PossibleExitInputs_X(f)
+```
+
+결정적인 guard 함수에서 실제 정상 종료 입력이 `1 <= n <= 1000`이라면
+`1 <= n <= 500`은 허용하지만 `1 <= n <= 1500`은 허용하지 않는다.
+보장할 수 있는 입력을 일부 놓치는 것은 허용하며, 보장하지 못하는 입력을
+종료가 보장된 입력으로 포함하는 것은 금지한다. `C_X`가 나타내는 집합은
+under-approximation이다. 분석기 전체의 도달 가능 상태는 여전히 실제 실행을
+모두 포함하는 over-approximation이어야 하며, false positive는 허용한다.
+
+각 flow는 조건과 별도로 coverage를 가진다.
+
+```text
+Coverage_X ∈ {Partial, Complete}
+Complete ⇒ PossibleExitInputs_X(f) ⊆ [[C_X(f)]]
+```
+
+`Partial`은 충분조건이 유효하지만 해당 flow의 모든 입력을 포괄한다고 증명하지
+못한 상태이다. `Complete`는 반대 포함까지 증명한 상태이며, 이때 두 입력 집합과
+`[[C_X]]`가 일치한다. 경로를 일부 누락하거나 loop/call의 의미를 분석하지 못하면
+자동으로 Complete가 되지 않는다. 분석기 invariant가 over-approximation이라는
+사실만으로 충분조건이나 종료성, coverage가 증명되지는 않는다. Nondeterministic
+call, 미확인 예외, 무한 loop 또는 UB 가능성이 남은 입력을 보장 영역에 넣지 않는다.
+
+부분 조건의 밖은 **미확인 영역**이다. `¬C_X`를 해당 flow의 불가능성으로
+해석하거나 그 영역을 caller 분석에서 삭제해서는 안 된다. Caller에서 전역
+pruning하려면 Complete 증명 또는 별도의 유효한 필요조건 증명이 있어야 한다.
+본 명세의 기본 적용은 Complete일 때만 조건으로 flow를 pruning하고, Partial이면
+call-entry 전체가 C_X에 포함됨을 증명한 경우에만 그 영역의 보장 관계를 사용한다.
+그 외에는 기존 IKOS semantics를 유지한다(DEV_PRUNING.md §3·7).
+
+구현에서는 σ/μ와 별도로 typed 조건 AST와 종료 보장 인증을 사용하고,
+Complete 조건만 기존 flow 전체의 pruning에 적용한다. 인증하지 못한 경로는
+Partial로 남겨 기본 IKOS 분석을 유지한다. 표현식 범위 ρ는 numerical state와
+연계하여 동일한 계산 결과의 재사용에 적용한다. 유한 인증 탐색의 한도와
+미지원 호출·메모리·예외의 처리 범위는 DEV_PRUNING.md §13.2를 따른다.
+
 
 ## 2. Symbolic State
 
 함수 분석 중 다음 symbolic state를 유지한다.
 
 ```text
-Σ = (σ, μ)
+Σ = (σ, μ, ρ)
 ```
 
 ### 2.1 σ
@@ -92,7 +143,7 @@ L₂
 
 ### 2.5 Pointer value와 Boolean origin
 
-`Σ=(σ,μ)`와 별도 `π`를 사용하지 않는 원칙은 유지한다. `Loc`은 memory key로
+`Σ=(σ,μ,ρ)`와 별도 `π`를 사용하지 않는 원칙은 유지한다. `Loc`은 memory key로
 사용되며, pointer-valued `σ`/`μ` entry에서는 `PtrValue(Loc)`의 저장 표현으로도
 사용한다. 두 용도의 의미를 구분한다.
 
@@ -105,7 +156,7 @@ BoolExpr ::= IsNull(P_i^0) | NonNull(P_i^0)
 `L_i`의 존재는 non-null, 유효한 allocation 또는 정확한 points-to target의 증거가
 아니다. `Null`은 integer zero나 `TOP`과 구분한다. 현재 nullity summary는 offset이
 0인 parameter-origin pointer만 지원한다. 일반 pointer comparison, derived pointer의
-nullity 및 임의의 Boolean formula는 표현 불가 시 보수적으로 약화한다.
+nullity 및 임의의 Boolean formula를 환원하지 못하면 §6의 보장 실패 규칙을 따른다.
 
 Pointer parameter는 기존 parameter-relative `Loc`으로 초기화하되 pointer value로
 해석할 수 있어야 한다. Integer parameter는 기존 `Expr`로 초기화하며, unsigned
@@ -118,6 +169,161 @@ Pointer parameter는 기존 parameter-relative `Loc`으로 초기화하되 point
 Boolean encoding 보존 cast를 통해 전달할 수 있다. Memory에 저장된 값도 확장된
 SymbolicValue를 사용할 수 있으나 기존 invalidation 정책을 따른다.
 
+### 2.6 선형 값 관계와 종료 조건 표현의 분리
+
+`Expr`는 `σ/μ`에서 사용하는 parameter-origin affine 값 관계이다. 이 제한이
+종료 조건의 표현 범위를 affine comparison으로 제한한다는 뜻은 아니다.
+종료 조건의 수치 피연산자에는 별도의 typed `CondExpr`를 사용한다.
+
+```text
+CondExpr ::= EntryScalar | EntryMemory | Constant | AffineExpr
+           | TypedOp(op, bitwidth, signedness, CondExpr...)
+           | Ite(Condition, CondExpr, CondExpr)
+Atom ::= Compare(predicate, CondExpr, CondExpr)
+       | IsNull(P_i^0) | NonNull(P_i^0)
+Condition ::= true | false | Atom | Condition AND Condition | Condition OR Condition
+```
+
+초기 필수 범위는 affine 비교, wrapping UAdd 및 0이 아닌 양의 상수 divisor에 대한 typed
+`SDiv/UDiv/SRem/URem` 및 그 결과의 비교이다. 29번의 wrapping USub와 acyclic
+조건부 대입의 분기별 origin 복원, 30번의 변수끼리의 wrapping UMul도 필수 범위다.
+이들은 affine σ에 저장하지 못해도 종료 조건에는 보존한다. 그 외 TypedOp/ITE는 각 연산의
+의미와 origin을 정확히 복원할 수 있을 때만 지원한다. 지원하지 않는 연산을
+임의의 affine 식으로 바꾸지 않는다. Signed/unsigned, bitwidth, cast 및 wrapping
+의미를 유지한다. 특히 signed remainder는 수학적 modulo와 무조건 동일시하지
+않으며, 0 divisor 및 signed MIN / -1, MIN % -1 등 정의되지 않는 연산을
+보장 영역에 포함하지 않는다.
+
+`σ(r)=TOP`이어도 read-only SSA definition/reaching-definition origin을 따라
+`r=n srem 2`와 `σ(n)=n₀`를 확인하면 `r==0`을 `SRem_w(n₀,2)==0`으로 복원한다.
+연산 출처는 조건 복원을 위한 근거이며, `σ`의 선형 값 관계로 저장할 필요는 없다.
+여러 definition이 있으면 해당 경로의 정의 또는 모든 관련 정의의 동일한 의미를
+증명해야 한다. Guarded value는 양쪽 origin과 guard를 확인한 경우 분기별 조건부
+치환으로 DNF를 구성한다(§5.3). ITE는 동일한 의미의 내부 표현으로 사용할 수 있으나
+일반적인 ITE 값 상태를 σ에 추가할 필요는 없다. 순환 정의, side effect, 모호한
+load/alias 또는 미확인 origin은 복원 실패다.
+이는 별도의 π나 일반적인 symbolic path-state를 도입하는 것이 아니다.
+
+### 2.7 표현식 범위 상태 ρ
+
+개별 변수의 범위와 별도로, **같은 값을 계산하는 typed 표현식 자체의 범위**를
+보존한다. 전체 분석 상태는 `(A, Σ)`이며 `A`는 기존 IKOS state,
+`Σ=(σ,μ,ρ)`이다. `σ/μ`의 affine 값 관계 제한은 유지한다.
+
+```text
+ρ : ExprKey ⇀ MachineIntInterval
+ρ(E) = I  // 현재 flow에서 E의 가능한 값이 I에 포함됨
+missing key = typed TOP interval
+ρ_entry = ∅
+
+모든 실제 도달 상태 s에서:
+    EvalMachine(E, s) ∈ γ(ρ(E))
+```
+
+`ρ`는 numerical state와 마찬가지로 실제 값을 모두 포함하는 범위 정보이다.
+종료 보장 충분조건 C_X의 under-approximation과 포함 방향이 다르다. ρ의 interval
+또는 그 hull을 충분조건 C_X로 재저장하거나, interval 안의 모든 입력이 안전하다고
+결론내리지 않는다. 초기화·정의 가능성·오류 검사는 기존 분석과 동일하게 유지한다.
+유효한 범위의 교차가 bottom이면 해당 flow는 bottom이다.
+
+### 2.8 ExprKey와 값 동일성
+
+```text
+ExprKey ::= ValueId(v) | TypedConstant(c)
+          | OpKey(opcode, result/operand types, semantic flags, ExprKey...)
+E22 = UAdd_w(ValueId(a), ValueId(b))
+```
+
+Key는 출력 문자열이나 source 변수명이 아니라 실제 operand의 정의/도달 정의에
+기반한 값 identity를 사용한다. `get_a()`와 `get_b()`의 결과가 모두 σ에서 TOP이어도
+서로 다른 ValueId이다. 같은 함수의 별도 call 결과도 서로 다른 값이다. Parameter로
+환원되지 않는 caller-local 값도 key의 leaf가 될 수 있다.
+
+Bitwidth, signedness, operand/result type, cast, wrapping 및 no-wrap/exact 등의
+의미를 보존한다. Unsigned add는 modulo 2^w 덧셈이며 수학적 affine 식과 혼동하지
+않는다. Copy와 증명된 동일 연산만 같은 key로 정규화한다. 동일한 typed unsigned
+add의 operand 순서 정규화는 가능하지만, 근거 없는 재결합·분배·cast 제거는 금지한다.
+초기 필수 범위는 정수 값 identity/copy와 wrapping UAdd를 포함한 순수 덧셈 및
+그 식과 상수의 비교이다. 다른 연산은 정확한 key와 sound interval transfer를
+지원할 때만 추가한다. `CondExpr`와 의미를 공유하지만 함수 공통 조건의 leaf는
+entry atom이고, 로컬 ExprKey의 leaf는 현재 함수의 값 identity일 수 있다.
+
+Key 생성에는 §2.6과 같은 origin 검증을 사용한다. 여러 reaching definition이나
+PHI 대입을 하나로 해석할 수 없으면 동일성을 가정하지 않는다. AR variable이
+재대입되거나 loop에서 같은 definition이 재실행되면 새 실행의 값을 이전 값과
+동일시하지 않고 관련 key를 무효화한다. 무한한 실행별 key를 생성하지 않는다.
+
+초기 범위의 key는 mutable memory read, volatile/atomic read 및 call 자체를
+순수 식으로 취급하지 않는다. 그 결과를 각각 별도의 ValueId leaf로 고정할 수는
+있다. 동일 주소를 다시 load했다고 이전 값과 같다고 가정하지 않는다. Memory를
+직접 포함한 key의 지원에는 별도 memory-version/alias 증명이 필요하다.
+
+### 2.9 ρ의 갱신·병합과 수명
+
+- 현재 flow 전체에서 성립하는 numerical invariant, branch comparison 또는 적용이
+  허용된 summary 조건에서만 범위를 얻는다. C_X가 Partial인 경우에는 기존
+  §1.1의 적용 영역 증명 없이 그 조건을 ρ에 넣지 않는다.
+- 같은 식에 대한 추가 제약은 interval 교차로 정제한다. `a+b`의 범위를 얻었다고
+  a와 b의 개별 범위를 임의로 결정하지 않는다.
+- `r=E`를 다시 계산하면 sound interval transfer 결과와 `ρ(E)`를 교차하여 기존
+  numerical state의 r을 정제한다. 이 결과는 checker가 읽는 A에 전달해야 한다.
+- 결과 임시변수만 liveness에서 제거되어도 정규화된 E의 사실은 유지할 수 있다.
+  입력 값 identity가 바뀌거나 재사용되면 그 값에 의존하는 key를 전이적으로
+  무효화한다. Key의 의미나 origin을 확인하지 못하면 사실을 버려 TOP으로 둔다.
+- CFG 합류에서는 각 incoming flow의 같은 의미의 key를 interval hull/join으로
+  병합한다. 한 도달 경로에서 key가 없으면 TOP과 join한다. Branch별 범위를
+  교차하거나 한 경로의 사실을 전체에 강제하지 않는다. Unreachable predecessor는
+  join에서 제외한다. PHI key 변환은 동일성 증명이 있을 때만 허용한다.
+- Key 수와 origin 깊이를 유한하게 제한하며 제한을 넘으면 해당 사실을 생략한다.
+  Loop에서는 σ/μ의 flat merge와 별개로 ρ에 interval join/widening을 적용한다.
+  Narrowing은 sound한 transfer/재분석으로 증명한 경우에만 적용한다.
+
+`ρ`는 basic block 및 normal/exception flow별 분석 상태이다. Mutable한 함수 공통
+cache에 한 경로의 범위를 저장하여 다른 경로나 call context에 재사용하지 않는다.
+식의 불변 구조를 intern하는 table과 flow별 range map은 구분한다. 로컬 ValueId를
+포함한 ρ 전체를 FunctionSummary에 저장하지 않는다. Entry atom으로 환원되는 사실도
+최종 종료 보장 검증의 보조 근거일 뿐, 그 사실만으로 summary 충분조건이 되지 않는다.
+
+ρ는 단일 interval만 저장한다. 예를 들어 unsigned E에 `E!=0`을 적용하면
+`[1, UINT_MAX]`를 보존할 수 있지만 signed E의 `[-10,10]`에서 0만 제외하는 구멍은
+저장하지 않는다. 앞서 정한 NE 정밀도 수용 및 향후 zero/non-zero 확장은 유지한다.
+
+### 2.10 Benchmark 22의 기준
+
+```text
+t1 = UAdd_w(a, b)
+guard_pos(t1)                  // C_N: n₀!=0 AND n₀ u<=10000; Complete
+ρ(UAdd_w(ValueId(a), ValueId(b))) = [1,10000]
+
+t2 = UAdd_w(a, b)             // a와 b의 값 identity가 유지됨
+A(t2) := A(t2) ∩ ρ(UAdd_w(ValueId(a), ValueId(b)))
+       ⊆ [1,10000]
+100 udiv t2                   // 분모의 0 가능성 없음
+```
+
+a와 b 각각의 범위를 알 필요는 없다. 두 덧셈에 wrapping이 있어도 같은 typed
+연산과 같은 값 identity이므로 결과는 같다. `σ(a)=σ(b)=TOP` 또는 t1의 liveness
+제거 때문에 E의 사실을 잃어서는 안 된다. 다만 a/b의 값 변경, guard를 거치지 않은
+incoming flow 또는 연산 의미 차이가 있으면 위 재사용을 보장하지 않는다.
+
+
+### 2.11 표현식 조건의 domain 적용 가능성
+
+조건을 summary에 표현할 수 있는지와, 그 조건으로 caller 변수의 interval을
+정제할 수 있는지는 별개의 판정이다. `a-b`가 summary에 남는다고 a와 b 각각의
+범위를 항상 좁힐 수 있는 것은 아니다. 반대로 한쪽 범위가 충분히 알려지면
+변수끼리의 연산도 안전한 개별 범위를 유도할 수 있다.
+
+적용 가능한 Complete 조건 또는 적용 영역이 증명된 조건에서 `ρ(E)`를 얻으면,
+DEV_TRANSFER_FUNCTION.md §2.7의 연산별 역방향 projection으로 기존 numerical
+state를 교차 정제한다. 동일 폭 sign cast와 확장, add/sub, 조건부 상수 곱셈 및
+양의 상수 나눗셈을 지원한다. Wrap으로 해가 갈라지면 이를 모두 포함하는 interval을
+사용한다. 미지원 연산이나 계산 한도에서는 해당 피연산자의 기존 범위를 유지한다.
+
+이 projection은 실제 가능한 값을 버리지 않는 over-approximation이다. 그 결과를
+종료 보장 충분조건 C_X로 재저장하지 않는다. Caller에서 적용 불가한 atom도 원래
+summary에서는 삭제하거나 true로 약화하지 않으며, ρ의 동일 표현식 재사용도 유지한다.
+σ/μ의 affine 값 관계 정의는 바뀌지 않는다.
 
 ## 3. Function Summary
 
@@ -135,6 +341,7 @@ Normal summary:
 ```text
 NormalSummary(f) = {
     C_normal(f),
+    Coverage_normal(f),
     μ_normal_exit,f
 }
 ```
@@ -144,19 +351,28 @@ Exception summary:
 ```text
 ExceptionSummary(f) = {
     C_exception(f),
+    Coverage_exception(f),
     μ_exception_exit,f
 }
 ```
 
-각 flow summary는 `Known` 또는 `Unavailable` 상태를 갖는다. 정상 종료 CFG가
-없으면 normal flow는 `Known(false, ∅)`로 표현할 수 있다. 반면 현재 보조 symbolic
-분석이 모든 예외 전파를 포착하지 못하는 경우 exception flow는 `false`로 단정하지
-않고 `Unavailable`로 저장한다.
+각 flow summary는 다음 가용 상태를 갖는다.
+
+```text
+Summary_X = Known(C_X, Coverage_X, μ_X) | Unavailable
+Known(false, Partial, ∅)  // 보장 영역을 얻지 못함; flow 불가능이라는 뜻이 아님
+Known(false, Complete, ∅) // 해당 flow가 불가능함을 증명함
+Known(true, Complete, μ)  // 모든 허용 입력에서 해당 종료를 보장함
+```
+
+정상 종료 CFG가 없고 다른 normal-return 경로도 없음을 증명하면 normal flow를
+`Known(false, Complete, ∅)`로 표현한다. 분석하지 못한 flow는 Partial 또는
+Unavailable이며, 이를 Complete의 false로 단정하지 않는다.
 
 특히 명시적인 exception-exit이 없거나 함수 내부에 일반 `Call`이 있어 그 call의
 외부 전파 예외를 보조 symbolic 분석이 모델링하지 못하면 exception summary는
-`Unavailable`이다. `Unavailable`은 caller pruning에서 기존 IKOS exception state를
-그대로 유지한다.
+`Unavailable`이다. 부분 영역의 예외 종료를 독립적으로 증명한 경우 Partial로
+저장할 수 있다. 어느 경우에도 미확인 영역의 기존 IKOS exception state를 유지한다.
 
 Program exit는 caller로 복귀하지 않으므로 caller 적용을 위한 summary를 생성하지 않는다.
 
@@ -206,125 +422,187 @@ C_exception
 
 ## 5. Exit Condition 생성
 
-각 exit 경로의 조건을 symbolic state `σ`로 parameter-origin condition으로
-환원한다. 조건의 출처에는 AR `Comparison`의 integer/null 비교와, 이미 알려진
-callee의 flow별 summary를 현재 함수 문맥으로 치환한 조건이 포함된다. 기존 IKOS
-invariant에서 추가 제약을 추출할 경우에도 해당 제약의 타입과 추출 시점을
-명시해야 하며, liveness가 변수를 제거한 뒤 사라진 제약이 남아 있다고 가정하지 않는다.
+각 종료 경로의 branch condition, 정의된 연산의 전제 및 callee의 보장 조건을
+parameter-origin 조건으로 환원한다. 먼저 `σ`의 정확한 관계를 사용하고, affine
+관계로 표현하지 못한 연산은 §2.6의 SSA origin으로 복원한다. 최종 numerical
+invariant만을 충분조건의 증거로 사용하지 않으며, liveness로 지워진 제약이 최종
+invariant에 남아 있다고 가정하지 않는다.
 
 ```text
-C_after_call,X = C_before_call ∧ θ_c(C_X(callee))
-Atom ::= IntegerComparison | IsNull(P_i^0) | NonNull(P_i^0)
+Candidate_X,i = RestoreCondition(PathConditions_X,i, σ_i, SSAOrigins)
+C_X,i = CertifyExit(Candidate_X,i, path/call/loop semantics)
+C_X   = OR { C_X,i | 종료 보장이 검증된 영역 i }
 ```
 
-Boolean argument의 정확한 origin이 있으면 `BooleanValue(G)==1`은 `G`,
-`BooleanValue(G)==0`은 `¬G`로 환원한다. Nullity 부정은 IsNull/NonNull 사이에서
-전환한다. 먼저 정확하게 치환·정규화한 뒤 표현 불가능한 atom만 true로 약화한다.
-Unknown의 부정을 false로 해석하지 않는다. 이 조건은 실제 exit 입력을 모두
-포함하는 필요조건(over-approximation)이며, 일반적으로 정상 반환의 충분조건은 아니다.
+`CertifyExit`는 단순한 구문 치환과 구분한다. 해당 조건에서 경로 선택, 연산의
+정의 가능성, call의 종료 보장 및 필요한 loop 종료성이 성립해야 한다. 불완전한
+분석 결과에 도달 가능한 exit가 있다는 사실만으로 경로 전체를 인증하지 않는다.
+해당 영역의 모든 실행이 flow X로 종료한다는 증거가 없으면 영역을 기여시키지 않는다.
 
-경로 `i`에 대해:
+Callee 보장 조건을 정확히 치환할 수 있으면 call 이전의 보장 영역과 논리곱하여
+합성한다. Callee가 Partial이면 그 보장 영역 밖을 제거하지 않으며, caller의
+coverage는 별도로 증명한다.
 
 ```text
-C_X,i =
-    SubstConstraint(
-        AnalyzerConstraint_X,i,
-        σ_i
-    )
+C_after_call,X = C_before_call AND θ_c(C_X(callee))
 ```
 
-여기서 `X`는 `normal` 또는 `exception`이다.
+이 식은 해당 call을 거쳐 보장되는 영역의 합성이며 caller 전체 조건을 이 영역으로
+제한하여 나머지 실행을 삭제한다는 뜻이 아니다. 이후 statement와 최종 exit까지의
+보장도 별도로 확인한다. Boolean origin과 nullity는 정확하게 치환·정규화한다.
+Unknown을 부정하여 false를 만들지 않는다.
 
-여러 exit 경로가 존재하면 disjunction으로 결합한다.
-
-```text
-C_X = ⋁ᵢ C_X,i
-```
-
-따라서:
-
-```text
-C_normal(f) = ⋁ᵢ C_normal,i
-```
-
-```text
-C_exception(f) = ⋁ᵢ C_exception,i
-```
-
-구현에서는 exit condition을 DNF(Disjunctive Normal Form)로 보관한다.
+종료 조건은 DNF로 보관한다.
 
 ```text
 ExitCondition = OR<Conjunction>
-Conjunction   = AND<SymbolicConstraint>
+Conjunction   = AND<Atom>
+empty disjunction = false  // 보장 영역 없음; coverage를 별도로 확인
+empty conjunction = true // 모든 입력에서의 종료가 증명된 경우에만 인증 가능
 ```
 
-즉 내부 `Conjunction`의 constraint는 논리곱이고, 여러 `Conjunction`은
-논리합이다. 경로가 하나도 없으면 `false`, constraint가 하나도 없는
-도달 가능한 경로가 있으면 `true`이다.
+검증된 disjunct는 일부만 보관해도 되지만, 그 경우 기본 coverage는 Partial이다.
+불완전한 disjunct를 정확한 것으로 합치거나 DNF를 interval hull로 바꾸어 종료
+보장 영역을 넓히지 않는다. 동치인 단순화는 허용한다. 더 강한 조건으로 대체하는
+경우에도 최종 조건의 종료 보장을 확인하고 coverage를 재평가한다.
+단, §5.3·5.4의 29/30번 검사 보존 요구가 우선한다. 해당 조건을 다른 atom으로부터
+함의할 수 있더라도 생성·저장·출력하는 summary에서 삭제하지 않는다. 완전히 동일한
+atom의 중복 제거는 허용한다. Numerical domain의 적용 정밀도와 조건의 저장 여부는
+구분한다.
 
-
-## 6. SubstConstraint의 TOP 처리
-
-Exit constraint의 모든 조건이 항상 parameter-origin expression으로 환원되는 것은 아니다.
-
-예를 들어:
+### 5.1 Benchmark 21의 기준
 
 ```text
-C_exit =
-    (a > 0) ∧ (x ≥ 10)
+C_normal =
+    (n₀ >= 1 AND n₀ <= 500 AND SRem_w(n₀, 2) != 0)
+    OR
+    (n₀ >= 1 AND n₀ <= 1000 AND SRem_w(n₀, 2) == 0)
+```
 
-σ(a) = a₀
+위 조건은 결정적인 guard의 실제 정상 종료 입력과 동치임을 증명하면 Complete다.
+`1 <= n₀ <= 500`도 종료 보장 자체를 별도로 증명하면 유효한 Partial 조건이다.
+반면 `%` 조건을 버려 `1 <= n₀ <= 1000`으로 저장하면 홀수 501 등의 비정상 종료
+입력을 보장 영역에 포함하므로 이 명세를 위반한다. 23번처럼 생략할 조건이
+나머지 조건으로부터 함의됨을 증명한 경우에는 동치인 제거를 허용한다. 29/30번은
+§5.3·5.4에 따라 검사를 그대로 보존한다. 중복 제거 증명을 보존의 전제나 대체로
+삼지 않는다.
+
+### 5.2 보장 조건을 구성하는 기본 증명 규칙
+
+우선 지원하는 대상은 동작 의미를 확인한 acyclic guard CFG이다. 아래 `S_X(s,Q)`는
+statement s 이후의 보장 Q까지 flow X로 진행함을 보장하는 입력 충분조건이다.
+조건의 수치 연산은 typed IR 의미로 해석한다.
+
+```text
+X 종류의 return/exception terminal → 해당 terminal의 Definedness
+다른 종료 종류의 terminal         → false
+순수 assignment x=e               → Defined(e) AND Q[x←e]
+if B then t else f                 → Defined(B) AND
+                                      ((B AND S_X(t,Q)) OR
+                                       (NOT B AND S_X(f,Q)))
+```
+
+`Defined`는 UB/poison 등을 일으키지 않는 입력 전제이며, 증명 없이 true로 두지
+않는다. 단순 void return처럼 조건 없이 정의된 terminal은 true가 될 수 있다.
+Branch의 B는 §2.6으로 복원한다. 복원하지 못한 B를 true로 바꾸지 않으며 각
+분기의 보장 기여는 §6에 따라 처리한다. 동작을 모두 모델링한 acyclic CFG에서
+이 규칙을 정확히 적용하면 Complete를 증명할 수 있다. 경로별 증명 결과를 일부만
+유지하면 Partial이다.
+
+Call은 callee의 인증된 충분조건, 해당 영역의 effect 및 이후 Q를 함께 검증해야
+한다. Unknown call을 건너뛰어 반환을 보장하지 않는다. Loop에는 해당 입력 영역의
+유한 종료와 effect 보존에 대한 별도 증명이 필요하다. 필요한 증명이 없으면 해당
+영역의 기여를 생략한다. Forward numerical invariant는 정의 가능성이나 중복 조건을
+증명하는 보조 근거로 사용할 수 있지만, 그 invariant 자체를 보장 영역으로 쓰지 않는다.
+
+### 5.3 Benchmark 29 — 분기별 대입과 마지막 검사 보존
+
+`aligned=(idx%2==0)?idx:idx-1` 뒤의 `if(aligned<2) abort()`는 normal 조건인
+`aligned>=2`로 반드시 반영한다. 비교 operand를 각 분기의 실제 대입식으로 치환하고
+그 대입을 선택하는 guard를 같은 conjunction에 유지한다.
+
+```text
+i = idx₀
+w = size_t의 bitwidth
+G = (i u>= 2 AND i u< 8)
+
+짝수 경로: (URem_w(i,2) u== 0, aligned = i)
+홀수 경로: (URem_w(i,2) u!= 0, aligned = USub_w(i,1))
+
+C_normal(guard_index) =
+    (G AND URem_w(i,2) u== 0 AND i u>= 2)
+    OR
+    (G AND URem_w(i,2) u!= 0 AND USub_w(i,1) u>= 2)
+```
+
+마지막 검사가 짝수 경로에서는 `i>=2`, 홀수 경로에서는 `USub_w(i,1)>=2`로
+포함되어 있다. 짝수 경로의 `i>=2`는 G의 동일 atom과 중복 제거할 수 있지만,
+parity guard와 홀수 경로의 뺄셈 비교는 다른 조건에서 함의된다는 이유로 삭제하지
+않는다. 단순히 `G`만 저장하거나 ITE를 출력한 채 분기별 DNF 치환을 지원하지 않는
+상태를 이 예제의 완료로 보지 않는다.
+
+이는 원래 검사들을 보존한 정확한 정상 종료 조건이다. Definedness와 전체 경로
+포괄성을 확인하면 Complete이며, 중복 조건 제거 증명 없이도 생성할 수 있다.
+σ의 flat merge에서 aligned가 TOP이어도 검증된 reaching definition과 guard를
+역추적한다. 분기별 대입과 guard의 상관관계를 지운 뒤 값 집합만 나열하거나 잘못된
+분기의 대입식을 선택하지 않는다. 이 제한적인 조건 복원은 일반적인 path-sensitive
+값 domain을 새로 도입하는 요구가 아니다.
+
+### 5.4 Benchmark 30 — 변수끼리의 곱셈 검사 보존
+
+`prod=step*idx` 뒤의 `if(prod>9) abort()`는 `prod u<=9`로 반영한다.
+두 operand가 변수여도 typed multiplication을 CondExpr로 복원한다.
+
+```text
+s = step₀; i = idx₀
+RestoreOrigin(prod) = UMul_32(s,i)
+
+C_normal(guard_stride_params) =
+    s u!= 0 AND s u<= 3 AND i u<= 3 AND UMul_32(s,i) u<= 9
+```
+
+UMul_32는 uint32_t의 modulo 2^32 곱셈이며 일반 수학적 곱셈이나 affine 관계로
+임의 변환하지 않는다. No-wrap flag 또는 상수 operand를 조건 표현의 필수 전제로
+요구하지 않는다. σ(prod)가 TOP이어도 마지막 비교를 true로 바꾸지 않는다.
+
+앞의 범위가 곱의 [0,9]를 보장하더라도 저장·출력하는 summary에는 곱셈 비교를
+그대로 유지한다. 이를 위해 일반 비선형 solver나 중복 제거 증명을 요구하지 않는다.
+전체 원래 조건을 보존한 종료 보장을 확인하면 Complete로 저장한다. Numerical
+domain이 곱셈 atom을 직접 적용하지 못하더라도 symbolic summary의 atom은 유지한다.
+
+29/30번의 필수 복원이 실패하면 §6의 안전한 fallback을 따르되, 이를 해당 benchmark의
+구현 완료로 간주하지 않는다. 조건 보존 요구는 기존 soundness/coverage 검증과 함께
+충족해야 한다.
+
+
+## 6. 환원 실패와 TOP 처리
+
+`σ(x)=TOP`은 affine 값 관계를 모른다는 뜻이며 조건을 무조건 버리는 근거가 아니다.
+SSA origin으로 정확한 CondExpr 복원을 먼저 시도한다. 그래도 조건을 환원하지
+못하면 다음 순서를 따른다.
+
+1. 지원하는 표현으로 원래 조건을 정확하게 복원한다.
+2. 복원하지 못한 조건을 함의하는 더 강한 입력 조건을 증명할 수 있으면 그
+   영역만 인증한다. 나머지 경로/call/loop 의미도 검증한다.
+3. 대체 증명도 없으면 해당 **전체 conjunction의 기여를 생략**하고 Partial로
+   표시한다. 이는 보장 영역을 얻지 못했다는 뜻이며 경로 불가능의 증거가 아니다.
+4. 신뢰할 수 있는 결과를 구성할 수 없으면 Unavailable로 저장한다.
+
+예를 들어 다음 조건에서 x의 origin을 복원할 수 없고 다른 증명도 없다면:
+
+```text
+Candidate = (a₀ > 0) AND (x >= 10)
 σ(x) = TOP
 ```
 
-이면 첫 번째 조건은 환원 가능하지만 두 번째 조건은 환원할 수 없다.
+`x>=10`을 true로 바꾸어 `C_X=a₀>0`으로 저장하지 않는다. 해당 disjunct를
+인증하지 않으며, 다른 인증 영역도 없다면 `Known(false, Partial, ∅)` 또는
+Unavailable이다. 실제로 해당 flow가 없다는 별도 증명이 있어야만
+`Known(false, Complete, ∅)`로 만들 수 있다.
 
-따라서 `SubstConstraint`는 다음 규칙을 사용한다.
-
-```text
-각 constraint c에 대해:
-
-parameter-origin expression으로 완전히 환원 가능
-    → 환원된 constraint 유지
-
-TOP 또는 표현 불가능한 symbolic value 포함
-    → 해당 constraint를 true로 추상화하여 제거
-```
-
-위 예에서는:
-
-```text
-a > 0
-→ a₀ > 0
-```
-
-```text
-x ≥ 10
-→ unrepresentable
-→ true
-```
-
-따라서:
-
-```text
-C_normal = a₀ > 0
-```
-
-모든 constraint가 제거되면:
-
-```text
-C_normal = true
-```
-
-로 한다.
-
-`true`는 정상 종료 조건에 대해 caller에게 제공할 수 있는 유효한 parameter constraint가 없음을 의미한다.
-
-이 방식은 실제 정상 종료 조건보다 약한 조건을 생성하므로 caller pruning 관점에서 보수적인 over-approximation이다.
-
-단, 도달 가능한 exit 경로 자체가 하나도 없는 경우는 `true`가 아니라
-`false`이다. 따라서 "도달 가능한 경로이나 표현 가능한 constraint가 없음"과
-"도달 불가능한 exit"를 구분한다.
+`C_X=true`는 정보가 없다는 뜻이 아니라 모든 허용 입력에서 종료를 보장한다는
+주장이다. 미지원 atom의 삭제로 true를 만들지 않는다. Unknown의 부정과 numerical
+TOP은 unknown으로 유지한다. Caller의 미확인 영역은 기존 분석으로 계속 검사한다.
 
 
 ## 7. Exit Memory Summary
@@ -369,6 +647,10 @@ ExternalLoc =
 }
 ```
 
+`μ_X`의 각 relation은 최소한 `C_X` 안의 모든 flow X 실행에서 성립해야 한다.
+Partial의 memory effect를 미확인 영역에 무조건 적용하지 않는다. DNF 경로마다
+값이 다르면 공통으로 보장되는 relation만 유지하거나 TOP으로 처리한다.
+
 Local 여부는 `$`와 같은 변수 이름 문자열로 판단하지 않는다.
 
 반드시 해당 location이 현재 callee의 `Allocate`에서 생성된 location인지 origin을 기준으로 판단한다.
@@ -401,13 +683,15 @@ Symbolic state 역시 CFG를 따라 basic block별 상태를 유지한다.
 
 ## 9. CFG Merge
 
-여러 predecessor가 하나의 basic block으로 합류하면 symbolic state를 pointwise merge한다.
+여러 predecessor가 하나의 basic block으로 합류하면 component별로 병합한다.
+σ/μ는 기존 flat symbolic merge, ρ는 같은 key에 대한 interval join을 사용한다.
 
 ```text
 Σ_merge = Σ₁ ⊔ₛ Σ₂
 ```
 
-`σ`와 `μ`의 각 entry에 대해 다음 규칙을 적용한다.
+`ρ_merge(E)=ρ₁(E) ⊔_I ρ₂(E)`이며 missing key는 TOP이다(§2.9).
+`σ`와 `μ`의 각 entry에는 다음 규칙을 적용한다.
 
 ```text
 MergeVal(v₁, v₂) =
@@ -589,7 +873,9 @@ Loop body를 분석한 후 entry edge와 back-edge에서 들어오는 symbolic s
     Σ_entry ⊔ₛ Σ_back^k
 ```
 
-현재 symbolic merge는 CFG merge와 동일한 `MergeVal`을 사용한다.
+σ/μ의 symbolic merge는 CFG merge와 동일한 MergeVal을 사용한다.
+ρ는 §2.9의 interval join을 사용하며 back-edge의 값 재정의에 따른 무효화를 먼저
+반영한다. 이전 iteration의 expression fact를 새 값에 그대로 붙이지 않는다.
 
 예:
 
@@ -629,11 +915,14 @@ Loop의 symbolic state는 IKOS의 기존 WTO iteration lifecycle과 함께 반�
 ```
 
 ```text
-Σ_H^(k+1) =
-    Σ_H^k ⊔ₛ Σ_candidate^(k+1)
+(σ_H^(k+1), μ_H^(k+1)) =
+    (σ_H^k, μ_H^k) ⊔ₛ (σ_candidate^(k+1), μ_candidate^(k+1))
+ρ_H^(k+1) = WTOIntervalUpdate(ρ_H^k, ρ_candidate^(k+1))
 ```
 
-다음 조건을 만족하면 symbolic state가 안정된 것으로 본다.
+WTOIntervalUpdate는 기존 WTO의 ascending/widening 정책과 동기화하며 유한 key
+집합의 interval 수렴을 보장한다. σ/μ가 먼저 안정되어도 ρ의 수렴 검사를 생략하지
+않는다. 다음 조건을 만족하면 보조 state 전체가 안정된 것으로 본다.
 
 ```text
 Σ_H^(k+1) = Σ_H^k
@@ -642,7 +931,7 @@ Loop의 symbolic state는 IKOS의 기존 WTO iteration lifecycle과 함께 반�
 
 ## 15. Symbolic Widening
 
-현재 symbolic domain에는 별도의 widening을 정의하지 않는다.
+σ/μ의 flat symbolic 관계에는 별도의 widening을 정의하지 않는다.
 
 현재 merge 정책에서는 서로 다른 symbolic value가 즉시 `TOP`으로 상승한다.
 
@@ -660,7 +949,7 @@ MergeVal(n₀, TOP)
 TOP
 ```
 
-따라서 loop-carried symbolic value는 빠르게 안정된다.
+따라서 σ/μ의 loop-carried symbolic value는 빠르게 안정된다. ρ의 interval 수렴은 별도다.
 
 IKOS의 기존 numerical AbstractDomain은 기존 방식대로 join/widening을 수행하지만, `σ/μ`는 자체 `MergeVal` 규칙으로 수렴한다.
 
@@ -670,14 +959,18 @@ IKOS AbstractDomain:
 
 Symbolic σ/μ:
     MergeVal → fixpoint
+
+Expression ranges ρ:
+    interval join → widening → fixpoint → sound narrowing (선택)
 ```
 
-별도의 symbolic widening은 사용하지 않는다.
+σ/μ의 별도 symbolic widening은 사용하지 않는다. ρ에는 interval widening을 적용한다.
 
 
 ## 16. Symbolic Narrowing
 
-현재 symbolic state에는 별도의 narrowing을 적용하지 않는다.
+σ/μ의 symbolic 관계에는 별도의 narrowing을 적용하지 않는다.
+ρ의 interval narrowing은 sound한 재분석으로 근거를 확인한 경우 허용한다.
 
 한번:
 
@@ -718,10 +1011,11 @@ Loop exit의 `Comparison`은 일반 exit constraint와 동일하게 `SubstConstr
 
 ```text
 SubstConstraint(%.0 ≥ 10, σ)
-→ true
+→ Unrepresentable
 ```
 
-로 추상화하여 제거한다.
+SSA origin으로도 복원하지 못하면 이 경로의 종료 보장 기여를 생략하고 Partial로
+표시한다. Loop의 수렴된 invariant만으로 종료성을 증명하지 않는다.
 
 Loop exit의 memory effect 역시 일반 exit와 동일하게 처리한다.
 
@@ -761,6 +1055,8 @@ CFG Merge:
     → TOP
 ```
 
+위 same/different symbolic value 규칙은 σ/μ에 대한 것이다. ρ는 branch와 loop
+모두 같은 key의 interval join을 사용하고 loop head에서는 추가 widening을 수행한다.
 차이는 merge 수행 방식에 있다.
 
 Branch:
@@ -789,12 +1085,17 @@ loop-head state
      반복하여 fixpoint
 ```
 
-따라서 별도의 path-sensitive branch/loop symbolic domain은 현재 버전에서 사용하지 않는다.
+따라서 σ/μ의 값 분석에는 별도의 path-sensitive branch/loop symbolic domain을
+사용하지 않는다. 다만 C_X를 인증하는 별도 유한 탐색은 경로별 조건과 reaching
+definition을 유지한다. 이 탐색의 한도를 넘으면 Partial이며, σ/μ의 merge 규칙을
+변경하거나 loop 불변식을 추측하지 않는다(DEV_PRUNING.md §13.2).
 
 
 ## 19. IKOS Loop Fixpoint와의 통합
 
-Symbolic analysis는 별도의 loop iteration engine을 구현하지 않고 IKOS의 기존 WTO fixpoint lifecycle과 함께 수행한다.
+σ/μ/ρ의 symbolic state 분석은 IKOS의 기존 WTO fixpoint lifecycle과 함께 수행한다.
+종료 보장 인증용 유한 경로 탐색은 이 값 fixpoint와 구분하며, 탐색 실패를
+종료 보장으로 사용하지 않는다.
 
 IKOS의 loop 처리 순서는 개념적으로 다음과 같다.
 
@@ -881,7 +1182,8 @@ Function fixpoint → FunctionSummary 생성 → SummaryStore 저장
 변경하지 않는다. 다만 현재 함수의 summary를 생성하기 위해 이미 알려진 callee
 summary를 조회하고 parameter-origin 문맥으로 합성할 수 있다. 보조 symbolic
 memory/condition의 합성과 기존 IKOS caller state의 refinement는 구분한다.
-후자는 DEV_PRUNING.md에서 정의한다.
+후자는 DEV_PRUNING.md에서 정의한다. ρ를 이용한 실제 numerical state 정제도
+transfer/application 단계의 동작이며, read-only summary 생성 검증과 구분한다.
 
 함수당 재사용하는 summary는 함수 entry의 모든 입력에 대해 sound해야 한다.
 특정 caller context에서만 성립하는 제약을 함수 공통 summary로 저장하지 않는다.
@@ -930,7 +1232,8 @@ return-value relation
 
 ## 25. 향후 정밀도 확장
 
-현재 CFG merge는 증명 가능한 Boolean 생성 패턴을 먼저 정규화하고, 그 외 서로 다른 symbolic value는 `TOP`으로 병합한다.
+σ/μ의 CFG merge는 증명 가능한 Boolean 생성 패턴을 먼저 정규화하고 그 외 서로
+다른 symbolic value는 TOP으로 병합한다. ρ는 §2.9의 interval join/widening을 따른다.
 
 향후 다음 방식으로 확장할 수 있다.
 
@@ -942,14 +1245,16 @@ return-value relation
 5. loop에 대한 보다 정밀한 symbolic invariant 추론
 ```
 
-현재 범위에는 Section 9의 제한적인 nullity Boolean-origin 보존만 포함한다. 위 목록의 일반적인 path sensitivity와 임의의 guarded/disjunctive value는 후속 확장이다.
+현재 범위에는 Section 9의 nullity Boolean-origin 보존과 §5.3의 acyclic 조건부 대입을
+종료 조건으로 복원하는 기능이 포함된다. 일반적인 path-sensitive σ/μ와 임의의
+guarded/disjunctive 값 상태는 후속 확장이다.
 
 별도로, summary의 NE(`!=`) 조건이 기존 numerical domain 적용 과정에서 손실되는
 정밀도는 현재 수용한다. Summary에 표현 가능한 NE atom은 유지하되, 단일 interval로
 표현할 수 없는 중간 값 제외 정보는 별도 보존하지 않는다. 향후 interval과 결합하는
 zero/non-zero 보조 상태 및 DBZ checker 연계를 도입할 수 있으며, 그 범위와 갱신·병합
-요건은 DEV_PRUNING.md §13.4에서 정의한다. 이는 현재 `Σ=(σ,μ)`나 summary 생성의
-필수 구현 요건이 아니다.
+요건은 DEV_PRUNING.md §13.4에서 정의한다. ν는 개정된 Σ의 ρ와 달리 후속 확장이며 필수 구현 요건이 아니다. ρ는 표현식의
+단일 interval을 저장하므로 중간의 0 제외 정보를 별도 표현하지 않는다.
 
 
 ## 26. 핵심 Invariant
@@ -957,7 +1262,8 @@ zero/non-zero 보조 상태 및 DBZ checker 연계를 도입할 수 있으며, �
 분석 구현은 다음 invariant를 만족해야 한다.
 
 ```text
-1. Symbolic state는 Σ=(σ,μ)만 사용한다.
+1. 보조 state는 Σ=(σ,μ,ρ)이다. σ/μ는 scalar affine 및 pointer/Boolean 값 관계,
+   ρ는 typed 표현식의 범위다.
 
 2. 별도의 π pointer state는 사용하지 않는다.
 
@@ -969,14 +1275,15 @@ zero/non-zero 보조 상태 및 DBZ checker 연계를 도입할 수 있으며, �
 
 6. Loop는 IKOS의 기존 WTO fixpoint lifecycle을 사용한다.
 
-7. 별도의 symbolic widening은 사용하지 않는다.
+7. σ/μ에는 별도 widening을 사용하지 않고 ρ에는 interval widening을 사용한다.
 
-8. 별도의 symbolic narrowing은 사용하지 않는다.
+8. σ/μ에는 narrowing을 사용하지 않고 ρ에는 증명된 interval narrowing만 허용한다.
 
-9. parameter-origin expression으로 환원할 수 없는 exit constraint는
-   true로 추상화하여 제거한다.
+9. exit constraint는 affine σ 또는 SSA origin에서 정확히 복원한다. 실패 시
+   해당 conjunction을 인증하지 않으며, atom을 true로 바꾸어 영역을 넓히지 않는다.
 
-10. 모든 exit constraint가 제거되면 해당 exit condition은 true이다.
+10. 보장 영역이 없으면 false/Partial 또는 Unavailable이다.
+    false/Complete만 flow 불가능을 뜻하며 true는 전체 입력의 종료 보장을 뜻한다.
 
 11. 여러 normal exit의 조건은 disjunction으로 결합한다.
 
@@ -998,7 +1305,23 @@ zero/non-zero 보조 상태 및 DBZ checker 연계를 도입할 수 있으며, �
 
 20. Summary 생성 단계에서는 caller state 또는 기존 call semantics를 변경하지 않는다.
 
-21. 분석하지 못한 exception flow는 false가 아니라 Unavailable로 보관한다.
+21. 미분석 exception 영역은 Partial 또는 Unavailable이며 불가능으로 취급하지 않는다.
+
+22. [[C_X]] ⊆ GuaranteedExitInputs_X를 유지하고 coverage를 독립적으로 증명한다.
+
+23. Partial 영역 밖의 실제 실행은 caller에서 보존한다.
+
+24. ρ(E)는 현재 flow의 모든 실제 E 값을 포함하고, C_X의 충분조건과 구분한다.
+
+25. ρ는 값 identity·연산 타입이 같은 key에서만 재사용하고 checker가 보는 A에 반영한다.
+
+26. 합류의 ρ는 interval join이며 한 incoming에서 없는 key는 TOP이다.
+
+27. 입력 값 재정의 시 의존 key를 무효화하며 단순 liveness 제거와 구분한다.
+
+28. 29번은 마지막 aligned 검사를 분기별 대입으로 치환한 DNF에 보존한다.
+
+29. 30번은 변수끼리의 typed 곱셈 비교를 summary에 그대로 보존한다.
 ```
 
 
@@ -1011,7 +1334,7 @@ zero/non-zero 보조 상태 및 DBZ checker 연계를 도입할 수 있으며, �
 ```text
 Transfer Function 명세
     ↓
-각 AR statement에서 σ/μ 갱신
+각 AR statement에서 σ/μ/ρ 갱신 및 A와의 범위 정제
     ↓
 본 문서의 CFG/loop 처리
     ↓
@@ -1023,7 +1346,7 @@ FunctionSummary 생성
 Transfer-function 명세는 본 문서에서 확정된 다음 정책과 일관되어야 한다.
 
 ```text
-Σ = (σ, μ)
+Σ = (σ, μ, ρ)
 
 π 사용 안 함
 
@@ -1032,12 +1355,22 @@ CFG merge:
     proved Boolean construction → 동일 BoolExpr로 정규화
     different → TOP (그 외 기본 규칙)
 
+ρ merge:
+    same typed value key → interval join; missing → TOP
+
 Loop:
-    IKOS WTO lifecycle + symbolic merge
+    IKOS WTO lifecycle + σ/μ flat merge + ρ interval widening
 
 Exit constraint:
-    representable → 유지
-    unrepresentable → true
+    exact restoration + exit proof → 인증된 영역 유지
+    29 → guard와 분기별 대입을 치환한 마지막 비교를 DNF에 보존
+    30 → UMul_32의 마지막 비교 보존; 중복을 이유로 삭제하지 않음
+    unrepresentable → 더 강한 영역을 증명하거나 conjunction 기여 생략/Partial
+    unknown → true로 변환 금지
+
+Caller pruning:
+    Complete → 해당 flow의 필요조건으로도 사용 가능
+    Partial → 미확인 영역 보존
 
 Exit μ:
     caller-visible location만 유지
@@ -1053,11 +1386,13 @@ FunctionSummary(f)
 
 NormalSummary(f) = {
     C_normal(f),
+    Coverage_normal(f),
     μ_normal_exit,f
 }
 
 ExceptionSummary(f) = {
     C_exception(f),
+    Coverage_exception(f),
     μ_exception_exit,f
 }
 ```
@@ -1089,5 +1424,6 @@ Call / Invoke의 normal/exception successor 처리
 Caller에서는 pointee target을 모르는 actual pointer에도 nullity 조건을 적용하여
 07/09의 역참조 nullity warning을 제거해야 한다. Guard 없는 nullable pointer 및
 `guard_either(ptr != null, flag)`는 warning을 유지해야 한다. 지원하지 않는
-Boolean 생성/cast/derived-pointer relation은 TOP 또는 true로 약화한다.
+Boolean 생성/cast/derived-pointer relation은 값 관계에서는 TOP이며, 종료 조건의
+인증은 §6을 따른다. 07/09의 전역 pruning에는 각 guard의 Complete 증명이 필요하다.
 Return-value summary나 일반적인 path partitioning은 이 완료 기준의 전제가 아니다.

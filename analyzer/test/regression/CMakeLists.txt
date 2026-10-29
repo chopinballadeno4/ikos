@@ -26,6 +26,13 @@ add_analysis_test(function-call fca)
 add_analysis_test(double-free dfa)
 add_analysis_test(soundness sound)
 
+add_test(NAME "analysis-parameter-symbolic-expressions"
+  COMMAND ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/parameter_symbolic/runtest-expressions.py"
+    --clang "${CLANG_EXECUTABLE}"
+    --ikos-pp "${FRONTEND_LLVM_IKOS_PP_EXECUTABLE}"
+    --ikos-analyzer "$<TARGET_FILE:ikos-analyzer>")
+
 # Verify that parameter-symbolic summaries are generated from the main value
 # analysis and remain available through its Context-owned SummaryStore. The
 # trace option only controls observability; summary creation is unconditional.

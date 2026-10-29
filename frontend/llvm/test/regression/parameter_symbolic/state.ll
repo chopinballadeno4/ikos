@@ -36,9 +36,9 @@ join:
 ; CHECK-LABEL: Function: merge_missing
 ; CHECK: mu_normal_exit (caller-visible):
 ; CHECK-NEXT: L[p](ext) -> TOP
+; CHECK: coverage: Partial
 ; CHECK: C_normal (parameter constraints):
-; CHECK-NEXT: (condition0 == -1) ||
-; CHECK-NEXT: (condition0 == 0)
+; CHECK-NEXT: false
 ;
 ; CHECK-LABEL: Function: symbolic_offset
 ; CHECK: mu_normal_exit (caller-visible):

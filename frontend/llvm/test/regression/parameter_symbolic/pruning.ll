@@ -1,8 +1,9 @@
-; Interprocedural memory-summary propagation test.
+; Conditional memory summaries and certified guard composition.
 ;
-; write_fixed writes 42 to *p; its summary is used when analyzing test_write
-; (bottom-up order guaranteed by post-order DFS in analyze_bundle).
-; After summary application the load in test_write yields 42 (not TOP).
+; The write effects remain visible, but arbitrary pointer inputs are not a
+; guarantee of valid storage. An uncertified region must not propagate an
+; unconditional symbolic memory value into a caller. The existing IKOS memory
+; analysis is still responsible for concrete call contexts.
 ;
 ; RUN: ikos-import --format=no --param-symbolic %s | FileCheck %s
 ;
@@ -29,7 +30,8 @@
 
 ; CHECK-LABEL: Function: test_add
 ; CHECK: [normal_exit]
-; CHECK: return value = x0 + 1
+; CHECK: return value = TOP
+; CHECK: coverage: Partial
 
 ; CHECK-LABEL: Function: write_fixed
 ; CHECK: [normal_exit]
@@ -38,7 +40,8 @@
 
 ; CHECK-LABEL: Function: test_write
 ; CHECK: [normal_exit]
-; CHECK: return value = 42
+; CHECK: return value = TOP
+; CHECK: coverage: Partial
 
 declare void @abort() noreturn
 

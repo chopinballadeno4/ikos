@@ -11,6 +11,7 @@
 #include <ikos/ar/semantic/statement.hpp>
 #include <ikos/ar/semantic/value.hpp>
 #include <ikos/core/domain/abstract_domain.hpp>
+#include <ikos/core/value/machine_int/expression.hpp>
 
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/symbolic_expr.hpp>
 
@@ -18,11 +19,18 @@ namespace ikos {
 namespace frontend {
 namespace parameter_symbolic {
 
+using ConditionExpr = core::machine_int::Expression< int >;
+
+ConditionExpr condition_expr_from_affine(const SymbolicExpr& e,
+                                         uint64_t width,
+                                         core::Signedness sign);
+
 // ---------------------------------------------------------------------------
-// SymbolicState — Sigma = (sigma, mu)
+// SymbolicState — Sigma = (sigma, mu, rho)
 //
-//   sigma : ar::Variable* -> SymbolicValue  (SSA var -> expr/pointer/null/Boolean/TOP)
-//   mu    : SymbolicLoc -> SymbolicValue  (location key -> stored value)
+//   sigma : ar::Variable* -> SymbolicValue  (SSA var ->
+//   expr/pointer/null/Boolean/TOP) mu    : SymbolicLoc -> SymbolicValue
+//   (location key -> stored value)
 // ---------------------------------------------------------------------------
 class SymbolicState final : public core::AbstractDomain< SymbolicState > {
 public:
@@ -31,6 +39,7 @@ public:
 
   VarMap sigma;
   MemoryMap mu;
+  core::machine_int::ExpressionRanges< ar::Variable* > rho;
   bool _bottom;
 
   // Allocate-created local location variables (callee-local).
@@ -71,11 +80,13 @@ public:
     _bottom = true;
     sigma.clear();
     mu.clear();
+    rho.clear();
   }
   void set_to_top() override {
     _bottom = false;
     sigma.clear();
     mu.clear();
+    rho.clear();
   }
 
   bool leq(const SymbolicState& other) const override;
@@ -86,7 +97,7 @@ public:
   void join_with(const SymbolicState& other) override;
   void join_with(SymbolicState&& other) override { join_with(other); }
 
-  void widen_with(const SymbolicState& other) override { join_with(other); }
+  void widen_with(const SymbolicState& other) override;
   void meet_with(const SymbolicState& /*other*/) override {}
   void narrow_with(const SymbolicState& /*other*/) override {}
 
@@ -102,6 +113,7 @@ public:
   void exec(ar::Statement* stmt);
 
 private:
+  void transfer_ranges(ar::Statement* stmt);
   void exec_assignment(ar::Assignment* s);
   void exec_unary_op(ar::UnaryOperation* s);
   void exec_binary_op(ar::BinaryOperation* s);
@@ -122,16 +134,47 @@ private:
 // SymbolicConstraint — typed parameter comparison/nullity or true/false
 // ---------------------------------------------------------------------------
 struct SymbolicConstraint {
-  enum Kind { KTrue, KFalse, KParam, KNullity } kind;
-  ar::Comparison::Predicate predicate; // valid when KParam
-  SymbolicExpr left, right;            // valid when KParam
-  int pointer_parameter = -1;          // valid when KNullity
-  bool non_null = true;                // valid when KNullity
+  enum Kind { KTrue, KFalse, KParam, KNullity, KTyped, KUnknown } kind;
+  ar::Comparison::Predicate predicate;   // valid when KParam or KTyped
+  SymbolicExpr left, right;              // valid when KParam
+  ConditionExpr typed_left, typed_right; // valid when KTyped
+  int pointer_parameter = -1;            // valid when KNullity
+  bool non_null = true;                  // valid when KNullity
 
   static SymbolicConstraint make_true() {
     SymbolicConstraint c;
     c.kind = KTrue;
     c.predicate = ar::Comparison::SIEQ; // unused
+    return c;
+  }
+  static SymbolicConstraint make_unknown() {
+    SymbolicConstraint c;
+    c.kind = KUnknown;
+    return c;
+  }
+  static SymbolicConstraint make_typed(ar::Comparison::Predicate p,
+                                       ConditionExpr l,
+                                       ConditionExpr r) {
+    if (!l || !r)
+      return make_unknown();
+    bool eq = p == ar::Comparison::SIEQ || p == ar::Comparison::UIEQ;
+    bool ne = p == ar::Comparison::SINE || p == ar::Comparison::UINE;
+    // Equality is bitwise. A same-width sign reinterpretation can be pushed
+    // into the constant without assuming anything about the operand's range.
+    while ((eq || ne) && l.node().kind == ConditionExpr::Cast &&
+           r.is_constant() && l.bit_width() == l.left().bit_width()) {
+      l = l.left();
+      r = ConditionExpr::constant(
+          r.node().constant.cast(l.bit_width(), l.sign()));
+      p = l.sign() == core::Signed
+              ? (eq ? ar::Comparison::SIEQ : ar::Comparison::SINE)
+              : (eq ? ar::Comparison::UIEQ : ar::Comparison::UINE);
+    }
+    SymbolicConstraint c;
+    c.kind = KTyped;
+    c.predicate = p;
+    c.typed_left = std::move(l);
+    c.typed_right = std::move(r);
     return c;
   }
   static SymbolicConstraint make_param(ar::Comparison::Predicate p,
@@ -164,7 +207,7 @@ private:
 };
 
 // Try to substitute sigma into a Comparison, returning a parameter constraint.
-// Unsupported atoms are weakened to KTrue.
+// Unsupported atoms are KUnknown and cannot certify a guarantee path.
 SymbolicConstraint subst_constraint(ar::Comparison* cmp,
                                     const SymbolicState& s);
 

@@ -48,10 +48,10 @@ exception_three:
 }
 
 ; CHECK-LABEL: Function: summary_paths
+; An unknown call may return, throw, or diverge. Only the path that skips it
+; certifies normal termination; no exceptional input is guaranteed.
+; CHECK: coverage: Partial
 ; CHECK: C_normal (parameter constraints):
-; CHECK-NEXT: (x0 == 2) ||
-; CHECK-NEXT: (x0 != 2 && x0 != 3) ||
-; CHECK-NEXT: (x0 != 2 && x0 == 3)
+; CHECK-NEXT: x0 != 2 && x0 != 3
 ; CHECK: C_exception (parameter constraints):
-; CHECK-NEXT: (x0 == 2) ||
-; CHECK-NEXT: (x0 != 2 && x0 == 3)
+; CHECK-NEXT: false

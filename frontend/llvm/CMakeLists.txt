@@ -258,6 +258,7 @@ add_executable(ikos-import
   src/analysis/parameter_symbolic/symbolic_expr.cpp
   src/analysis/parameter_symbolic/symbolic_state.cpp
   src/analysis/parameter_symbolic/symbolic_fixpoint.cpp
+  src/analysis/parameter_symbolic/exit_proof.cpp
   src/analysis/parameter_symbolic/function_summary.cpp
   src/analysis/parameter_symbolic/caller_pruning.cpp
 )

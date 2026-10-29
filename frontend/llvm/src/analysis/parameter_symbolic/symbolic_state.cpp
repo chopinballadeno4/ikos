@@ -9,6 +9,26 @@ namespace ikos {
 namespace frontend {
 namespace parameter_symbolic {
 
+ConditionExpr condition_expr_from_affine(const SymbolicExpr& e,
+                                         uint64_t width,
+                                         core::Signedness sign) {
+  using B = core::machine_int::BinaryOperator;
+  ConditionExpr result;
+  if (e.constant != 0 || e.coeffs.empty())
+    result = ConditionExpr::constant(core::MachineInt(e.constant, width, sign));
+  for (const auto& kv : e.coeffs) {
+    auto term = ConditionExpr::variable(kv.first, width, sign);
+    if (kv.second != 1)
+      term =
+          ConditionExpr::binary(B::Mul,
+                                term,
+                                ConditionExpr::constant(
+                                    core::MachineInt(kv.second, width, sign)));
+    result = result ? ConditionExpr::binary(B::Add, result, term) : term;
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // make_entry
 // ---------------------------------------------------------------------------
@@ -75,7 +95,19 @@ void SymbolicState::join_with(const SymbolicState& other) {
 
   merge_map(sigma, other.sigma);
   merge_map(mu, other.mu);
+  rho.join_with(other.rho);
   merge_meta(other);
+}
+
+void SymbolicState::widen_with(const SymbolicState& other) {
+  if (is_bottom() || other.is_bottom()) {
+    join_with(other);
+    return;
+  }
+  auto previous = rho;
+  join_with(other);
+  previous.join_with(other.rho, true);
+  rho = std::move(previous);
 }
 
 void SymbolicState::merge_meta(const SymbolicState& other) {
@@ -121,10 +153,12 @@ bool SymbolicState::leq(const SymbolicState& other) const {
     return false;
   if (!map_leq(mu, other.mu))
     return false;
-  return true;
+  return rho.leq(other.rho);
 }
 
 bool SymbolicState::is_top() const {
+  if (!rho.bounds.empty() || !rho.bindings.empty())
+    return false;
   if (_bottom)
     return false;
   for (auto it = sigma.begin(); it != sigma.end(); ++it) {
@@ -160,7 +194,7 @@ SymbolicValue SymbolicState::eval(ar::Value* v) const {
   }
   if (auto* ic = ar::dyn_cast< ar::IntegerConstant >(v)) {
     auto zn = ic->value().to_z_number();
-    if (zn.fits< int64_t >()) {
+    if (zn.fits< int >()) {
       return SymbolicValue::from_expr(SymbolicExpr::from_const(
                                           static_cast< int >(
                                               zn.to< int64_t >())),
@@ -200,6 +234,11 @@ void SymbolicState::store_mem(const SymbolicValue& addr,
 // ---------------------------------------------------------------------------
 
 void SymbolicState::exec(ar::Statement* stmt) {
+  if (is_bottom())
+    return;
+  transfer_ranges(stmt);
+  if (is_bottom())
+    return;
   if (auto* sa = ar::dyn_cast< ar::Assignment >(stmt)) {
     exec_assignment(sa);
   } else if (auto* su = ar::dyn_cast< ar::UnaryOperation >(stmt)) {
@@ -231,6 +270,130 @@ void SymbolicState::exec(ar::Statement* stmt) {
     sigma[lp->result()] = SymbolicValue::top();
   }
   // Resume, ReturnValue, Unreachable: no sigma update.
+}
+
+void SymbolicState::transfer_ranges(ar::Statement* stmt) {
+  using E = core::machine_int::Expression< ar::Variable* >;
+  using I = core::machine_int::Interval;
+  using B = core::machine_int::BinaryOperator;
+  auto eval = [&](ar::Value* v) -> E {
+    auto* t = ar::dyn_cast< ar::IntegerType >(v->type());
+    if (!t)
+      return {};
+    if (auto* c = ar::dyn_cast< ar::IntegerConstant >(v))
+      return E::constant(c->value());
+    if (auto* var = ar::dyn_cast< ar::Variable >(v))
+      return rho.key(var, t->bit_width(), t->sign());
+    return {};
+  };
+  auto interval = [&](const E& e) {
+    I result =
+        e.evaluate([&](ar::Variable* v, uint64_t w, core::Signedness sign) {
+          return rho.lookup(E::variable(v, w, sign));
+        });
+    result.meet_with(rho.lookup(e));
+    return result;
+  };
+  if (auto* cmp = ar::dyn_cast< ar::Comparison >(stmt)) {
+    if (!cmp->is_integer_predicate())
+      return;
+    E l = eval(cmp->left()), r = eval(cmp->right());
+    if (!l || !r || !r.is_constant())
+      return;
+    using P = core::machine_int::Predicate;
+    P p;
+    switch (cmp->predicate()) {
+      case ar::Comparison::SIEQ:
+      case ar::Comparison::UIEQ:
+        p = P::EQ;
+        break;
+      case ar::Comparison::SINE:
+      case ar::Comparison::UINE:
+        p = P::NE;
+        break;
+      case ar::Comparison::SIGT:
+      case ar::Comparison::UIGT:
+        p = P::GT;
+        break;
+      case ar::Comparison::SIGE:
+      case ar::Comparison::UIGE:
+        p = P::GE;
+        break;
+      case ar::Comparison::SILT:
+      case ar::Comparison::UILT:
+        p = P::LT;
+        break;
+      case ar::Comparison::SILE:
+      case ar::Comparison::UILE:
+        p = P::LE;
+        break;
+      default:
+        return;
+    }
+    I range =
+        core::machine_int::assume_interval(interval(l), p, r.node().constant);
+    if (range.is_bottom())
+      set_to_bottom();
+    else
+      rho.record(l, range);
+    return;
+  }
+  auto* result = stmt->result_or_null();
+  if (!result)
+    return;
+  E e;
+  if (auto* a = ar::dyn_cast< ar::Assignment >(stmt))
+    e = eval(a->operand());
+  else if (auto* b = ar::dyn_cast< ar::BinaryOperation >(stmt)) {
+    B op = B::Add;
+    bool supported = true;
+    using A = ar::BinaryOperation;
+    switch (b->op()) {
+      case A::UAdd:
+      case A::SAdd:
+        op = b->has_no_wrap() ? B::AddNoWrap : B::Add;
+        break;
+      case A::USub:
+      case A::SSub:
+        op = b->has_no_wrap() ? B::SubNoWrap : B::Sub;
+        break;
+      case A::UMul:
+      case A::SMul:
+        op = b->has_no_wrap() ? B::MulNoWrap : B::Mul;
+        break;
+      case A::UDiv:
+      case A::SDiv:
+        op = b->is_exact() ? B::DivExact : B::Div;
+        break;
+      case A::URem:
+      case A::SRem:
+        op = B::Rem;
+        break;
+      default:
+        supported = false;
+        break;
+    }
+    if (supported)
+      e = E::binary(op, eval(b->left()), eval(b->right()));
+  } else if (auto* u = ar::dyn_cast< ar::UnaryOperation >(stmt)) {
+    auto* t = ar::dyn_cast< ar::IntegerType >(u->result()->type());
+    if (t && u->operand()->type()->is_integer())
+      e = E::cast(eval(u->operand()), t->bit_width(), t->sign());
+  }
+  boost::optional< I > range;
+  if (e)
+    range = interval(e);
+  rho.redefine(result);
+  if (e && !e.depends_on(result))
+    rho.bind(result, e);
+  if (range && result->type()->is_integer()) {
+    if (range->is_bottom()) {
+      set_to_bottom();
+      return;
+    }
+    auto* t = ar::cast< ar::IntegerType >(result->type());
+    rho.record(rho.key(result, t->bit_width(), t->sign()), *range);
+  }
 }
 
 void SymbolicState::exec_assignment(ar::Assignment* s) {
@@ -472,6 +635,18 @@ void SymbolicState::dump_compact(std::ostream& o) const {
     o << "=>";
     dump_sym_val(o, it2->second, param_names);
   }
+  o << "} rho:{";
+  bool first_range = true;
+  for (const auto& kv : rho.bounds) {
+    if (kv.first.is_variable() || kv.first.is_constant())
+      continue;
+    if (!first_range)
+      o << ", ";
+    first_range = false;
+    kv.first.dump(o, [](std::ostream& out, ar::Variable* v) { v->dump(out); });
+    o << "=>";
+    kv.second.dump(o);
+  }
   o << "}";
 }
 
@@ -547,6 +722,19 @@ static const char* pred_str(ar::Comparison::Predicate p) {
 
 void SymbolicConstraint::dump(std::ostream& o,
                               const std::vector< std::string >& names) const {
+  if (kind == KUnknown) {
+    o << "unrepresentable";
+    return;
+  }
+  if (kind == KTyped) {
+    auto leaf = [&](std::ostream& out, int i) {
+      SymbolicExpr::from_param(i).dump(out, names);
+    };
+    typed_left.dump(o, leaf);
+    o << " " << pred_str(predicate) << " ";
+    typed_right.dump(o, leaf);
+    return;
+  }
   if (kind == KTrue) {
     o << "true";
     return;
@@ -580,10 +768,10 @@ SymbolicConstraint subst_constraint(ar::Comparison* cmp,
       return nullity_constraint(s.eval(cmp->right()),
                                 cmp->predicate() == P::PNE);
     }
-    return SymbolicConstraint::make_true();
+    return SymbolicConstraint::make_unknown();
   }
   if (!cmp->is_integer_predicate())
-    return SymbolicConstraint::make_true();
+    return SymbolicConstraint::make_unknown();
   SymbolicValue lv = s.eval(cmp->left());
   SymbolicValue rv = s.eval(cmp->right());
   bool equality = cmp->predicate() == P::SIEQ || cmp->predicate() == P::UIEQ;
@@ -603,7 +791,7 @@ SymbolicConstraint subst_constraint(ar::Comparison* cmp,
   const SymbolicExpr* le = lv.get_expr();
   const SymbolicExpr* re = rv.get_expr();
   if (!le || !re)
-    return SymbolicConstraint::make_true();
+    return SymbolicConstraint::make_unknown();
   return SymbolicConstraint::make_param(cmp->predicate(), *le, *re);
 }
 
@@ -637,13 +825,30 @@ SymbolicConstraint nullity_constraint(const SymbolicValue& pointer,
     if (index >= 0)
       return SymbolicConstraint::make_nullity(index, non_null);
   }
-  return SymbolicConstraint::make_true();
+  return SymbolicConstraint::make_unknown();
 }
 
 bool boolean_constraint_value(const SymbolicConstraint& constraint,
                               int& parameter,
                               bool& truth) {
   using P = ar::Comparison;
+  if (constraint.kind == SymbolicConstraint::KTyped) {
+    ConditionExpr e = constraint.typed_left, c = constraint.typed_right;
+    if (e.is_constant())
+      std::swap(e, c);
+    bool eq =
+        constraint.predicate == P::SIEQ || constraint.predicate == P::UIEQ;
+    bool ne =
+        constraint.predicate == P::SINE || constraint.predicate == P::UINE;
+    if ((!eq && !ne) || !e.is_variable() || !c.is_constant())
+      return false;
+    auto n = c.node().constant.to_z_number();
+    if (n != 0 && n != 1 && !(c.bit_width() == 1 && n == -1))
+      return false;
+    parameter = e.node().variable;
+    truth = (n != 0) == eq;
+    return true;
+  }
   if (constraint.kind != SymbolicConstraint::KParam)
     return false;
   bool equality =

@@ -24,8 +24,7 @@ namespace parameter_symbolic {
 //
 // `disjuncts.empty()` means false. A single empty conjunction means true.
 //
-// An unrepresentable constraint is abstracted to true by not adding it to its
-// conjunction.
+// Unrepresentable constraints invalidate their conjunction, never weaken it.
 // ---------------------------------------------------------------------------
 struct SymbolicCondition {
   using Conjunction = std::vector< SymbolicConstraint >;
@@ -63,6 +62,9 @@ struct SymbolicCondition {
 struct NormalSummary {
   bool available = false;
   bool has_exit = false;
+  // False means a sufficient condition for only part of the input space.
+  // In particular false/Partial is NOT proof that this flow is impossible.
+  bool complete = false;
   SymbolicCondition condition = SymbolicCondition::make_false();
   std::map< SymbolicLoc, SymbolicValue > mu_exit;
   std::vector< std::string > param_names;
@@ -79,6 +81,7 @@ struct NormalSummary {
 struct ExceptionSummary {
   bool available = false;
   bool has_exit = false;
+  bool complete = false;
   SymbolicCondition condition = SymbolicCondition::make_false();
   std::map< SymbolicLoc, SymbolicValue > mu_exit;
   std::vector< std::string > param_names;

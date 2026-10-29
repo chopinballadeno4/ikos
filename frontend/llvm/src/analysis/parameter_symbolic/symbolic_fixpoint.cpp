@@ -11,6 +11,7 @@
 #include <ikos/ar/semantic/function.hpp>
 #include <ikos/ar/semantic/statement.hpp>
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/caller_pruning.hpp>
+#include <ikos/frontend/llvm/analysis/parameter_symbolic/exit_proof.hpp>
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/function_summary.hpp>
 
 namespace ikos {
@@ -33,7 +34,8 @@ SymbolicFunctionFixpoint::SymbolicFunctionFixpoint(ar::Function* fun,
 
 SymbolicState SymbolicFunctionFixpoint::analyze_node(ar::BasicBlock* bb,
                                                      SymbolicState pre) {
-  if (pre.is_bottom()) return pre;
+  if (pre.is_bottom())
+    return pre;
 
   // Decide whether to emit trace for this block.
   bool do_trace = (_trace_out != nullptr) &&
@@ -104,7 +106,7 @@ SymbolicState SymbolicFunctionFixpoint::extrapolate(
     unsigned /*iteration*/,
     const SymbolicState& before,
     const SymbolicState& after) {
-  return before.join_iter(after); // widening = join
+  return before.widening(after); // flat sigma/mu + interval rho widening
 }
 
 SymbolicState SymbolicFunctionFixpoint::refine(ar::BasicBlock* /*head*/,
@@ -123,142 +125,6 @@ bool SymbolicFunctionFixpoint::is_decreasing_iterations_fixpoint(
 }
 
 // ---------------------------------------------------------------------------
-// Helper: compute parameter-based path conditions for every block
-// ---------------------------------------------------------------------------
-
-using BlockConditions =
-    std::unordered_map< ar::BasicBlock*, SymbolicCondition >;
-
-static std::vector< SymbolicValue > capture_symbolic_args(
-    const SymbolicState& state,
-    ar::CallBase* call) {
-  std::vector< SymbolicValue > arg_vals;
-  arg_vals.reserve(call->num_arguments());
-  for (auto it = call->arg_begin(); it != call->arg_end(); ++it) {
-    arg_vals.push_back(state.eval(*it));
-  }
-  return arg_vals;
-}
-
-static SymbolicCondition call_exit_condition(
-    const SymbolicState& state,
-    ar::CallBase* call,
-    bool normal,
-    const SummaryStore* store) {
-  if (store == nullptr ||
-      !ar::isa< ar::FunctionPointerConstant >(call->called())) {
-    return SymbolicCondition::make_true();
-  }
-
-  ar::Function* callee =
-      ar::cast< ar::FunctionPointerConstant >(call->called())->function();
-  const FunctionSummary* summary = store->get(callee);
-  if (summary == nullptr) return SymbolicCondition::make_true();
-
-  const SymbolicCondition* condition = nullptr;
-  if (normal) {
-    if (!summary->normal.available) return SymbolicCondition::make_true();
-    if (!summary->normal.has_exit) return SymbolicCondition::make_false();
-    condition = &summary->normal.condition;
-  } else {
-    if (!summary->exception.available) return SymbolicCondition::make_true();
-    if (!summary->exception.has_exit) return SymbolicCondition::make_false();
-    condition = &summary->exception.condition;
-  }
-
-  return subst_condition_into_caller(*condition,
-                                     capture_symbolic_args(state, call));
-}
-
-static SymbolicState state_before_last_statement(
-    const SymbolicFunctionFixpoint& fp,
-    ar::BasicBlock* bb) {
-  SymbolicState state = fp.pre(bb);
-  if (state.is_bottom() || bb->empty()) return state;
-
-  ar::Statement* last = bb->back();
-  for (ar::Statement* stmt : *bb) {
-    if (stmt == last) break;
-    if (auto* call = ar::dyn_cast< ar::Call >(stmt)) {
-      if (fp.summary_store() != nullptr) {
-        apply_call_summary(state, call, *fp.summary_store());
-      } else {
-        state.exec(stmt);
-      }
-    } else {
-      state.exec(stmt);
-    }
-  }
-  return state;
-}
-
-static BlockConditions compute_block_conditions(
-    const SymbolicFunctionFixpoint& fp,
-    ar::Code* body) {
-  BlockConditions out_conditions;
-  bool changed = true;
-
-  while (changed) {
-    changed = false;
-
-    for (ar::BasicBlock* bb : *body) {
-      SymbolicCondition condition = SymbolicCondition::make_false();
-
-      if (bb == body->entry_block()) {
-        condition = SymbolicCondition::make_true();
-      }
-
-      for (auto pit = bb->predecessor_begin();
-           pit != bb->predecessor_end(); ++pit) {
-        auto it = out_conditions.find(*pit);
-        if (it == out_conditions.end()) continue;
-
-        SymbolicCondition predecessor_condition = it->second;
-        ar::BasicBlock* predecessor = *pit;
-        if (!predecessor->empty()) {
-          if (auto* invoke =
-                  ar::dyn_cast< ar::Invoke >(predecessor->back())) {
-            SymbolicState state =
-                state_before_last_statement(fp, predecessor);
-            bool normal = (bb == invoke->normal_dest());
-            predecessor_condition.meet_with(call_exit_condition(
-                state, invoke, normal, fp.summary_store()));
-          }
-        }
-        condition.join_with(predecessor_condition);
-      }
-
-      SymbolicState state = fp.pre(bb);
-      if (state.is_bottom()) {
-        condition = SymbolicCondition::make_false();
-      } else {
-        for (ar::Statement* stmt : *bb) {
-          if (auto* cmp = ar::dyn_cast< ar::Comparison >(stmt)) {
-            condition.add_constraint(subst_constraint(cmp, state));
-          } else if (auto* call = ar::dyn_cast< ar::Call >(stmt)) {
-            condition.meet_with(call_exit_condition(
-                state, call, true, fp.summary_store()));
-            if (fp.summary_store() != nullptr) {
-              apply_call_summary(state, call, *fp.summary_store());
-              continue;
-            }
-          }
-          state.exec(stmt);
-        }
-      }
-
-      auto result = out_conditions.emplace(bb, condition);
-      if (result.second || !result.first->second.equals(condition)) {
-        result.first->second = std::move(condition);
-        changed = true;
-      }
-    }
-  }
-
-  return out_conditions;
-}
-
-// ---------------------------------------------------------------------------
 // Helper: filter mu to caller-visible locations (exclude callee-local allocs)
 // ---------------------------------------------------------------------------
 
@@ -273,61 +139,23 @@ static std::map< SymbolicLoc, SymbolicValue > filter_mu_caller_visible(
   return result;
 }
 
-static bool has_ordinary_call(ar::Code* body) {
-  for (ar::BasicBlock* bb : *body) {
-    for (ar::Statement* stmt : *bb) {
-      if (ar::isa< ar::Call >(stmt)) return true;
-    }
-  }
-  return false;
-}
-
 // ---------------------------------------------------------------------------
 // build_summary: construct FunctionSummary from fixpoint results
 // ---------------------------------------------------------------------------
 
 FunctionSummary SymbolicFunctionFixpoint::build_summary() const {
-  FunctionSummary summary;
-  summary.function = _fun;
-
-  ar::Code* body = _fun->body();
-  BlockConditions conditions = compute_block_conditions(*this, body);
-
-  // --- Normal exit ---
-  // Once the function analysis completes, absence of a normal CFG exit is a
-  // known false normal flow rather than an unavailable summary.
-  summary.normal.available = true;
-  ar::BasicBlock* nb = body->normal_exit_block_or_null();
-  if (nb) {
-    const SymbolicState& ns = this->post(nb);
+  FunctionSummary summary = prove_exit_conditions(_fun, _store);
+  auto* body = _fun->body();
+  if (auto* nb = body->normal_exit_block_or_null()) {
+    const auto& ns = this->post(nb);
     summary.normal.param_names = ns.param_names;
-    summary.normal.condition = conditions[nb];
-    summary.normal.has_exit =
-        !ns.is_bottom() && !summary.normal.condition.is_false();
-    if (summary.normal.has_exit) {
-      summary.normal.mu_exit = filter_mu_caller_visible(ns);
-    }
+    summary.normal.mu_exit = filter_mu_caller_visible(ns);
   }
-
-  // --- Exception exit ---
-  ar::BasicBlock* eb = body->exception_exit_block_or_null();
-  if (eb) {
-    // The auxiliary symbolic state does not model exceptions propagated by an
-    // ordinary Call. If one exists, the explicit exception-exit paths may not
-    // cover every exceptional execution, so do not expose a pruning condition.
-    summary.exception.available = !has_ordinary_call(body);
-    const SymbolicState& es = this->post(eb);
+  if (auto* eb = body->exception_exit_block_or_null()) {
+    const auto& es = this->post(eb);
     summary.exception.param_names = es.param_names;
-    summary.exception.condition = conditions[eb];
-    summary.exception.has_exit =
-        !es.is_bottom() && !summary.exception.condition.is_false();
-    if (summary.exception.has_exit) {
-      summary.exception.mu_exit = filter_mu_caller_visible(es);
-    }
+    summary.exception.mu_exit = filter_mu_caller_visible(es);
   }
-
-  // program_exit: not included in caller summary (no return to caller).
-
   return summary;
 }
 
@@ -378,11 +206,16 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
         }
       }
 
+      o << "  coverage: " << (summary.normal.complete ? "Complete" : "Partial")
+        << "\n";
       o << "  C_normal (parameter constraints):\n";
       summary.normal.condition.dump(o, ns.param_names, "    ");
     }
   } else {
-    o << "\n[normal_exit] none\n";
+    o << "\n[normal_exit] "
+      << (summary.normal.complete ? "none (Complete)"
+                                  : "no certified region (Partial)")
+      << "\n";
   }
 
   // --- Exception exit ---
@@ -406,6 +239,8 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
         }
       }
 
+      o << "  coverage: "
+        << (summary.exception.complete ? "Complete" : "Partial") << "\n";
       o << "  C_exception (parameter constraints):\n";
       if (summary.exception.available) {
         summary.exception.condition.dump(o, es.param_names, "    ");
@@ -414,13 +249,15 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
       }
     }
   } else {
-    o << "\n[exception_exit] none\n";
+    o << "\n[exception_exit] "
+      << (summary.exception.complete ? "none (Complete)"
+                                     : "no certified region (Partial)")
+      << "\n";
   }
 
   // --- Program exit ---
   ar::BasicBlock* pb = body->program_exit_block_or_null();
-  o << "\n[program_exit] "
-    << (pb ? pb->name_or_empty() : "none")
+  o << "\n[program_exit] " << (pb ? pb->name_or_empty() : "none")
     << " (no summary -- process terminates)\n";
 
   o << "\n";
@@ -435,17 +272,19 @@ FunctionSummary analyze_function(ar::Function* fun,
                                  std::ostream* summary_out,
                                  std::ostream* trace_out,
                                  const std::string& trace_fn) {
-  if (!fun->is_definition()) return FunctionSummary{};
+  if (!fun->is_definition())
+    return FunctionSummary{};
 
-  bool do_trace = (trace_out != nullptr) &&
-                  (trace_fn.empty() || fun->name() == trace_fn);
+  bool do_trace =
+      (trace_out != nullptr) && (trace_fn.empty() || fun->name() == trace_fn);
   if (do_trace) {
     *trace_out << "\n=== TRACE: " << fun->name() << " ===\n";
   }
 
   SymbolicFunctionFixpoint fp(fun, store, trace_out, trace_fn);
   fp.run(SymbolicState::make_entry(fun));
-  if (summary_out != nullptr) fp.dump_summary(*summary_out);
+  if (summary_out != nullptr)
+    fp.dump_summary(*summary_out);
   return fp.build_summary();
 }
 
@@ -463,12 +302,15 @@ static std::set< ar::Function* > direct_callees(ar::Function* fun) {
   for (ar::BasicBlock* bb : *fun->body()) {
     for (ar::Statement* stmt : *bb) {
       ar::CallBase* cb = nullptr;
-      if (auto* c = ar::dyn_cast< ar::Call >(stmt)) cb = c;
-      else if (auto* i = ar::dyn_cast< ar::Invoke >(stmt)) cb = i;
+      if (auto* c = ar::dyn_cast< ar::Call >(stmt))
+        cb = c;
+      else if (auto* i = ar::dyn_cast< ar::Invoke >(stmt))
+        cb = i;
       if (cb && ar::isa< ar::FunctionPointerConstant >(cb->called())) {
         ar::Function* callee =
             ar::cast< ar::FunctionPointerConstant >(cb->called())->function();
-        if (callee->is_definition()) result.insert(callee);
+        if (callee->is_definition())
+          result.insert(callee);
       }
     }
   }
@@ -480,8 +322,10 @@ static void dfs_postorder(ar::Function* fun,
                           std::unordered_set< ar::Function* >& visiting,
                           std::unordered_set< ar::Function* >& visited,
                           std::vector< ar::Function* >& order) {
-  if (visited.count(fun)) return;
-  if (visiting.count(fun)) return; // back edge (cycle) — skip
+  if (visited.count(fun))
+    return;
+  if (visiting.count(fun))
+    return; // back edge (cycle) — skip
 
   visiting.insert(fun);
   for (ar::Function* callee : direct_callees(fun)) {

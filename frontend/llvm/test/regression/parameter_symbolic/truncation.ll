@@ -25,4 +25,4 @@ entry:
 
 ; CHECK-LABEL: Function: low_bit_guard
 ; CHECK: C_normal (parameter constraints):
-; CHECK-NEXT: true
+; CHECK-NEXT: {{.*Cast_1.*input0.*== 1}}

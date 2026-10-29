@@ -23,24 +23,27 @@ namespace parameter_symbolic {
 // Substitute a callee SymbolicExpr (Σ a_j·p_j^0 + c) into the caller context.
 // Returns KExpr if every referenced param resolves to a scalar expression,
 // TOP otherwise.
-SymbolicValue subst_expr_into_caller(const SymbolicExpr& callee_expr,
-                                     const std::vector< SymbolicValue >& arg_vals);
+SymbolicValue subst_expr_into_caller(
+    const SymbolicExpr& callee_expr,
+    const std::vector< SymbolicValue >& arg_vals);
 
 // Substitute a callee SymbolicValue into the caller context.
 // KExpr: scalar substitution via subst_expr_into_caller.
-// KLoc:  maps L.base (callee param var) → caller arg loc, then translates offset.
-// KNull: preserved independently from integer zero.
-// KBool: translates its pointer origin; unknown origins become TOP.
-// KTop:  stays TOP.
-SymbolicValue subst_val_into_caller(const SymbolicValue& callee_val,
-                                    ar::Function* callee,
-                                    const std::vector< SymbolicValue >& arg_vals);
+// KLoc:  maps L.base (callee param var) → caller arg loc, then translates
+// offset. KNull: preserved independently from integer zero. KBool: translates
+// its pointer origin; unknown origins become TOP. KTop:  stays TOP.
+SymbolicValue subst_val_into_caller(
+    const SymbolicValue& callee_val,
+    ar::Function* callee,
+    const std::vector< SymbolicValue >& arg_vals);
 
 // Substitute a DNF exit condition into the caller parameter context.
-// An atom with an unrepresentable operand is weakened to true.
+// Unrepresentable operands discard the entire uncertified conjunction.
 SymbolicCondition subst_condition_into_caller(
     const SymbolicCondition& callee_condition,
-    const std::vector< SymbolicValue >& arg_vals);
+    const std::vector< SymbolicValue >& arg_vals,
+    const std::vector< ConditionExpr >& typed_args = {},
+    bool* fully_substituted = nullptr);
 
 // ---------------------------------------------------------------------------
 // Memory effect application
@@ -60,9 +63,8 @@ void apply_memory_summary(SymbolicState& caller_state,
 // Conservatively invalidate symbolic memory reachable through pointer
 // arguments. This is performed before applying any known exit-memory relation;
 // a missing summary entry never means that memory is unchanged.
-void invalidate_pointer_arguments(
-    SymbolicState& caller_state,
-    const std::vector< SymbolicValue >& arg_vals);
+void invalidate_pointer_arguments(SymbolicState& caller_state,
+                                  const std::vector< SymbolicValue >& arg_vals);
 
 // ---------------------------------------------------------------------------
 // Call / Invoke entry points (called from SymbolicFunctionFixpoint)

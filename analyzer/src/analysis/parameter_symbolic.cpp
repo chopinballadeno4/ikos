@@ -184,10 +184,120 @@ bool is_direct_unsigned_operand(const SymbolicExpr& expr) {
           expr.constant == 0);
 }
 
+using TypedExpr = frontend::parameter_symbolic::ConditionExpr;
+using CallerExpr = core::machine_int::Expression< Variable* >;
+using IntInterval = core::machine_int::Interval;
+
+CallerExpr translate_expression(const TypedExpr& e,
+                                value::MemoryAbstractDomain& state,
+                                Context& ctx,
+                                ar::CallBase* call) {
+  if (!e)
+    return {};
+  if (e.node().kind == TypedExpr::Constant)
+    return CallerExpr::constant(e.node().constant);
+  if (e.node().kind == TypedExpr::Variable) {
+    int i = e.node().variable;
+    if (i < 0 || static_cast< std::size_t >(i) >= call->num_arguments())
+      return {};
+    auto* arg = call->argument(static_cast< unsigned >(i));
+    if (!arg->type()->is_integer())
+      return {};
+    const auto& lit = ctx.lit_factory->get_scalar(arg);
+    if (lit.is_machine_int())
+      return CallerExpr::constant(
+          lit.machine_int().cast(e.bit_width(), e.sign()));
+    if (!lit.is_machine_int_var())
+      return {};
+    return CallerExpr::cast(state.range_expression(lit.var()),
+                            e.bit_width(),
+                            e.sign());
+  }
+  auto l = translate_expression(e.left(), state, ctx, call);
+  if (e.node().kind == TypedExpr::Cast)
+    return CallerExpr::cast(l, e.bit_width(), e.sign());
+  return CallerExpr::binary(e.node().op,
+                            l,
+                            translate_expression(e.right(), state, ctx, call));
+}
+
+AtomResult apply_typed(value::MemoryAbstractDomain& state,
+                       const SymbolicConstraint& c,
+                       Context& ctx,
+                       ar::CallBase* call) {
+  auto l = translate_expression(c.typed_left, state, ctx, call);
+  auto r = translate_expression(c.typed_right, state, ctx, call);
+  if (!l || !r)
+    return AtomResult::Tautology;
+  auto p = machine_predicate(c.predicate);
+  if (l.is_constant() && r.is_constant())
+    return eval_constant_predicate(l.node().constant.to_z_number(),
+                                   p,
+                                   r.node().constant.to_z_number())
+               ? AtomResult::Tautology
+               : AtomResult::Contradiction;
+  if (l.is_variable() && r.is_constant())
+    state.int_add(p, l.node().variable, r.node().constant);
+  else if (l.is_constant() && r.is_variable())
+    state.int_add(reverse_predicate(p), r.node().variable, l.node().constant);
+  else if (l.is_variable() && r.is_variable())
+    state.int_add(p, l.node().variable, r.node().variable);
+  if (state.is_bottom())
+    return AtomResult::Contradiction;
+  if (l.is_constant()) {
+    std::swap(l, r);
+    p = reverse_predicate(p);
+  }
+  if (!r.is_constant())
+    return AtomResult::Tautology;
+  auto range = l.evaluate([&](Variable* v, uint64_t, core::Signedness) {
+    return state.int_to_interval(v);
+  });
+  if (range.is_bottom())
+    return AtomResult::Contradiction;
+  ZNumber lo = range.lb().to_z_number(), hi = range.ub().to_z_number();
+  ZNumber n = r.node().constant.to_z_number();
+  using P = core::machine_int::Predicate;
+  switch (p) {
+    case P::EQ:
+      lo = std::max(lo, n);
+      hi = std::min(hi, n);
+      break;
+    case P::NE:
+      if (lo == n)
+        ++lo;
+      if (hi == n)
+        --hi;
+      break;
+    case P::GE:
+      lo = std::max(lo, n);
+      break;
+    case P::GT:
+      lo = std::max(lo, ZNumber(n + 1));
+      break;
+    case P::LE:
+      hi = std::min(hi, n);
+      break;
+    case P::LT:
+      hi = std::min(hi, ZNumber(n - 1));
+      break;
+  }
+  if (lo > hi)
+    return AtomResult::Contradiction;
+  state.refine_expression(l,
+                          IntInterval(MachineInt(lo, l.bit_width(), l.sign()),
+                                      MachineInt(hi, l.bit_width(), l.sign())));
+  return state.is_bottom() ? AtomResult::Contradiction : AtomResult::Applied;
+}
+
 AtomResult apply_atom(value::MemoryAbstractDomain& state,
                       const SymbolicConstraint& constraint,
                       Context& ctx,
                       ar::CallBase* call) {
+  if (constraint.kind == SymbolicConstraint::KTyped)
+    return apply_typed(state, constraint, ctx, call);
+  if (constraint.kind == SymbolicConstraint::KUnknown)
+    return AtomResult::Tautology;
   if (constraint.kind == SymbolicConstraint::KTrue) {
     return AtomResult::Tautology;
   }
@@ -338,10 +448,17 @@ void apply_caller_summary(Context& ctx,
     return;
 
   if (ctx.opts.trace_ar_statements) {
-    log::debug("Applying caller summary for function '" + callee->name() + "'");
+    bool complete =
+        (summary->normal.available && summary->normal.complete) ||
+        (summary->exception.available && summary->exception.complete);
+    log::debug(
+        std::string(complete
+                        ? "Applying caller summary for function '"
+                        : "Skipping partial caller summary for function '") +
+        callee->name() + "'");
   }
 
-  if (summary->normal.available) {
+  if (summary->normal.available && summary->normal.complete) {
     if (!summary->normal.has_exit) {
       invariant.set_normal_flow_to_bottom();
     } else {
@@ -349,7 +466,7 @@ void apply_caller_summary(Context& ctx,
     }
   }
 
-  if (summary->exception.available) {
+  if (summary->exception.available && summary->exception.complete) {
     if (!summary->exception.has_exit) {
       invariant.set_caught_exceptions_to_bottom();
     } else {

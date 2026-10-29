@@ -1,20 +1,20 @@
-; Flow-sensitive caller-summary propagation through Invoke.
+; Unknown Invoke paths must not be claimed as guaranteed exception exits.
 ;
-; The callee can propagate an exception only when x == 2. The caller must
-; retain that condition on its exception exit while keeping its normal flow.
+; x == 2 is necessary for unwinding, but may_throw is unknown and can return
+; normally instead. An empty Partial guarantee must retain the base flow.
 
 ; CHECK-LABEL: Function: exception_only_on_two
 ; CHECK: C_exception (parameter constraints):
-; CHECK-NEXT:     x0 == 2
+; CHECK-NEXT:     false
 
 ; CHECK-LABEL: Function: test_invoke
 ; CHECK: C_exception (parameter constraints):
-; CHECK-NEXT:     x0 == 2
+; CHECK-NEXT:     false
 
-; ANALYZER: Applying caller summary for function 'exception_only_on_two'
+; ANALYZER: Skipping partial caller summary for function 'exception_only_on_two'
 ; ANALYZER-LABEL: Function: test_invoke
 ; ANALYZER: C_exception (parameter constraints):
-; ANALYZER-NEXT:     x0 == 2
+; ANALYZER-NEXT:     false
 
 declare void @may_throw()
 declare i32 @__gxx_personality_v0(...)

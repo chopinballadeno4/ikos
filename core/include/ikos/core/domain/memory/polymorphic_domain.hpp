@@ -52,6 +52,7 @@
 #include <ikos/core/domain/memory/abstract_domain.hpp>
 #include <ikos/core/support/assert.hpp>
 #include <ikos/core/support/mpl.hpp>
+#include <ikos/core/value/machine_int/expression.hpp>
 
 namespace ikos {
 namespace core {
@@ -1461,6 +1462,100 @@ private:
 private:
   /// \brief Pointer on the polymorphic base class
   std::unique_ptr< PolymorphicBase > _ptr;
+  using Expr = machine_int::Expression< VariableRef >;
+  using Ranges = machine_int::ExpressionRanges< VariableRef >;
+  std::unique_ptr< Ranges > _ranges;
+  std::function< bool(VariableRef) > _range_leaf;
+
+  Expr expression_key(VariableRef v) const {
+    if (!_ranges || !_range_leaf(v))
+      return {};
+    return _ranges->key(v,
+                        machine_int::VariableTraits< VariableRef >::bit_width(
+                            v),
+                        machine_int::VariableTraits< VariableRef >::sign(v));
+  }
+  void redefine_expression(VariableRef v) {
+    if (_ranges)
+      _ranges->redefine(v);
+  }
+  IntInterval expression_interval(const Expr& e) const {
+    auto i = e.evaluate([&](VariableRef v, uint64_t, Signedness) {
+      return _ptr->int_to_interval(v);
+    });
+    i.meet_with(_ranges->lookup(e));
+    return i;
+  }
+  // Bounded reduction of a typed expression into the existing variable
+  // intervals. All recursive steps intersect; no value is assigned anew.
+  void reduce_expression(const Expr& e,
+                         const IntInterval& requested,
+                         unsigned& budget) {
+    if (!budget || _ptr->is_bottom())
+      return;
+    --budget;
+    auto i = expression_interval(e).meet(requested);
+    _ranges->record(e, i);
+    if (i.is_bottom()) {
+      _ptr->set_to_bottom();
+      return;
+    }
+    if (e.is_variable())
+      _ptr->int_refine(e.node().variable, i);
+    for (const auto& kv : _ranges->bindings)
+      if (kv.second == e)
+        _ptr->int_refine(kv.first, i);
+    if (_ptr->is_bottom() || e.is_constant() || e.is_variable())
+      return;
+    auto l = e.left();
+    auto li = expression_interval(l);
+    if (e.node().kind == Expr::Cast) {
+      // Same-width reinterpretation and extension are injective in bits.
+      // Truncation loses high bits and is deliberately not inverted.
+      if (e.bit_width() >= l.bit_width())
+        reduce_expression(l, i.cast(l.bit_width(), l.sign()), budget);
+      return;
+    }
+    auto r = e.right();
+    auto projected = machine_int::backward_intervals(e.node().op,
+                                                     i,
+                                                     li,
+                                                     expression_interval(r));
+    if (!projected.first.equals(li))
+      reduce_expression(l, projected.first, budget);
+    if (_ptr->is_bottom())
+      return;
+    if (!projected.second.equals(expression_interval(r)))
+      reduce_expression(r, projected.second, budget);
+  }
+  void capture_range(VariableRef v) {
+    Expr e = expression_key(v);
+    if (e && !_ptr->is_bottom()) {
+      _ranges->record(e, _ptr->int_to_interval(v));
+      unsigned budget = 128;
+      reduce_expression(e, _ranges->lookup(e), budget);
+    }
+  }
+  void finish_expression(VariableRef v, const Expr& e) {
+    if (!e || !_ranges || !_range_leaf(v) || _ptr->is_bottom())
+      return;
+    if (e.depends_on(v))
+      return;
+    _ranges->bind(v, e);
+    _ptr->int_refine(v, _ranges->lookup(e));
+    capture_range(v);
+  }
+  void merge_ranges(const PolymorphicDomain& o, bool widen = false) {
+    if (_ptr->is_bottom()) {
+      _ranges = o._ranges ? std::make_unique< Ranges >(*o._ranges) : nullptr;
+      _range_leaf = o._range_leaf;
+    } else if (!o._ptr->is_bottom() && _ranges) {
+      if (o._ranges)
+        _ranges->join_with(*o._ranges, widen);
+      else
+        _ranges->clear();
+    }
+  }
 
 private:
   /// \brief Constructor
@@ -1477,14 +1572,22 @@ public:
 
   /// \brief Copy constructor
   PolymorphicDomain(const PolymorphicDomain& other)
-      : _ptr(other._ptr->clone()) {}
+      : _ptr(other._ptr->clone()),
+        _ranges(other._ranges ? std::make_unique< Ranges >(*other._ranges)
+                              : nullptr),
+        _range_leaf(other._range_leaf) {}
 
   /// \brief Move constructor
   PolymorphicDomain(PolymorphicDomain&&) noexcept = default;
 
   /// \brief Copy assignment operator
   PolymorphicDomain& operator=(const PolymorphicDomain& other) {
+    if (this == &other)
+      return *this;
     this->_ptr = other._ptr->clone();
+    _ranges =
+        other._ranges ? std::make_unique< Ranges >(*other._ranges) : nullptr;
+    _range_leaf = other._range_leaf;
     return *this;
   }
 
@@ -1494,6 +1597,24 @@ public:
   /// \brief Destructor
   ~PolymorphicDomain() override = default;
 
+  /// Enable flow-local expression ranges for stable scalar value identities.
+  /// Memory cells must not be leaves: loads receive a fresh scalar identity.
+  void enable_expression_ranges(std::function< bool(VariableRef) > leaf) {
+    _ranges = std::make_unique< Ranges >();
+    _range_leaf = std::move(leaf);
+  }
+
+  using IntegerExpression = machine_int::Expression< VariableRef >;
+  IntegerExpression range_expression(VariableRef v) const {
+    return expression_key(v);
+  }
+  void refine_expression(const IntegerExpression& e, const IntInterval& i) {
+    if (!_ranges || !e || is_bottom())
+      return;
+    unsigned budget = 128;
+    reduce_expression(e, i, budget);
+  }
+
   /// \name Core abstract domain methods
   /// @{
 
@@ -1501,50 +1622,73 @@ public:
 
   bool is_bottom() const override { return this->_ptr->is_bottom(); }
 
-  bool is_top() const override { return this->_ptr->is_top(); }
+  bool is_top() const override {
+    return this->_ptr->is_top() &&
+           (!_ranges || (_ranges->bounds.empty() && _ranges->bindings.empty()));
+  }
 
-  void set_to_bottom() override { this->_ptr->set_to_bottom(); }
+  void set_to_bottom() override {
+    this->_ptr->set_to_bottom();
+    if (_ranges)
+      _ranges->clear();
+  }
 
-  void set_to_top() override { this->_ptr->set_to_top(); }
+  void set_to_top() override {
+    this->_ptr->set_to_top();
+    if (_ranges)
+      _ranges->clear();
+  }
 
   bool leq(const PolymorphicDomain& other) const override {
-    return this->_ptr->leq(*other._ptr);
+    return this->_ptr->leq(*other._ptr) &&
+           (is_bottom() || !other._ranges ||
+            (_ranges ? _ranges->leq(*other._ranges)
+                     : other._ranges->bounds.empty() &&
+                           other._ranges->bindings.empty()));
   }
 
   bool equals(const PolymorphicDomain& other) const override {
-    return this->_ptr->equals(*other._ptr);
+    return leq(other) && other.leq(*this);
   }
 
   void join_with(PolymorphicDomain&& other) override {
+    merge_ranges(other, false);
     this->_ptr->join_with(std::move(*other._ptr));
   }
 
   void join_with(const PolymorphicDomain& other) override {
+    merge_ranges(other, false);
     this->_ptr->join_with(*other._ptr);
   }
 
   void join_loop_with(PolymorphicDomain&& other) override {
+    merge_ranges(other, false);
     this->_ptr->join_loop_with(std::move(*other._ptr));
   }
 
   void join_loop_with(const PolymorphicDomain& other) override {
+    merge_ranges(other, false);
     this->_ptr->join_loop_with(*other._ptr);
   }
 
   void join_iter_with(PolymorphicDomain&& other) override {
+    merge_ranges(other, false);
     this->_ptr->join_iter_with(std::move(*other._ptr));
   }
 
   void join_iter_with(const PolymorphicDomain& other) override {
+    merge_ranges(other, false);
     this->_ptr->join_iter_with(*other._ptr);
   }
 
   void widen_with(const PolymorphicDomain& other) override {
+    merge_ranges(other, true);
     this->_ptr->widen_with(*other._ptr);
   }
 
   void widen_threshold_with(const PolymorphicDomain& other,
                             const MachineInt& threshold) override {
+    merge_ranges(other, true);
     this->_ptr->widen_threshold_with(*other._ptr, threshold);
   }
 
@@ -1562,41 +1706,55 @@ public:
   }
 
   PolymorphicDomain join(const PolymorphicDomain& other) const override {
-    return PolymorphicDomain(this->_ptr->join(*other._ptr));
+    PolymorphicDomain result(*this);
+    result.join_with(other);
+    return result;
   }
 
   PolymorphicDomain join_loop(const PolymorphicDomain& other) const override {
-    return PolymorphicDomain(this->_ptr->join_loop(*other._ptr));
+    PolymorphicDomain result(*this);
+    result.join_loop_with(other);
+    return result;
   }
 
   PolymorphicDomain join_iter(const PolymorphicDomain& other) const override {
-    return PolymorphicDomain(this->_ptr->join_iter(*other._ptr));
+    PolymorphicDomain result(*this);
+    result.join_iter_with(other);
+    return result;
   }
 
   PolymorphicDomain widening(const PolymorphicDomain& other) const override {
-    return PolymorphicDomain(this->_ptr->widening(*other._ptr));
+    PolymorphicDomain result(*this);
+    result.widen_with(other);
+    return result;
   }
 
   PolymorphicDomain widening_threshold(
       const PolymorphicDomain& other,
       const MachineInt& threshold) const override {
-    return PolymorphicDomain(
-        this->_ptr->widening_threshold(*other._ptr, threshold));
+    PolymorphicDomain result(*this);
+    result.widen_threshold_with(other, threshold);
+    return result;
   }
 
   PolymorphicDomain meet(const PolymorphicDomain& other) const override {
-    return PolymorphicDomain(this->_ptr->meet(*other._ptr));
+    PolymorphicDomain result(*this);
+    result.meet_with(other);
+    return result;
   }
 
   PolymorphicDomain narrowing(const PolymorphicDomain& other) const override {
-    return PolymorphicDomain(this->_ptr->narrowing(*other._ptr));
+    PolymorphicDomain result(*this);
+    result.narrow_with(other);
+    return result;
   }
 
   PolymorphicDomain narrowing_threshold(
       const PolymorphicDomain& other,
       const MachineInt& threshold) const override {
-    return PolymorphicDomain(
-        this->_ptr->narrowing_threshold(*other._ptr, threshold));
+    PolymorphicDomain result(*this);
+    result.narrow_threshold_with(other, threshold);
+    return result;
   }
 
   /// @}
@@ -1628,90 +1786,137 @@ public:
   /// @{
 
   void int_assign(VariableRef x, const MachineInt& n) override {
+    redefine_expression(x);
     this->_ptr->int_assign(x, n);
+    finish_expression(x, Expr::constant(n));
   }
 
   void int_assign_undef(VariableRef x) override {
+    redefine_expression(x);
     this->_ptr->int_assign_undef(x);
   }
 
   void int_assign_nondet(VariableRef x) override {
+    redefine_expression(x);
     this->_ptr->int_assign_nondet(x);
   }
 
   void int_assign(VariableRef x, VariableRef y) override {
+    Expr e = expression_key(y);
+    if (x != y)
+      redefine_expression(x);
     this->_ptr->int_assign(x, y);
+    if (x != y)
+      finish_expression(x, e);
   }
 
   void int_assign(VariableRef x, const IntLinearExpression& e) override {
+    redefine_expression(x);
     this->_ptr->int_assign(x, e);
   }
 
   void int_apply(IntUnaryOperator op, VariableRef x, VariableRef y) override {
+    Expr e = expression_key(y);
+    if (e)
+      e = Expr::cast(e,
+                     machine_int::VariableTraits< VariableRef >::bit_width(x),
+                     machine_int::VariableTraits< VariableRef >::sign(x));
+    redefine_expression(x);
     this->_ptr->int_apply(op, x, y);
+    finish_expression(x, e);
   }
 
   void int_apply(IntBinaryOperator op,
                  VariableRef x,
                  VariableRef y,
                  VariableRef z) override {
+    Expr e = Expr::binary(op, expression_key(y), expression_key(z));
+    redefine_expression(x);
     this->_ptr->int_apply(op, x, y, z);
+    finish_expression(x, e);
   }
 
   void int_apply(IntBinaryOperator op,
                  VariableRef x,
                  VariableRef y,
                  const MachineInt& z) override {
+    Expr e = Expr::binary(op, expression_key(y), Expr::constant(z));
+    redefine_expression(x);
     this->_ptr->int_apply(op, x, y, z);
+    finish_expression(x, e);
   }
 
   void int_apply(IntBinaryOperator op,
                  VariableRef x,
                  const MachineInt& y,
                  VariableRef z) override {
+    Expr e = Expr::binary(op, Expr::constant(y), expression_key(z));
+    redefine_expression(x);
     this->_ptr->int_apply(op, x, y, z);
+    finish_expression(x, e);
   }
 
   void int_add(IntPredicate pred, VariableRef x, VariableRef y) override {
     this->_ptr->int_add(pred, x, y);
+    capture_range(x);
+    capture_range(y);
   }
 
   void int_add(IntPredicate pred, VariableRef x, const MachineInt& y) override {
     this->_ptr->int_add(pred, x, y);
+    capture_range(x);
   }
 
   void int_add(IntPredicate pred, const MachineInt& x, VariableRef y) override {
     this->_ptr->int_add(pred, x, y);
+    capture_range(y);
   }
 
   void int_set(VariableRef x, const IntInterval& value) override {
+    redefine_expression(x);
     this->_ptr->int_set(x, value);
+    capture_range(x);
   }
 
   void int_set(VariableRef x, const IntCongruence& value) override {
+    redefine_expression(x);
     this->_ptr->int_set(x, value);
+    capture_range(x);
   }
 
   void int_set(VariableRef x, const IntIntervalCongruence& value) override {
+    redefine_expression(x);
     this->_ptr->int_set(x, value);
+    capture_range(x);
   }
 
   void int_refine(VariableRef x, const IntInterval& value) override {
     this->_ptr->int_refine(x, value);
+    capture_range(x);
   }
 
   void int_refine(VariableRef x, const IntCongruence& value) override {
     this->_ptr->int_refine(x, value);
+    capture_range(x);
   }
 
   void int_refine(VariableRef x, const IntIntervalCongruence& value) override {
     this->_ptr->int_refine(x, value);
+    capture_range(x);
   }
 
-  void int_forget(VariableRef x) override { this->_ptr->int_forget(x); }
+  void int_forget(VariableRef x) override {
+    this->_ptr->int_forget(x);
+    if (_ranges)
+      _ranges->forget(x);
+  }
 
   IntInterval int_to_interval(VariableRef x) const override {
-    return this->_ptr->int_to_interval(x);
+    IntInterval result = this->_ptr->int_to_interval(x);
+    Expr e = expression_key(x);
+    if (e)
+      result.meet_with(_ranges->lookup(e));
+    return result;
   }
 
   IntInterval int_to_interval(const IntLinearExpression& e) const override {
@@ -1745,10 +1950,12 @@ public:
   void counter_unmark(VariableRef x) override { this->_ptr->counter_unmark(x); }
 
   void counter_init(VariableRef x, const MachineInt& c) override {
+    redefine_expression(x);
     this->_ptr->counter_init(x, c);
   }
 
   void counter_incr(VariableRef x, const MachineInt& k) override {
+    redefine_expression(x);
     this->_ptr->counter_incr(x, k);
   }
 
@@ -1871,6 +2078,7 @@ public:
   }
 
   void pointer_offset_to_int(VariableRef x, VariableRef p) override {
+    redefine_expression(x);
     this->_ptr->pointer_offset_to_int(x, p);
   }
 
@@ -1948,6 +2156,7 @@ public:
   }
 
   void dynamic_read_int(VariableRef x, VariableRef y) override {
+    redefine_expression(x);
     this->_ptr->dynamic_read_int(x, y);
   }
 
@@ -1970,16 +2179,19 @@ public:
   /// @{
 
   void scalar_assign_undef(VariableRef x) override {
+    redefine_expression(x);
     this->_ptr->scalar_assign_undef(x);
   }
 
   void scalar_assign_nondet(VariableRef x) override {
+    redefine_expression(x);
     this->_ptr->scalar_assign_nondet(x);
   }
 
   void scalar_pointer_to_int(VariableRef x,
                              VariableRef p,
                              MemoryLocationRef absolute_zero) override {
+    redefine_expression(x);
     this->_ptr->scalar_pointer_to_int(x, p, absolute_zero);
   }
 
@@ -1989,7 +2201,11 @@ public:
     this->_ptr->scalar_int_to_pointer(p, x, absolute_zero);
   }
 
-  void scalar_forget(VariableRef x) override { this->_ptr->scalar_forget(x); }
+  void scalar_forget(VariableRef x) override {
+    this->_ptr->scalar_forget(x);
+    if (_ranges)
+      _ranges->forget(x);
+  }
 
   /// @}
   /// \name Memory abstract domain methods
@@ -2004,6 +2220,8 @@ public:
   void mem_read(const LiteralT& x,
                 VariableRef p,
                 const MachineInt& size) override {
+    if (x.is_var())
+      redefine_expression(x.var());
     this->_ptr->mem_read(x, p, size);
   }
 
@@ -2109,7 +2327,26 @@ public:
 
   /// @}
 
-  void dump(std::ostream& o) const override { this->_ptr->dump(o); }
+  void dump(std::ostream& o) const override {
+    this->_ptr->dump(o);
+    if (!_ranges || _ranges->bounds.empty())
+      return;
+    o << " rho:{";
+    bool first = true;
+    for (const auto& kv : _ranges->bounds) {
+      if (kv.first.is_variable() || kv.first.is_constant())
+        continue;
+      if (!first)
+        o << ", ";
+      first = false;
+      kv.first.dump(o, [](std::ostream& out, VariableRef v) {
+        DumpableTraits< VariableRef >::dump(out, v);
+      });
+      o << "=>";
+      kv.second.dump(o);
+    }
+    o << "}";
+  }
 
   static std::string name() { return "polymorphic domain"; }
 
