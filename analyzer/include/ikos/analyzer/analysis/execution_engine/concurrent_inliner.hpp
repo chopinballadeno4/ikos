@@ -304,7 +304,8 @@ private:
         apply_caller_summary(this->_ctx,
                              engine.inv(),
                              this->_call,
-                             analysis.callee);
+                             analysis.callee,
+                             this->_engine.inv().normal());
       }
 
       if (engine.inv().is_normal_flow_bottom()) {

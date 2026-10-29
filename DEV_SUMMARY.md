@@ -37,26 +37,27 @@ GuaranteedExitInputs_X(f)
 PossibleExitInputs_X(f)
     = 해당 입력에서 flow X에 도달하는 실행이 존재하는 입력 집합
 
-[[C_X(f)]] ⊆ GuaranteedExitInputs_X(f) ⊆ PossibleExitInputs_X(f)
+[[P_memory(f) ∧ C_X(f)]] ⊆ GuaranteedExitInputs_X(f) ⊆ PossibleExitInputs_X(f)
 ```
 
 결정적인 guard 함수에서 실제 정상 종료 입력이 `1 <= n <= 1000`이라면
 `1 <= n <= 500`은 허용하지만 `1 <= n <= 1500`은 허용하지 않는다.
 보장할 수 있는 입력을 일부 놓치는 것은 허용하며, 보장하지 못하는 입력을
 종료가 보장된 입력으로 포함하는 것은 금지한다. `C_X`가 나타내는 집합은
-under-approximation이다. 분석기 전체의 도달 가능 상태는 여전히 실제 실행을
+P_memory 안에서의 under-approximation이다. 분석기 전체의 도달 가능 상태는 여전히 실제 실행을
 모두 포함하는 over-approximation이어야 하며, false positive는 허용한다.
 
 각 flow는 조건과 별도로 coverage를 가진다.
 
 ```text
 Coverage_X ∈ {Partial, Complete}
-Complete ⇒ PossibleExitInputs_X(f) ⊆ [[C_X(f)]]
+Complete ⇒ (PossibleExitInputs_X(f) ∩ [[P_memory(f)]]) ⊆ [[C_X(f)]]
 ```
 
 `Partial`은 충분조건이 유효하지만 해당 flow의 모든 입력을 포괄한다고 증명하지
-못한 상태이다. `Complete`는 반대 포함까지 증명한 상태이며, 이때 두 입력 집합과
-`[[C_X]]`가 일치한다. 경로를 일부 누락하거나 loop/call의 의미를 분석하지 못하면
+못한 상태이다. `Complete`는 명시된 P_memory 안에서 반대 포함까지 증명한 상태이며,
+그 전제 안에서 종료 입력과 C_X가 일치한다. 전제는 없으면 true이며 §3에서 정의한다.
+경로를 일부 누락하거나 loop/call의 의미를 분석하지 못하면
 자동으로 Complete가 되지 않는다. 분석기 invariant가 over-approximation이라는
 사실만으로 충분조건이나 종료성, coverage가 증명되지는 않는다. Nondeterministic
 call, 미확인 예외, 무한 loop 또는 UB 가능성이 남은 입력을 보장 영역에 넣지 않는다.
@@ -331,9 +332,37 @@ summary에서는 삭제하거나 true로 약화하지 않으며, ρ의 동일 �
 
 ```text
 FunctionSummary(f) = {
+    P_memory(f),
     NormalSummary(f),
     ExceptionSummary(f)
 }
+```
+
+`P_memory`는 함수 진입 시 확인해야 하는 명시적인 메모리 전제의 conjunction이다.
+전제가 없으면 true다. `Writable(P_i, T, size, alignment)`는 해당 pointer가 살아
+있는 쓰기 가능한 T 객체의 요구 범위를 올바른 정렬로 가리킨다는 뜻이다. NonNull은
+이 전제를 대신하지 못한다. 전제를 가진 summary의 C_X와 Complete는 모두
+`P_memory` 안에서만 성립한다. 실제 종료 보장 영역은 `P_memory ∧ C_X`이며,
+전제 밖에서는 종료 조건도 memory effect도 재사용하지 않는다.
+
+```text
+[[P_memory ∧ C_X]] ⊆ GuaranteedExitInputs_X
+Coverage_X = Complete ⇒ (PossibleExitInputs_X ∩ [[P_memory]]) ⊆ [[C_X]]
+```
+
+현재 필수 지원은 offset 0의 정수 scalar pointer parameter에 대한 non-volatile
+store다. 타입은 formal pointee와 일치하고 byte 크기는 양수여야 한다. 경로에서
+필요한 전제는 함수 공통 P_memory에 모두 모은다. 경로별로 더 약한 전제를 만드는
+최적화는 필수가 아니다. 미지원 외부 load, 불명확한 offset/타입, 일반 alias에
+의존하는 조건은 기존 Partial fallback을 유지한다.
+
+Benchmark 37의 계약은 다음과 같다(소스의 fail=true 경로가 throw한다).
+
+```text
+P_memory = Writable(divisor₀, int, sizeof(int), alignof(int))
+C_normal = (fail₀ == false), μ_normal = { *divisor₀ ↦ 10 }
+C_exception = (fail₀ == true), μ_exception = { *divisor₀ ↦ 5 }
+Coverage_normal = Coverage_exception = Complete within P_memory
 ```
 
 Normal summary:
@@ -357,6 +386,8 @@ ExceptionSummary(f) = {
 ```
 
 각 flow summary는 다음 가용 상태를 갖는다.
+아래 Known 표기는 FunctionSummary의 공통 P_memory 안에서 해석한다. 전제가
+있는 false/Complete도 전제 밖의 flow 불가능성을 의미하지 않는다.
 
 ```text
 Summary_X = Known(C_X, Coverage_X, μ_X) | Unavailable
@@ -371,8 +402,15 @@ Unavailable이며, 이를 Complete의 false로 단정하지 않는다.
 
 특히 명시적인 exception-exit이 없거나 함수 내부에 일반 `Call`이 있어 그 call의
 외부 전파 예외를 보조 symbolic 분석이 모델링하지 못하면 exception summary는
-`Unavailable`이다. 부분 영역의 예외 종료를 독립적으로 증명한 경우 Partial로
-저장할 수 있다. 어느 경우에도 미확인 영역의 기존 IKOS exception state를 유지한다.
+Partial 또는 Unavailable이다. 인증된 영역이 없으면 `Known(false, Partial, ∅)`를
+사용할 수 있고, 독립적으로 증명한 예외 영역이 있으면 그 조건을 Partial로 저장한다.
+어느 경우에도 미확인 영역의 기존 IKOS exception state를 유지한다.
+
+Importer가 식별한 예외 intrinsic은 unknown call fallback과 구분하여 필수 지원한다.
+지원된 정수 예외의 할당/초기화, throw, catch-all, cleanup/resume 및 rethrow의
+조건 수집 규칙과 AR runtime 모델의 범위는 DEV_TRANSFER_FUNCTION.md §7.1을 따른다.
+이 범위의 명시적 throw를 일반 미지원 호출로 버리고 `false/Partial`로 남긴 결과를
+지원 완료로 보지 않는다. 클래스/typed catch 등 미지원 영역에는 기존 fallback을 유지한다.
 
 Program exit는 caller로 복귀하지 않으므로 caller 적용을 위한 summary를 생성하지 않는다.
 
@@ -1307,7 +1345,7 @@ zero/non-zero 보조 상태 및 DBZ checker 연계를 도입할 수 있으며, �
 
 21. 미분석 exception 영역은 Partial 또는 Unavailable이며 불가능으로 취급하지 않는다.
 
-22. [[C_X]] ⊆ GuaranteedExitInputs_X를 유지하고 coverage를 독립적으로 증명한다.
+22. [[P_memory ∧ C_X]] ⊆ GuaranteedExitInputs_X를 유지하고, P_memory 안의 coverage를 독립적으로 증명한다.
 
 23. Partial 영역 밖의 실제 실행은 caller에서 보존한다.
 

@@ -806,6 +806,7 @@ private:
         } break;
         case ar::Intrinsic::LibcppFreeException:
         case ar::Intrinsic::LibcppThrow:
+        case ar::Intrinsic::LibcppRethrow:
           break; // do nothing
         case ar::Intrinsic::LibcppBeginCatch: {
           this->assign_call_result(s, s->argument(0));

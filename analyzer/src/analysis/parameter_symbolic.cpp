@@ -5,6 +5,7 @@
  *
  ******************************************************************************/
 
+#include <algorithm>
 #include <map>
 #include <sstream>
 #include <utility>
@@ -413,6 +414,50 @@ void prune_flow(value::MemoryAbstractDomain& flow,
   flow = std::move(result);
 }
 
+bool proves_memory_preconditions(
+    Context& ctx,
+    const value::MemoryAbstractDomain& entry,
+    ar::CallBase* call,
+    const frontend::parameter_symbolic::FunctionSummary& summary) {
+  if (summary.memory_preconditions.empty())
+    return true;
+  if (entry.is_bottom())
+    return false;
+  for (const auto& requirement : summary.memory_preconditions) {
+    if (requirement.parameter < 0 ||
+        static_cast< std::size_t >(requirement.parameter) >=
+            call->num_arguments() ||
+        !requirement.type || requirement.type->bit_width() % 8 != 0)
+      return false;
+    const auto& literal = ctx.lit_factory->get_scalar(
+        call->argument(static_cast< unsigned >(requirement.parameter)));
+    if (!literal.is_pointer_var() ||
+        !entry.uninit_is_initialized(literal.var()) ||
+        !entry.nullity_is_non_null(literal.var()))
+      return false;
+    auto target = entry.pointer_to_points_to(literal.var()).singleton();
+    auto offset = entry.pointer_offset_to_interval(literal.var()).singleton();
+    if (!target || !offset || !offset->is_zero())
+      return false;
+    // First supported discharge: a live, exactly typed stack scalar at offset
+    // zero. Unknown/global/heap targets are not assumed writable by
+    // non-nullity.
+    auto* local = dyn_cast< LocalMemoryLocation >(*target);
+    if (!local || local->local_var()->type()->pointee() != requirement.type ||
+        !entry.lifetime_to_lifetime(local).is_allocated())
+      return false;
+    uint64_t alignment = std::max(uint64_t(1), requirement.alignment);
+    if (local->local_var()->alignment() < alignment ||
+        local->local_var()->alignment() % alignment != 0)
+      return false;
+    auto size = entry.int_to_interval(ctx.var_factory->get_alloc_size(local));
+    if (size.is_bottom() ||
+        size.lb().to_z_number() < ZNumber(requirement.type->bit_width() / 8))
+      return false;
+  }
+  return true;
+}
+
 } // end anonymous namespace
 
 void build_and_store_function_summary(Context& ctx, ar::Function* function) {
@@ -441,11 +486,28 @@ void build_and_store_function_summary(Context& ctx, ar::Function* function) {
 void apply_caller_summary(Context& ctx,
                           value::AbstractDomain& invariant,
                           ar::CallBase* call,
-                          ar::Function* callee) {
+                          ar::Function* callee,
+                          const value::MemoryAbstractDomain& call_entry) {
   const frontend::parameter_symbolic::FunctionSummary* summary =
       ctx.function_summaries.get(callee);
   if (summary == nullptr)
     return;
+
+  const bool memory_proved =
+      proves_memory_preconditions(ctx, call_entry, call, *summary);
+  if (ctx.opts.trace_ar_statements && !summary->memory_preconditions.empty()) {
+    auto message = log::msg();
+    message << "Summary memory preconditions [" << callee->name() << "]: "
+            << (memory_proved ? "proved at call entry" : "not proved; skipped")
+            << "\n";
+  }
+  if (!memory_proved) {
+    if (ctx.opts.trace_ar_statements)
+      log::debug(
+          "Skipping caller summary: memory preconditions not proved for '" +
+          callee->name() + "'");
+    return;
+  }
 
   if (ctx.opts.trace_ar_statements) {
     bool complete =

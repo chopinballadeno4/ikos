@@ -261,6 +261,10 @@ void apply_call_summary(SymbolicState& state,
 
   if (summary == nullptr)
     return;
+  // This symbolic state alone cannot prove lifetime, writable extent and
+  // alignment. The exit proof and native integration have explicit checks.
+  if (!summary->memory_preconditions.empty())
+    return;
   if (!summary->normal.available || !summary->normal.complete)
     return;
   if (!summary->normal.has_exit) {
@@ -284,6 +288,8 @@ void apply_invoke_memory_summary(SymbolicState& state,
 
   const FunctionSummary* summary = store.get(callee);
   if (summary == nullptr)
+    return;
+  if (!summary->memory_preconditions.empty())
     return;
 
   const std::map< SymbolicLoc, SymbolicValue >& mu_exit =

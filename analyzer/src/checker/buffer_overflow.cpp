@@ -745,6 +745,7 @@ std::vector< BufferOverflowChecker::CheckResult > BufferOverflowChecker::
     case ar::Intrinsic::LibcppAllocateException:
     case ar::Intrinsic::LibcppFreeException:
     case ar::Intrinsic::LibcppThrow:
+    case ar::Intrinsic::LibcppRethrow:
     case ar::Intrinsic::LibcppBeginCatch:
     case ar::Intrinsic::LibcppEndCatch: {
       return {};

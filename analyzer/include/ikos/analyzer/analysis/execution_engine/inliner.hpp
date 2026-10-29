@@ -339,7 +339,8 @@ private:
       engine.inv().merge_propagated_in_caught_exceptions();
 
       if (summary_applicable) {
-        apply_caller_summary(_ctx, engine.inv(), call, callee);
+        apply_caller_summary(_ctx, engine.inv(), call, callee,
+                             this->inv().normal());
       }
 
       if (engine.inv().is_normal_flow_bottom()) {

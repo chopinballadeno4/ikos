@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <map>
+#include <set>
 #include <vector>
 
+#include <ikos/ar/semantic/bundle.hpp>
 #include <ikos/ar/semantic/code.hpp>
 #include <ikos/ar/semantic/intrinsic.hpp>
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/caller_pruning.hpp>
@@ -93,12 +95,26 @@ bool binary_operator(ar::BinaryOperation* s, Bin& op) {
 }
 
 struct Path {
+  using ExceptionToken = uint64_t;
+  struct ExceptionRecord {
+    ExceptionToken token = 0;
+    unsigned fields = 0;
+  };
   ar::BasicBlock* block;
   SymbolicState values;
   std::map< ar::Variable*, Expr > origins;
   std::vector< ar::IntegerType* > parameter_types;
   std::map< SymbolicLoc, Expr > memory;
   std::map< ar::Variable*, ar::Type* > scalar_allocations;
+  std::map< ar::Variable*, ZNumber > exception_allocations;
+  std::map< ar::Variable*, ar::Variable* > exception_addresses;
+  std::map< ar::Variable*, ar::Type* > initialized_exceptions;
+  std::set< ar::Variable* > rtti_pointers;
+  std::map< ar::Variable*, ExceptionRecord > exception_records;
+  std::map< ar::Variable*, ExceptionToken > exception_objects,
+      exception_selectors;
+  ExceptionToken next_exception = 1, pending_exception = 0;
+  std::vector< ExceptionToken > caught_exceptions;
   core::machine_int::ExpressionRanges< int > ranges;
   SymbolicCondition condition = SymbolicCondition::make_true();
   std::map< ar::BasicBlock*, unsigned > visits;
@@ -142,6 +158,32 @@ struct Path {
     if (val.is_expr())
       return condition_expr_from_affine(val.expr, t->bit_width(), t->sign());
     return {};
+  }
+  void copy_exception_value(ar::Variable* result, ar::Value* operand) {
+    auto* v = operand ? ar::dyn_cast< ar::Variable >(operand) : nullptr;
+    if (v == result)
+      return;
+    exception_records.erase(result);
+    exception_objects.erase(result);
+    exception_selectors.erase(result);
+    exception_addresses.erase(result);
+    rtti_pointers.erase(result);
+    if (v) {
+      if (exception_records.count(v))
+        exception_records[result] = exception_records.at(v);
+      if (exception_objects.count(v))
+        exception_objects[result] = exception_objects.at(v);
+      if (exception_selectors.count(v))
+        exception_selectors[result] = exception_selectors.at(v);
+      if (exception_addresses.count(v))
+        exception_addresses[result] = exception_addresses.at(v);
+      if (rtti_pointers.count(v))
+        rtti_pointers.insert(result);
+    }
+    if (auto* g =
+            operand ? ar::dyn_cast< ar::GlobalVariable >(operand) : nullptr)
+      if (g->name().compare(0, 4, "_ZTI") == 0)
+        rtti_pointers.insert(result);
   }
   Interval interval(const Expr& e) const {
     Interval i = e.evaluate([&](int v, uint64_t w, core::Signedness sign) {
@@ -283,11 +325,180 @@ ar::Function* callee(ar::CallBase* c) {
   return ptr ? ptr->function() : nullptr;
 }
 
+// Only transport the two fields of a genuine landing-pad record. Undef is
+// allowed as the initial insert-element aggregate, never as a live field.
+int exception_field(ar::Type* type, ar::Value* offset) {
+  auto* structure = ar::dyn_cast< ar::StructType >(type);
+  auto* c = ar::dyn_cast< ar::IntegerConstant >(offset);
+  if (!structure || !c || structure->layout().size() != 2)
+    return -1;
+  const auto& fields = structure->layout();
+  if (!fields[0].type->is_pointer() || !fields[1].type->is_integer())
+    return -1;
+  for (int i = 0; i != 2; ++i)
+    if (fields[static_cast< std::size_t >(i)].offset ==
+        c->value().to_z_number())
+      return i;
+  return -1;
+}
+
+enum class RuntimeFlow {
+  NotRuntime,
+  Unsupported,
+  Normal,
+  Exception,
+  Terminate
+};
+
+RuntimeFlow runtime_call(Path& path, ar::CallBase* call) {
+  auto* f = callee(call);
+  if (!f)
+    return RuntimeFlow::NotRuntime;
+  switch (f->intrinsic_id()) {
+    case ar::Intrinsic::LibcAbort:
+      return RuntimeFlow::Terminate;
+    case ar::Intrinsic::LibcppAllocateException: {
+      auto* size = ar::dyn_cast< ar::IntegerConstant >(call->argument(0));
+      if (!call->has_result() || !size || size->value().to_z_number() <= 0)
+        return RuntimeFlow::Unsupported;
+      path.values.exec(call);
+      path.origins.erase(call->result());
+      path.copy_exception_value(call->result(), nullptr);
+      auto* base = call->result();
+      // Re-executing an allocation creates different storage. Do not let an
+      // alias of its previous execution name the fresh exception object.
+      for (auto& kv : path.values.sigma)
+        if (kv.second.is_loc() && kv.second.loc.base == base)
+          kv.second = SymbolicValue::top();
+      for (auto& kv : path.values.mu)
+        if (kv.first.base == base ||
+            (kv.second.is_loc() && kv.second.loc.base == base))
+          kv.second = SymbolicValue::top();
+      for (auto it = path.exception_addresses.begin();
+           it != path.exception_addresses.end();)
+        if (it->second == base)
+          it = path.exception_addresses.erase(it);
+        else
+          ++it;
+      path.exception_addresses[base] = base;
+      path.exception_allocations[base] = size->value().to_z_number();
+      path.initialized_exceptions.erase(base);
+      for (auto it = path.memory.begin(); it != path.memory.end();)
+        if (it->first.base == base)
+          it = path.memory.erase(it);
+        else
+          ++it;
+      SymbolicLoc loc;
+      loc.base = base;
+      loc.callee_local = true;
+      path.values.local_allocs.insert(base);
+      path.values.sigma[base] = SymbolicValue::from_loc(loc);
+      return RuntimeFlow::Normal;
+    }
+    case ar::Intrinsic::LibcppThrow: {
+      auto object = path.values.eval(call->argument(0));
+      auto* address = ar::dyn_cast< ar::Variable >(call->argument(0));
+      auto* rtti = ar::dyn_cast< ar::Variable >(call->argument(1));
+      auto* global = ar::dyn_cast< ar::GlobalVariable >(call->argument(1));
+      bool known_rtti = (global && global->name().compare(0, 4, "_ZTI") == 0) ||
+                        (rtti && path.rtti_pointers.count(rtti));
+      if (!object.is_loc() || !object.loc.offset.is_const() ||
+          object.loc.offset.constant != 0 || !address ||
+          !path.exception_addresses.count(address) ||
+          path.exception_addresses.at(address) != object.loc.base ||
+          !path.initialized_exceptions.count(object.loc.base) || !known_rtti ||
+          !path.values.eval(call->argument(2)).is_null())
+        return RuntimeFlow::Unsupported;
+      // Ownership passes to the exception runtime. A later throw/free of the
+      // raw pointer is not a fresh exception; rethrow uses the active token.
+      path.initialized_exceptions.erase(object.loc.base);
+      path.exception_allocations.erase(object.loc.base);
+      path.pending_exception = path.next_exception++;
+      return RuntimeFlow::Exception;
+    }
+    case ar::Intrinsic::LibcppRethrow:
+      if (path.caught_exceptions.empty())
+        return RuntimeFlow::Unsupported;
+      path.pending_exception = path.caught_exceptions.back();
+      return RuntimeFlow::Exception;
+    case ar::Intrinsic::LibcppBeginCatch: {
+      auto* arg = ar::dyn_cast< ar::Variable >(call->argument(0));
+      if (!arg || !path.pending_exception ||
+          !path.exception_objects.count(arg) ||
+          path.exception_objects.at(arg) != path.pending_exception)
+        return RuntimeFlow::Unsupported;
+      path.caught_exceptions.push_back(path.pending_exception);
+      path.pending_exception = 0;
+      path.values.exec(call);
+      if (call->has_result()) {
+        path.origins.erase(call->result());
+        path.copy_exception_value(call->result(), arg);
+      }
+      return RuntimeFlow::Normal;
+    }
+    case ar::Intrinsic::LibcppEndCatch:
+      if (path.caught_exceptions.empty())
+        return RuntimeFlow::Unsupported;
+      path.caught_exceptions.pop_back();
+      return RuntimeFlow::Normal;
+    case ar::Intrinsic::LibcppFreeException: {
+      auto object = path.values.eval(call->argument(0));
+      auto* address = ar::dyn_cast< ar::Variable >(call->argument(0));
+      if (!object.is_loc() || !object.loc.offset.is_const() ||
+          object.loc.offset.constant != 0 || !address ||
+          !path.exception_addresses.count(address) ||
+          path.exception_addresses.at(address) != object.loc.base ||
+          !path.exception_allocations.count(object.loc.base))
+        return RuntimeFlow::Unsupported;
+      path.exception_allocations.erase(object.loc.base);
+      path.initialized_exceptions.erase(object.loc.base);
+      return RuntimeFlow::Normal;
+    }
+    default:
+      return RuntimeFlow::NotRuntime;
+  }
+}
+
+// Translate a writable formal into another entry requirement, or discharge it
+// using an allocation owned by this proof path. External loads remain outside
+// this scope: a write does not establish arbitrary alias/read relationships.
+bool require_writable(Path& path,
+                      const SymbolicValue& pointer,
+                      ar::IntegerType* type,
+                      uint64_t alignment,
+                      std::vector< WritableMemory >& requirements) {
+  if (!pointer.is_loc() || !pointer.loc.base || !type ||
+      type->bit_width() == 0 || type->bit_width() % 8 != 0 ||
+      !pointer.loc.offset.is_const() || pointer.loc.offset.constant != 0)
+    return false;
+  auto* pointer_type =
+      ar::dyn_cast< ar::PointerType >(pointer.loc.base->type());
+  if (!pointer_type || pointer_type->pointee() != type)
+    return false;
+  alignment = std::max(uint64_t(1), alignment);
+  if (pointer.loc.callee_local) {
+    auto* local = ar::dyn_cast< ar::LocalVariable >(pointer.loc.base);
+    return local && path.scalar_allocations.count(local) &&
+           path.scalar_allocations.at(local) == type &&
+           local->alignment() >= alignment &&
+           local->alignment() % alignment == 0;
+  }
+  int parameter = pointer_parameter_index(pointer.loc);
+  if (parameter < 0)
+    return false;
+  WritableMemory requirement{parameter, type, alignment};
+  if (std::find(requirements.begin(), requirements.end(), requirement) ==
+      requirements.end())
+    requirements.push_back(requirement);
+  return true;
+}
+
 bool compose_call(Path& path,
                   ar::CallBase* call,
                   bool normal,
                   const SummaryStore* store,
-                  bool& complete) {
+                  bool& complete,
+                  std::vector< WritableMemory >& requirements) {
   auto* f = callee(call);
   const auto* summary = f && store ? store->get(f) : nullptr;
   if (!summary)
@@ -306,6 +517,17 @@ bool compose_call(Path& path,
     args.push_back(path.values.eval(*it));
     typed.push_back(path.eval(*it));
   }
+  for (const auto& requirement : summary->memory_preconditions) {
+    if (requirement.parameter < 0 ||
+        static_cast< std::size_t >(requirement.parameter) >= args.size() ||
+        !require_writable(path,
+                          args[static_cast< std::size_t >(
+                              requirement.parameter)],
+                          requirement.type,
+                          requirement.alignment,
+                          requirements))
+      return false;
+  }
   bool exact = true;
   auto translated = subst_condition_into_caller(condition, args, typed, &exact);
   path.condition.meet_with(translated);
@@ -321,8 +543,12 @@ bool compose_call(Path& path,
                                 : summary->exception.mu_exit,
                          f,
                          args);
-  if (call->has_result())
+  if (call->has_result()) {
     path.origins.erase(call->result());
+    path.copy_exception_value(call->result(), nullptr);
+  }
+  if (!normal && !path.condition.is_false())
+    path.pending_exception = path.next_exception++;
   return true;
 }
 
@@ -362,7 +588,8 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
     for (ar::Statement* stmt : *path.block) {
       if (path.condition.is_false())
         break;
-      if (stmt->has_undefined_constant_operand()) {
+      if (stmt->has_undefined_constant_operand() &&
+          !ar::isa< ar::InsertElement >(stmt)) {
         modeled = false;
         break;
       }
@@ -380,23 +607,55 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
           break;
         }
       } else if (auto* call = ar::dyn_cast< ar::Call >(stmt)) {
-        auto* target = callee(call);
-        if (target && target->intrinsic_id() == ar::Intrinsic::LibcAbort) {
+        auto flow = runtime_call(path, call);
+        if (flow == RuntimeFlow::Exception) {
+          result.exception.condition.join_with(path.condition);
+          result.exception.has_exit = true;
           terminated = true;
           break;
         }
-        if (!compose_call(path, call, true, store, result.normal.complete)) {
+        if (flow == RuntimeFlow::Terminate) {
+          terminated = true;
+          break;
+        }
+        if (flow == RuntimeFlow::Normal)
+          continue;
+        if (flow == RuntimeFlow::Unsupported) {
           modeled = false;
           break;
         }
-        // Ordinary calls can propagate unmodeled exceptions independently.
-        result.exception.complete = false;
+        // An ordinary call has no local handler: certified callee exception
+        // paths propagate out of this function; only normal paths continue.
+        Path escaping = path;
+        bool normal_complete = true, exception_complete = true;
+        bool exception_modeled = compose_call(escaping,
+                                              call,
+                                              false,
+                                              store,
+                                              exception_complete,
+                                              result.memory_preconditions);
+        if (exception_modeled && !escaping.condition.is_false()) {
+          result.exception.condition.join_with(escaping.condition);
+          result.exception.has_exit = true;
+        }
+        if (!compose_call(path,
+                          call,
+                          true,
+                          store,
+                          normal_complete,
+                          result.memory_preconditions)) {
+          modeled = false;
+          break;
+        }
+        if (!normal_complete || !exception_modeled || !exception_complete)
+          incomplete();
         continue;
       } else if (auto* inv = ar::dyn_cast< ar::Invoke >(stmt)) {
         invoke = inv;
         break;
       } else if (auto* assign = ar::dyn_cast< ar::Assignment >(stmt)) {
         path.origins[assign->result()] = path.eval(assign->operand());
+        path.copy_exception_value(assign->result(), assign->operand());
       } else if (auto* binary = ar::dyn_cast< ar::BinaryOperation >(stmt)) {
         Bin op;
         auto l = path.eval(binary->left()), r = path.eval(binary->right());
@@ -416,12 +675,16 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
       } else if (auto* unary = ar::dyn_cast< ar::UnaryOperation >(stmt)) {
         auto* t = ar::dyn_cast< ar::IntegerType >(unary->result()->type());
         auto e = path.eval(unary->operand());
-        if (t && e &&
-            (unary->op() == ar::UnaryOperation::UTrunc ||
-             unary->op() == ar::UnaryOperation::STrunc ||
-             unary->op() == ar::UnaryOperation::ZExt ||
-             unary->op() == ar::UnaryOperation::SExt ||
-             unary->op() == ar::UnaryOperation::Bitcast))
+        if (unary->op() == ar::UnaryOperation::Bitcast &&
+            unary->result()->type()->is_pointer() &&
+            unary->operand()->type()->is_pointer()) {
+          path.copy_exception_value(unary->result(), unary->operand());
+        } else if (t && e &&
+                   (unary->op() == ar::UnaryOperation::UTrunc ||
+                    unary->op() == ar::UnaryOperation::STrunc ||
+                    unary->op() == ar::UnaryOperation::ZExt ||
+                    unary->op() == ar::UnaryOperation::SExt ||
+                    unary->op() == ar::UnaryOperation::Bitcast))
           path.origins[unary->result()] =
               Expr::cast(e, t->bit_width(), t->sign());
         else {
@@ -430,15 +693,41 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
         }
       } else if (auto* store_stmt = ar::dyn_cast< ar::Store >(stmt)) {
         auto addr = path.values.eval(store_stmt->pointer());
-        if (!addr.is_loc() || !addr.loc.callee_local ||
-            !addr.loc.offset.is_const() || addr.loc.offset.constant != 0 ||
-            !path.scalar_allocations.count(addr.loc.base) ||
-            path.scalar_allocations[addr.loc.base] !=
-                store_stmt->value()->type()) {
+        bool scalar = addr.is_loc() && addr.loc.callee_local &&
+                      addr.loc.offset.is_const() &&
+                      addr.loc.offset.constant == 0 &&
+                      path.scalar_allocations.count(addr.loc.base) &&
+                      path.scalar_allocations[addr.loc.base] ==
+                          store_stmt->value()->type();
+        auto* integer =
+            ar::dyn_cast< ar::IntegerType >(store_stmt->value()->type());
+        auto* address = ar::dyn_cast< ar::Variable >(store_stmt->pointer());
+        bool exception_object =
+            addr.is_loc() && addr.loc.offset.is_const() &&
+            addr.loc.offset.constant == 0 && integer && address &&
+            path.exception_addresses.count(address) &&
+            path.exception_addresses.at(address) == addr.loc.base &&
+            path.exception_allocations.count(addr.loc.base) &&
+            path.exception_allocations.at(addr.loc.base) ==
+                ZNumber((integer->bit_width() + 7) / 8) &&
+            bool(path.eval(store_stmt->value()));
+        bool external = !store_stmt->is_volatile() && addr.is_loc() &&
+                        !addr.loc.callee_local && integer &&
+                        bool(path.eval(store_stmt->value())) &&
+                        require_writable(path,
+                                         addr,
+                                         integer,
+                                         store_stmt->alignment(),
+                                         result.memory_preconditions);
+        if (store_stmt->is_volatile() ||
+            (!scalar && !exception_object && !external)) {
           modeled = false;
           break;
         }
         path.memory[addr.loc] = path.eval(store_stmt->value());
+        if (exception_object)
+          path.initialized_exceptions[addr.loc.base] =
+              store_stmt->value()->type();
       } else if (auto* load = ar::dyn_cast< ar::Load >(stmt)) {
         auto addr = path.values.eval(load->operand());
         if (!addr.is_loc() || !addr.loc.callee_local ||
@@ -454,6 +743,7 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
           break;
         }
         path.origins[load->result()] = it->second;
+        path.copy_exception_value(load->result(), nullptr);
       } else if (auto* alloc = ar::dyn_cast< ar::Allocate >(stmt)) {
         auto* count = ar::dyn_cast< ar::IntegerConstant >(alloc->array_size());
         if (!count || count->value().to_z_number() != 1) {
@@ -469,11 +759,70 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
             ++it;
         }
         path.scalar_allocations[alloc->result()] = alloc->allocated_type();
+      } else if (auto* landing = ar::dyn_cast< ar::LandingPad >(stmt)) {
+        if (!path.pending_exception) {
+          modeled = false;
+          break;
+        }
+        path.exception_records[landing->result()] = {path.pending_exception, 3};
+      } else if (auto* extract = ar::dyn_cast< ar::ExtractElement >(stmt)) {
+        auto* aggregate = ar::dyn_cast< ar::Variable >(extract->aggregate());
+        int field =
+            exception_field(extract->aggregate()->type(), extract->offset());
+        if (!aggregate || field < 0 ||
+            !path.exception_records.count(aggregate) ||
+            !(path.exception_records.at(aggregate).fields & (1u << field))) {
+          modeled = false;
+          break;
+        }
+        auto token = path.exception_records.at(aggregate).token;
+        path.origins[extract->result()] = {};
+        path.copy_exception_value(extract->result(), nullptr);
+        if (field == 0)
+          path.exception_objects[extract->result()] = token;
+        else
+          path.exception_selectors[extract->result()] = token;
+      } else if (auto* insert = ar::dyn_cast< ar::InsertElement >(stmt)) {
+        int field = exception_field(insert->result()->type(), insert->offset());
+        auto* value = ar::dyn_cast< ar::Variable >(insert->element());
+        Path::ExceptionRecord record;
+        if (auto* aggregate =
+                ar::dyn_cast< ar::Variable >(insert->aggregate())) {
+          if (!path.exception_records.count(aggregate)) {
+            modeled = false;
+            break;
+          }
+          record = path.exception_records.at(aggregate);
+        } else if (!ar::isa< ar::UndefinedConstant >(insert->aggregate())) {
+          modeled = false;
+          break;
+        }
+        auto& tokens =
+            field == 0 ? path.exception_objects : path.exception_selectors;
+        if (field < 0 || !value || !tokens.count(value) ||
+            (record.token && record.token != tokens.at(value))) {
+          modeled = false;
+          break;
+        }
+        record.token = tokens.at(value);
+        record.fields |= (1u << field);
+        path.exception_records[insert->result()] = record;
+      } else if (auto* resume = ar::dyn_cast< ar::Resume >(stmt)) {
+        auto it = path.exception_records.find(resume->operand());
+        if (!path.pending_exception || it == path.exception_records.end() ||
+            it->second.fields != 3 ||
+            it->second.token != path.pending_exception) {
+          modeled = false;
+          break;
+        }
+        result.exception.condition.join_with(path.condition);
+        result.exception.has_exit = true;
+        terminated = true;
+        break;
       } else if (ar::isa< ar::Unreachable >(stmt)) {
         terminated = true;
         break;
       } else if (!ar::isa< ar::ReturnValue >(stmt) &&
-                 !ar::isa< ar::Resume >(stmt) &&
                  !ar::isa< ar::PointerShift >(stmt)) {
         modeled = false;
         break;
@@ -501,14 +850,29 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
       next.block = *it;
       if (invoke) {
         bool normal = (*it == invoke->normal_dest());
-        bool& coverage =
-            normal ? result.normal.complete : result.exception.complete;
-        if (!compose_call(next, invoke, normal, store, coverage)) {
+        auto flow = runtime_call(next, invoke);
+        if (flow == RuntimeFlow::Terminate)
+          continue;
+        if (flow == RuntimeFlow::Normal || flow == RuntimeFlow::Exception) {
+          if (normal != (flow == RuntimeFlow::Normal))
+            continue;
+        } else if (flow == RuntimeFlow::Unsupported) {
           incomplete();
           continue;
+        } else {
+          bool coverage = true;
+          if (!compose_call(next,
+                            invoke,
+                            normal,
+                            store,
+                            coverage,
+                            result.memory_preconditions)) {
+            incomplete();
+            continue;
+          }
+          if (!coverage)
+            incomplete();
         }
-        if (!coverage)
-          incomplete();
       }
       pending.push_back(std::move(next));
     }

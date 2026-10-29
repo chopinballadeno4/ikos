@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <mutex>
 #include <ostream>
@@ -89,6 +90,19 @@ struct ExceptionSummary {
   void dump(std::ostream& o) const;
 };
 
+// Both exit guarantees and their coverage are conditional on these entry
+// requirements. A non-null pointer alone does not establish writable storage.
+struct WritableMemory {
+  int parameter = -1;
+  ar::IntegerType* type = nullptr;
+  uint64_t alignment = 1;
+
+  bool operator==(const WritableMemory& other) const {
+    return parameter == other.parameter && type == other.type &&
+           alignment == other.alignment;
+  }
+};
+
 // ---------------------------------------------------------------------------
 // FunctionSummary
 //
@@ -97,10 +111,12 @@ struct ExceptionSummary {
 // ---------------------------------------------------------------------------
 struct FunctionSummary {
   ar::Function* function = nullptr;
+  std::vector< WritableMemory > memory_preconditions;
   NormalSummary normal;
   ExceptionSummary exception;
 
   void dump(std::ostream& o) const;
+  void dump_preconditions(std::ostream& o) const;
 };
 
 // ---------------------------------------------------------------------------

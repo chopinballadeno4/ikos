@@ -159,6 +159,7 @@ public:
     LibcppAllocateException,
     LibcppFreeException,
     LibcppThrow,
+    LibcppRethrow,
     LibcppBeginCatch,
     LibcppEndCatch,
     _EndLibcppIntrinsic,

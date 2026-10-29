@@ -38,3 +38,9 @@ done
 
 "$ikos_import" --format=no --param-symbolic truncation.ll \
     | "$file_check" truncation.ll
+
+exception_summary=$("$ikos_import" --format=no --param-symbolic exceptions.ll)
+for prefix in ORPHAN FREED UNINITIALIZED DESTRUCTOR SCALAR; do
+    printf '%s\n' "$exception_summary" \
+        | "$file_check" --check-prefix="$prefix" exceptions.ll
+done

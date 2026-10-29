@@ -9,18 +9,20 @@ echo "========================================"
 echo ""
 
 total_safe=0
+total_unsafe=0
 total_warn=0
 total_failed=0
 
 pick_analyses() {
     local name="$1"
     local num="${name%%_*}"
-    if   [[ "$num" -eq 26 || "$num" -eq 29 || "$num" -eq 30 ]]; then echo "boa"
+    if   [[ "$num" -eq 32 || "$num" -eq 34 ]]; then echo "boa"
+    elif [[ "$num" -eq 36 ]]; then echo "nullity"
     else echo "dbz"
     fi
 }
 
-for src in "$BENCHMARK_DIR"/2[1-9]_*.cpp "$BENCHMARK_DIR"/30_*.cpp; do
+for src in "$BENCHMARK_DIR"/3[1-9]_*.cpp "$BENCHMARK_DIR"/40_*.cpp; do
     [[ -f "$src" ]] || continue
     name=$(basename "$src")
     analyses=$(pick_analyses "$name")
@@ -30,8 +32,9 @@ for src in "$BENCHMARK_DIR"/2[1-9]_*.cpp "$BENCHMARK_DIR"/30_*.cpp; do
     result=$("$IKOS" "$src" --analyses="$analyses" --trace-ar-stmts 2>&1)
     analysis_status=$?
     safe=$(echo "$result" | grep "Total number of safe checks" | grep -o '[0-9]*' | tail -1)
+    unsafe=$(echo "$result" | grep "Total number of definite unsafe checks" | grep -o '[0-9]*' | tail -1)
     warnings=$(echo "$result" | grep "Total number of warnings" | grep -o '[0-9]*' | tail -1)
-    if [[ "$analysis_status" -ne 0 || -z "$safe" || -z "$warnings" ]]; then
+    if [[ "$analysis_status" -ne 0 || -z "$safe" || -z "$unsafe" || -z "$warnings" ]]; then
         total_failed=$((total_failed + 1))
         echo "  FAILED: analysis exit code $analysis_status (no valid check summary)"
         printf '%s\n' "$result"
@@ -39,12 +42,24 @@ for src in "$BENCHMARK_DIR"/2[1-9]_*.cpp "$BENCHMARK_DIR"/30_*.cpp; do
         continue
     fi
     total_safe=$((total_safe + safe))
+    total_unsafe=$((total_unsafe + unsafe))
     total_warn=$((total_warn + warnings))
-    echo "  safe: $safe  |  warnings: $warnings"
-    echo "$result" | grep -E ":[0-9]+:[0-9]+: warning:" | sed 's/^/  /'
+    echo "  safe: $safe  |  definite unsafe: $unsafe  |  warnings: $warnings"
+    echo "$result" | grep -E ":[0-9]+:[0-9]+: (warning|error):" | sed 's/^/  /'
     echo ""
     echo "  [Symbolic Summary]"
     echo "$result" | awk '
+      function emit_condition(component, level, constraint, cmd, demangled) {
+        cmd = "/opt/homebrew/opt/llvm/bin/llvm-cxxfilt " fn
+        cmd | getline demangled
+        close(cmd)
+        if (component == "requires")
+          print "    Requires[" demangled "]: " constraint
+        else if (component == "program")
+          print "    program_exit[" demangled "]: " constraint
+        else
+          print "    C_" component "[" demangled "] [" level "]: " constraint
+      }
       /^Function: /{
         fn = substr($0, length("Function: ") + 1)
         coverage = "Unknown"
@@ -52,7 +67,33 @@ for src in "$BENCHMARK_DIR"/2[1-9]_*.cpp "$BENCHMARK_DIR"/30_*.cpp; do
       /^[[:space:]]+coverage: /{
         coverage = $NF
       }
-      /C_normal \(parameter/{
+      /^    Writable\(/{
+        requirement = $0
+        sub(/^[[:space:]]+/, "", requirement)
+        emit_condition("requires", "Entry", requirement)
+      }
+      /^\[program_exit\] /{
+        description = substr($0, length("[program_exit] ") + 1)
+        sub(/[[:space:]]*\(no summary -- process terminates\)$/, "", description)
+        if (description == "none")
+          description = "none (local CFG)"
+        else if (description == "")
+          description = "present (unnamed CFG block; no condition summary)"
+        else
+          description = "present (CFG block " description "; no condition summary)"
+        emit_condition("program", "", description)
+      }
+      /^\[(normal|exception)_exit\] /{
+        component = ($0 ~ /^\[normal_exit\]/) ? "normal" : "exception"
+        if ($0 ~ /none \(Complete\)/)
+          emit_condition(component, "Complete", "false")
+        else if ($0 ~ /no certified region \(Partial\)/)
+          emit_condition(component, "Partial", "false")
+        else if ($0 ~ /unavailable/)
+          emit_condition(component, "Unavailable", "unknown")
+      }
+      /C_(normal|exception) \(parameter/{
+        component = ($0 ~ /C_normal/) ? "normal" : "exception"
         constraint = ""
         while ((getline line) > 0) {
           if (line ~ /^\[/ || line == "") break
@@ -60,19 +101,14 @@ for src in "$BENCHMARK_DIR"/2[1-9]_*.cpp "$BENCHMARK_DIR"/30_*.cpp; do
           if (constraint == "") constraint = line
           else constraint = constraint " " line
         }
-        if (constraint != "true") {
-          cmd = "/opt/homebrew/opt/llvm/bin/llvm-cxxfilt " fn
-          cmd | getline demangled
-          close(cmd)
-          print "    C_normal[" demangled "] [" coverage "]: " constraint
-        }
+        emit_condition(component, coverage, constraint)
       }
     '
     echo ""
 done
 
 echo "========================================"
-echo " Total — safe: $total_safe  |  warnings: $total_warn  |  failed: $total_failed"
+echo " Total — safe: $total_safe  |  definite unsafe: $total_unsafe  |  warnings: $total_warn  |  failed: $total_failed"
 echo "========================================"
 
 # A failed analysis must not be reported as a successful zero-warning run.

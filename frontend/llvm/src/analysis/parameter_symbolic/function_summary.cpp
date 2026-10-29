@@ -386,9 +386,22 @@ void FunctionSummary::dump(std::ostream& o) const {
   o << "============================\n";
   o << "Function: " << fname << "\n";
   o << "============================\n";
+  dump_preconditions(o);
   normal.dump(o);
   exception.dump(o);
   o << "\n";
+}
+
+void FunctionSummary::dump_preconditions(std::ostream& o) const {
+  if (memory_preconditions.empty())
+    return;
+  o << "  memory preconditions (coverage is relative to these):\n";
+  for (const auto& requirement : memory_preconditions) {
+    o << "    Writable(p" << requirement.parameter << "0, ";
+    requirement.type->dump(o);
+    o << ", " << requirement.type->bit_width() / 8 << " bytes, align "
+      << requirement.alignment << ")\n";
+  }
 }
 
 // ---------------------------------------------------------------------------

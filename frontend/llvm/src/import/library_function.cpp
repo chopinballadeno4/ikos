@@ -243,6 +243,8 @@ ar::Function* LibraryFunctionImporter::function(llvm::StringRef name) {
           ar::Intrinsic::LibcppFreeException);
     } else if (name == "__cxa_throw") {
       return this->_bundle->intrinsic_function(ar::Intrinsic::LibcppThrow);
+    } else if (name == "__cxa_rethrow") {
+      return this->_bundle->intrinsic_function(ar::Intrinsic::LibcppRethrow);
     } else if (name == "__cxa_begin_catch") {
       return this->_bundle->intrinsic_function(ar::Intrinsic::LibcppBeginCatch);
     } else if (name == "__cxa_end_catch") {

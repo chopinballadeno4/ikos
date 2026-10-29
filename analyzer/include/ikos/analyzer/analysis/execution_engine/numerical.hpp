@@ -2278,7 +2278,8 @@ public:
       case ar::Intrinsic::LibcppFreeException: {
         this->exec_free(call);
       } break;
-      case ar::Intrinsic::LibcppThrow: {
+      case ar::Intrinsic::LibcppThrow:
+      case ar::Intrinsic::LibcppRethrow: {
         this->exec_throw(call);
       } break;
       case ar::Intrinsic::LibcppBeginCatch: {

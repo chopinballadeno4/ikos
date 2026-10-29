@@ -10,7 +10,8 @@ caller에서 summary를 실제로 적용하여 normal flow를 pruning하거나 c
 
 
 개정된 종료 보장 계약은 DEV_SUMMARY.md §1.1을 따른다. `C_X`는 충분조건이며
-`[[C_X]] ⊆ GuaranteedExitInputs_X`이다. Partial/Complete를 구분하고 미확인 입력은
+`[[P_memory ∧ C_X]] ⊆ GuaranteedExitInputs_X`이다(P_memory가 없으면 true).
+Partial/Complete는 명시된 전제 안에서 구분하고 미확인 입력은
 caller 분석에 남긴다. 이 문서는 목표 명세이며 현재 코드의 충족 여부는 별도다.
 
 ## 2. Symbolic State
@@ -781,6 +782,58 @@ C_exception
 program exit는 caller로 복귀하지 않으므로 caller-visible exit summary를 생성하지 않는다.
 
 
+### 7.1 알려진 C++ 예외 runtime의 필수 지원
+
+Summary 생성기는 아래 동작을 일반 unknown call과 구분한다. 이름이 비슷한 사용자
+함수가 아니라 importer가 식별한 AR intrinsic identity로 판정한다. 지원 범위는
+정수 scalar 예외 객체와 null destructor, `catch (...)`, 검증된 cleanup/resume 및
+rethrow다. RTTI selector를 이용한 typed catch 판정, 클래스 생성자/소멸자 및
+§8의 Writable 전제로도 모델링하지 못하는 외부 메모리 접근은 Partial fallback을 유지한다.
+
+| AR 동작 | 보장 조건과 flow 처리 |
+|---|---|
+| `LibcppAllocateException` | 양의 상수 크기의 fresh 객체를 생성. 객체의 주소 origin과 크기를 추적하고 재실행 시 과거 초기화를 무효화 |
+| 예외 객체 초기화 | 할당 객체의 offset 0에 정수 scalar 전체가 정의된 값으로 저장되며 크기가 일치하는지 확인. 일반 외부 pointer store의 검증을 생략하는 예외로 확대하지 않음 |
+| `LibcppThrow` | 검증된 초기화 객체·global RTTI origin·null destructor를 확인한 뒤 exception flow만 생성. Normal-return 경로는 없음 |
+| `LibcppRethrow` | active catch가 있는 경우 그 예외를 재전파. 새 normal-return 경로를 만들지 않음 |
+| `LandingPad` / `ExtractElement` | 인증된 unwind edge에서만 예외 record를 생성. 객체 pointer와 selector에 동일한 예외 origin token을 부여 |
+| `LibcppBeginCatch` | pending 예외에서 추출된 객체 pointer인지 확인하고 active catch로 전환 |
+| `LibcppEndCatch` | 지원된 예외의 active catch를 종료. 재전파 중인 pending 예외를 삭제하지 않음 |
+| `InsertElement` / `Resume` | 동일 예외 token의 객체·selector 두 필드가 모두 구성되었는지 확인한 뒤 함수 밖의 exception exit로 수집 |
+| `LibcppFreeException` | 추적 중인 객체의 정확한 base에 한하여 해제와 초기화 무효화 |
+
+`InsertElement`의 초기 aggregate가 undef인 표준 cleanup 패턴은 허용하지만,
+실제 사용되는 필드가 undef이거나 두 필드의 예외 origin이 다르면 인증하지 않는다.
+일반적인 undef 연산을 허용한다는 뜻이 아니다. 재실행한 throw는 새로운 token으로
+구분하며 pending/active catch 및 예외 record는 경로별 상태로 유지한다.
+예외 객체의 정확한 주소는 fresh 할당 결과와 검증된 pointer copy/bitcast로만
+복원한다. 재할당하면 과거 실행의 alias를 무효화하고, throw 뒤에는 객체의 소유권이
+runtime으로 넘어가므로 같은 raw pointer의 재throw/해제를 인증하지 않는다.
+
+이 계약의 runtime 의미는 기존 IKOS AR libcpp 모델을 따른다. 예외 할당은 그 모델의
+성공한 non-null 할당 동작을 사용하며, 모델에 없는 자원 고갈/숨겨진 runtime 종료를
+새로 추측하지 않는다. 해당 동작까지 모델에 포함하는 경우에는 그 종료 가능성을
+별도로 검증하지 않고 동일한 Complete 보장을 사용해서는 안 된다.
+
+Ordinary `Call`의 알려진 callee가 예외를 보장하면 그 조건은 현재 함수의 exception
+exit로 합성하고, normal 조건만 다음 statement로 진행시킨다. `Invoke`는 callee의
+normal/exception 조건을 각각 해당 successor에만 적용한다. 알려진 intrinsic의
+불가능한 edge는 탐색하지 않는다. Unknown call은 예외가 없다고 가정하지 않으며,
+그 경로의 미확인 영역 때문에 coverage를 Partial로 낮춘다.
+Ordinary Call로 전파되는 예외는 별도 CFG landing-pad block이 없어도 논리적인
+exception summary로 저장·출력한다. 명시적 CFG node 부재를 예외 부재로 오해하지 않는다.
+
+31번 `require_positive(n)`의 필수 결과는 AR 모델에서 다음과 같다.
+
+```text
+C_normal = n₀ > 0       (Complete)
+C_exception = n₀ <= 0   (Complete)
+```
+
+함수 내부에서 잡고 반환하면 해당 경로는 C_normal에 속하고 C_exception에는 넣지
+않는다. 재전파하면 C_exception에 속한다. `abort`는 어느 조건에도 넣지 않는다.
+알려진 runtime call이라는 이유만으로 관련 없는 unknown call까지 건너뛰지 않는다.
+
 ## 8. Exit Constraint 환원과 종료 보장 검증
 
 각 경로의 AR integer/null comparison과 합성한 callee 보장 조건을 parameter-origin
@@ -797,6 +850,19 @@ exit invariant는 일반적으로 필요조건일 뿐이므로 그것을 충분�
 않는다. 경로 선택, 정의된 연산, callee 보장과 필요한 loop 종료성이 해당 영역의
 모든 실행에 대해 확인되어야 한다. 외부 call의 정상 반환이나 예외 부재도 근거 없이
 가정하지 않는다.
+
+포인터 parameter의 offset 0에 formal pointee와 타입이 일치하는 정수 scalar를
+non-volatile store하는 경우, 그 store를 무시하지 않고 DEV_SUMMARY.md §3의
+`Writable` 전제를 함수 공통 P_memory에 추가한 뒤 인증을 계속한다. 지원되는
+정의된 scalar 값만 저장하며, 해당 전제 아래서 normal/exception의 caller-visible
+μ에 최종 값을 보존한다. Unknown offset, 타입 불일치, volatile 및 미지원 외부
+load는 Partial로 남긴다. 전제를 출력하지 않은 무조건부 Complete로 내보내지 않는다.
+
+Callee 합성 시 메모리 전제도 actual argument에 치환한다. Actual이 현재 proof
+경로에서 할당한 타입 일치 scalar local이고 offset 0 및 정렬이 확인되면 전제를
+해소한다. 다른 formal pointer에 대응하면 wrapper의 P_memory로 전파한다. 그 외는
+인증 실패이며, C_X만 가져와 전제를 누락해서는 안 된다. Local allocation은 한
+객체인 경우만 인증하고, 미지원 호출 뒤에도 살아 있다고 추측하지 않는다.
 
 기본 증명 구성은 DEV_SUMMARY.md §5.2를 따른다. Acyclic guard의 return/다른
 terminal, 순수 assignment 및 branch에 대해 typed definedness와 backward 충분조건을
@@ -864,6 +930,7 @@ callee `g`의 summary는 다음과 같이 구성한다.
 
 ```text
 FunctionSummary(g) = {
+    P_memory(g),
     NormalSummary(g),
     ExceptionSummary(g)
 }

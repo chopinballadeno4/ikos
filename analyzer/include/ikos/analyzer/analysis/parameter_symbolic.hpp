@@ -28,10 +28,12 @@ void build_and_store_function_summary(Context& ctx, ar::Function* function);
 ///
 /// The input invariant must already contain the result of the existing IKOS
 /// call semantics. Unsupported atoms are ignored conservatively.
+/// Memory requirements are checked against call_entry, never the post state.
 void apply_caller_summary(Context& ctx,
                           value::AbstractDomain& invariant,
                           ar::CallBase* call,
-                          ar::Function* callee);
+                          ar::Function* callee,
+                          const value::MemoryAbstractDomain& call_entry);
 
 } // end namespace analyzer
 } // end namespace ikos

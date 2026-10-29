@@ -145,6 +145,9 @@ static std::map< SymbolicLoc, SymbolicValue > filter_mu_caller_visible(
 
 FunctionSummary SymbolicFunctionFixpoint::build_summary() const {
   FunctionSummary summary = prove_exit_conditions(_fun, _store);
+  const auto names = SymbolicState::make_entry(_fun).param_names;
+  summary.normal.param_names = names;
+  summary.exception.param_names = names;
   auto* body = _fun->body();
   if (auto* nb = body->normal_exit_block_or_null()) {
     const auto& ns = this->post(nb);
@@ -170,6 +173,7 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
   o << "============================\n";
   o << "Function: " << fname << "\n";
   o << "============================\n";
+  summary.dump_preconditions(o);
 
   ar::Code* body = _fun->body();
 
@@ -248,6 +252,14 @@ void SymbolicFunctionFixpoint::dump_summary(std::ostream& o) const {
         o << "    unavailable (ordinary Call exceptions are not modeled)\n";
       }
     }
+  } else if (summary.exception.has_exit) {
+    // An ordinary Call can propagate an exception without an explicit
+    // landing-pad/Resume block in this function's CFG.
+    o << "\n[exception_exit] propagated by ordinary Call\n";
+    o << "  coverage: " << (summary.exception.complete ? "Complete" : "Partial")
+      << "\n";
+    o << "  C_exception (parameter constraints):\n";
+    summary.exception.condition.dump(o, summary.exception.param_names, "    ");
   } else {
     o << "\n[exception_exit] "
       << (summary.exception.complete ? "none (Complete)"

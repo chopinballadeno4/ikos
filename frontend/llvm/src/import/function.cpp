@@ -343,7 +343,8 @@ void FunctionImporter::unify_exit_blocks() {
         ++it;
         bool is_throw = false;
         if (auto* call = ar::dyn_cast< ar::IntrinsicCall >(*it)) {
-          is_throw = (call->intrinsic_id() == ar::Intrinsic::LibcppThrow);
+          is_throw = (call->intrinsic_id() == ar::Intrinsic::LibcppThrow ||
+                      call->intrinsic_id() == ar::Intrinsic::LibcppRethrow);
         }
         if (is_throw) {
           exception_blocks.push_back(bb);
@@ -372,7 +373,8 @@ void FunctionImporter::unify_exit_blocks() {
             continue;
           }
           auto* call = ar::dyn_cast< ar::IntrinsicCall >(pred->back());
-          if (call && call->intrinsic_id() == ar::Intrinsic::LibcppThrow) {
+          if (call && (call->intrinsic_id() == ar::Intrinsic::LibcppThrow ||
+                       call->intrinsic_id() == ar::Intrinsic::LibcppRethrow)) {
             throw_preds.push_back(pred);
           } else {
             has_non_throw_pred = true;
@@ -403,7 +405,8 @@ void FunctionImporter::unify_exit_blocks() {
     ar::BasicBlock* uu_bb = mixed_block.first;
     auto& throw_preds = mixed_block.second;
     ar::BasicBlock* throw_uu = ar::BasicBlock::create(this->_body);
-    throw_uu->push_back(ar::Unreachable::create());
+    // Preserve the original LLVM source/debug origin on this split terminal.
+    throw_uu->push_back(uu_bb->back()->clone());
     for (ar::BasicBlock* pred : throw_preds) {
       pred->remove_successor(uu_bb);
       pred->add_successor(throw_uu);

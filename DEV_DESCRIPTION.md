@@ -72,6 +72,14 @@ Boolean 값의 정확한 유래를 보존하는 제한적인 분기 합류 규�
 
 함수 `g`에 대해 생성되는 핵심 정보는 다음과 같다.
 
+Pointer parameter로 메모리에 쓰는 경우 summary에 명시적 진입 전제 P_memory를
+함께 기록한다. 예를 들어 Writable(divisor, int)는 null 여부뿐 아니라 살아 있는
+쓰기 가능한 객체의 크기와 정렬을 요구한다. 종료 조건과 Complete coverage는 이
+전제 안에서 성립하며, caller의 호출 전 상태가 전제를 보장할 때만 조건과 효과를
+재사용한다. 첫 지원 범위는 offset 0의 정수 scalar store와, 실제 인자가 유효한
+타입 일치 stack scalar임을 증명할 수 있는 호출이다. 미확인 전제는 기존 분석의
+flow를 유지한다(상세: DEV_SUMMARY.md §3, DEV_PRUNING.md §3.4).
+
 ```text
 NormalSummary(g)
 = (정상 반환을 보장하는 입력 충분조건,
@@ -98,7 +106,8 @@ Summary의 충분조건 C_X는 실제로 해당 종료를 보장하는 입력만
 
 C_X 밖의 입력은 미확인이지 불가능한 입력이 아니다. Partial 조건을 caller의
 모든 정상 실행에 강제하면 실제 오류 실행을 삭제할 수 있으므로 금지한다.
-Complete coverage가 증명된 경우에만 종료 조건으로 전체 flow를 pruning하며,
+명시된 메모리 전제를 call entry 전체에서 검증하고 Complete coverage가 증명된
+경우에만 종료 조건으로 전체 flow를 pruning하며,
 나머지 경우 미확인 영역은 기존 IKOS 분석으로 검사한다. 전체 분석은 실제
 도달 가능 실행을 모두 포함해야 하므로 false positive는 허용하고 false negative를
 초래하는 근거 없는 실행 삭제는 허용하지 않는다.
@@ -221,6 +230,12 @@ caller 적용은 DEV_PRUNING.md §5~7을 따른다. 22번의 동일 합 재계�
 29번의 분기별 reaching definition과 30번의 변수 곱셈을 조건 AST로 보존하며,
 σ/μ의 affine 값 관계와 구분한다. 미지원 조건은 true로 약화하지 않고 해당 보장
 경로를 인증 대상에서 제외하여 Partial로 남긴다.
+
+31~40번의 예외 검증에서는 알려진 AR libcpp intrinsic을 필수 지원한다. 정수 예외
+객체의 할당/초기화, 명시적 throw, catch-all, cleanup/resume 및 rethrow를 경로별로
+처리하여 normal과 exception 조건을 각각 수집한다. 실제 unknown call과 지원 범위
+밖의 객체/typed catch에는 Partial fallback을 유지한다. 상세 계약과 runtime 모델의
+범위는 DEV_TRANSFER_FUNCTION.md §7.1을 따른다.
 
 Caller 적용에서는 summary 표현 가능성과 domain 정제 가능성을 구분한다.
 변수 ± 상수 및 일부 변수끼리의 add/sub, 조건부 상수 곱셈·양의 상수 나눗셈,

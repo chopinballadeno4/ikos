@@ -485,6 +485,7 @@ std::vector< SoundnessChecker::CheckResult > SoundnessChecker::
       return to_vector(this->check_free(call, call->argument(0), inv));
     }
     case ar::Intrinsic::LibcppThrow:
+    case ar::Intrinsic::LibcppRethrow:
     case ar::Intrinsic::LibcppBeginCatch:
     case ar::Intrinsic::LibcppEndCatch: {
       return {};

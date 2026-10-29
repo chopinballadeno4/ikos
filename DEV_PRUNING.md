@@ -234,12 +234,26 @@ Normal flow와 exception flow가 모두 불가능하고 program exit만 가능�
 ### 3.4 종료 보장과 caller soundness
 
 ```text
-[[C_X(g)]] ⊆ GuaranteedExitInputs_X(g) ⊆ PossibleExitInputs_X(g)
-Coverage_X(g)=Complete ⇒ PossibleExitInputs_X(g) ⊆ [[C_X(g)]]
+[[P_memory(g) ∧ C_X(g)]] ⊆ GuaranteedExitInputs_X(g) ⊆ PossibleExitInputs_X(g)
+Coverage_X(g)=Complete ⇒ (PossibleExitInputs_X(g) ∩ [[P_memory(g)]]) ⊆ [[C_X(g)]]
 Reach_{c,X} ⊆ γ(A_{c,X}^post)
 ```
 
 첫 번째는 summary의 충분조건 계약이고 마지막은 분석기 전체의 안전성이다.
+P_memory가 없으면 true이며 기존 계약과 같다. 전제가 있는 summary는 call 직전의
+normal state 전체가 치환된 P_memory를 만족함을 먼저 증명해야 한다. Post state의
+NonNull이나 store 이후의 값으로 entry 전제를 소급해서 증명하지 않는다. 증명
+실패 시 두 flow의 C_X와 μ_X를 모두 적용하지 않고 기존 IKOS 결과를 유지한다.
+검증은 sequential/concurrent inlining 모두 동일하게 적용한다.
+
+현재 native 적용에서 Writable을 해소하는 범위는 initialized non-null pointer의
+단일 points-to가 살아 있는 stack scalar이고 offset 0, 정확한 pointee type,
+할당 크기와 정렬이 모두 확인되는 경우다. Null/unknown/multiple targets, 수명
+미확인, 크기 부족, 타입/정렬 불일치 및 현재 미지원 heap/global은 전제 검증 실패다.
+이는 오류를 새로 단정하거나 flow를 제거하는 이유가 아니다. 기존 checker가 원래
+오류를 계속 검사한다. Symbolic fixpoint의 일반 memory 적용은 이런 native 증명이
+없으므로 조건부 summary를 적용하지 않는다. 별도 exit proof에서 명시적으로
+전제를 해소/전파한 영역에서만 callee의 조건부 memory 관계를 재사용한다.
 실제 정상 종료 범위가 `[1,1000]`일 때 `[1,500]`은 Partial 보장 조건이 될 수
 있지만, 이 조건으로 모든 normal base state를 잘라 `[501,1000]`의 실제 실행을
 없애서는 안 된다. `[1,1500]`은 종료 보장 조건으로 저장할 수 없다.
@@ -1275,8 +1289,10 @@ Call의 caught-to-propagated 변환 또는 Invoke edge 선택
 merge를 유지하고 ρ는 interval join/widening을 수행한다.
 
 종료 보장 인증의 메모리 지원은 현재 함수에서 할당한 scalar 1개와 offset 0의
-타입이 일치하는 store/load로 제한한다. 외부 pointer의 유효성이나 일반 alias를
-증명하지 못하면 Partial이다. No-wrap 연산의 정의역을 기존 조건으로 증명할 수
+타입이 일치하는 store/load, 예외 runtime 규칙으로 검증한 정수 예외 객체의
+초기화 및 Writable 전제를 가진 정수 scalar formal-pointer store다(상세 규칙:
+DEV_TRANSFER_FUNCTION.md §7.1, §8). 전제로 표현하지 못하는 외부 pointer 접근이나
+일반 alias 의존 관계는 Partial이다. No-wrap 연산의 정의역을 기존 조건으로 증명할 수
 없으면 넓은 정수식으로 overflow 배제 조건을 보존하고 Partial로 남긴다.
 나눗셈과 나머지의 인증 범위는 양의 상수 제수다. 반환값 summary는 생성하지 않는다.
 
@@ -1293,6 +1309,10 @@ Partial로 표시한다. Complete 조건을 실제 numerical state에 투영하�
 - Normal summary는 `normal` component에만 적용한다.
 - Exception summary는 propagated exception을 `caught_exceptions`로 모은 뒤 해당
   component에만 적용한다.
+- 알려진 throw/rethrow/catch runtime은 DEV_TRANSFER_FUNCTION.md §7.1의 필수
+  모델을 사용한다. Ordinary Call의 callee exception 조건은 함수 밖으로 합성하고,
+  Invoke의 exception 조건은 해당 unwind edge에만 적용한다. 내부 catch 후 반환하는
+  영역과 rethrow로 전파되는 영역을 서로 다른 종료 조건으로 수집한다.
 - 명시적인 exception-exit을 분석하지 못했거나 함수 안에 보조 symbolic 분석이
   예외를 모델링하지 않는 일반 `Call`이 있는 경우 exception summary는
   Partial이다. exception-exit 부재만으로 일반 `Call`이 외부로 전파할 수 있는

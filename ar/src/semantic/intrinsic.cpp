@@ -508,6 +508,9 @@ FunctionType* Intrinsic::type(Bundle* bundle, ID id, Type* template_ty) {
       params.push_back(void_ptr_ty); // ptr
       params.push_back(void_ptr_ty); // ptr
     } break;
+    case LibcppRethrow: {
+      ret_ty = void_ty;
+    } break;
     case LibcppBeginCatch: {
       ret_ty = void_ptr_ty;          // ret
       params.push_back(void_ptr_ty); // exception ptr
@@ -778,6 +781,8 @@ std::string Intrinsic::short_name(ID id, Type* template_ty) {
       return "libcpp.free_exception";
     case LibcppThrow:
       return "libcpp.throw";
+    case LibcppRethrow:
+      return "libcpp.rethrow";
     case LibcppBeginCatch:
       return "libcpp.begincatch";
     case LibcppEndCatch:

@@ -33,6 +33,13 @@ add_test(NAME "analysis-parameter-symbolic-expressions"
     --ikos-pp "${FRONTEND_LLVM_IKOS_PP_EXECUTABLE}"
     --ikos-analyzer "$<TARGET_FILE:ikos-analyzer>")
 
+add_test(NAME "analysis-parameter-symbolic-exceptions"
+  COMMAND ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/parameter_symbolic/runtest-exceptions.py"
+    --clang "${CLANG_EXECUTABLE}"
+    --ikos-pp "${FRONTEND_LLVM_IKOS_PP_EXECUTABLE}"
+    --ikos-analyzer "$<TARGET_FILE:ikos-analyzer>")
+
 # Verify that parameter-symbolic summaries are generated from the main value
 # analysis and remain available through its Context-owned SummaryStore. The
 # trace option only controls observability; summary creation is unconditional.
