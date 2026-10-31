@@ -407,10 +407,17 @@ Partial 또는 Unavailable이다. 인증된 영역이 없으면 `Known(false, Pa
 어느 경우에도 미확인 영역의 기존 IKOS exception state를 유지한다.
 
 Importer가 식별한 예외 intrinsic은 unknown call fallback과 구분하여 필수 지원한다.
-지원된 정수 예외의 할당/초기화, throw, catch-all, cleanup/resume 및 rethrow의
-조건 수집 규칙과 AR runtime 모델의 범위는 DEV_TRANSFER_FUNCTION.md §7.1을 따른다.
+지원된 정수/클래스 예외의 할당/초기화, throw, catch-all, cleanup/resume 및 rethrow의
+조건 수집 규칙과 AR runtime 모델의 범위는 DEV_TRANSFER_FUNCTION.md §7.1~7.2를 따른다.
 이 범위의 명시적 throw를 일반 미지원 호출로 버리고 `false/Partial`로 남긴 결과를
-지원 완료로 보지 않는다. 클래스/typed catch 등 미지원 영역에는 기존 fallback을 유지한다.
+지원 완료로 보지 않는다. Typed catch, 미확인 생성자/cleanup 등 미지원 영역에는
+기존 fallback을 유지한다. 클래스 예외의 종류만으로 제외하지 않는다. 생성자는
+본문의 제한적 문맥 분석 또는 검증된 declaration 모델로 인증하며, normal 생성
+후 throw와 생성자 실패의 예외 전파를 모두 확인한다. Nondeterministic 결과의
+충분조건은 결과별 보장 영역의 AND이고, 가능한 종료가 다르면 Complete로 내보내지
+않는다. Destructor는 escaping throw 이후까지 지연되므로 종료 조건과 cleanup
+안전성을 구분한다. Complete exception summary에서만 전체 객체의 정상 cleanup
+계약을 다음 caller에 전달하며, 미확인 destructor를 만난 catch 종료는 Partial이다.
 
 Program exit는 caller로 복귀하지 않으므로 caller 적용을 위한 summary를 생성하지 않는다.
 

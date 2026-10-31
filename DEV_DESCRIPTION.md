@@ -231,11 +231,13 @@ caller 적용은 DEV_PRUNING.md §5~7을 따른다. 22번의 동일 합 재계�
 σ/μ의 affine 값 관계와 구분한다. 미지원 조건은 true로 약화하지 않고 해당 보장
 경로를 인증 대상에서 제외하여 Partial로 남긴다.
 
-31~40번의 예외 검증에서는 알려진 AR libcpp intrinsic을 필수 지원한다. 정수 예외
-객체의 할당/초기화, 명시적 throw, catch-all, cleanup/resume 및 rethrow를 경로별로
-처리하여 normal과 exception 조건을 각각 수집한다. 실제 unknown call과 지원 범위
-밖의 객체/typed catch에는 Partial fallback을 유지한다. 상세 계약과 runtime 모델의
-범위는 DEV_TRANSFER_FUNCTION.md §7.1을 따른다.
+예외 검증에서는 알려진 AR libcpp intrinsic을 필수 지원한다. 정수 예외와 검증된
+클래스 생성, 명시적 throw, catch-all, cleanup/resume 및 rethrow를 경로별로 처리하여
+normal과 exception 조건을 각각 수집한다. 클래스 생성자는 본문 분석 또는 확인된
+표준 라이브러리 모델을 사용한다. 정상 생성 뒤 throw하는 경로와 생성자 자체가
+예외를 전파하는 경로가 모두 같은 종료를 보장해야 그 입력을 인증한다. Destructor는
+실제 파괴 시점에 검증하며, unknown 생성/정리 또는 typed catch에는 Partial fallback을
+유지한다. 상세 계약과 library/runtime 모델의 범위는 DEV_TRANSFER_FUNCTION.md §7.1~7.2를 따른다.
 
 Caller 적용에서는 summary 표현 가능성과 domain 정제 가능성을 구분한다.
 변수 ± 상수 및 일부 변수끼리의 add/sub, 조건부 상수 곱셈·양의 상수 나눗셈,

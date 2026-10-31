@@ -786,19 +786,20 @@ program exit는 caller로 복귀하지 않으므로 caller-visible exit summary�
 
 Summary 생성기는 아래 동작을 일반 unknown call과 구분한다. 이름이 비슷한 사용자
 함수가 아니라 importer가 식별한 AR intrinsic identity로 판정한다. 지원 범위는
-정수 scalar 예외 객체와 null destructor, `catch (...)`, 검증된 cleanup/resume 및
-rethrow다. RTTI selector를 이용한 typed catch 판정, 클래스 생성자/소멸자 및
-§8의 Writable 전제로도 모델링하지 못하는 외부 메모리 접근은 Partial fallback을 유지한다.
+정수 scalar 및 검증 가능한 클래스 예외 객체, `catch (...)`, 검증된 cleanup/resume 및
+rethrow다. 클래스 생성은 아래 §7.2의 문맥 분석/검증된 library 계약으로 지원한다.
+RTTI selector를 이용한 typed catch 판정, 미확인 생성/정리 동작 및 §8의 Writable
+전제로도 모델링하지 못하는 외부 메모리 접근은 Partial fallback을 유지한다.
 
 | AR 동작 | 보장 조건과 flow 처리 |
 |---|---|
 | `LibcppAllocateException` | 양의 상수 크기의 fresh 객체를 생성. 객체의 주소 origin과 크기를 추적하고 재실행 시 과거 초기화를 무효화 |
-| 예외 객체 초기화 | 할당 객체의 offset 0에 정수 scalar 전체가 정의된 값으로 저장되며 크기가 일치하는지 확인. 일반 외부 pointer store의 검증을 생략하는 예외로 확대하지 않음 |
-| `LibcppThrow` | 검증된 초기화 객체·global RTTI origin·null destructor를 확인한 뒤 exception flow만 생성. Normal-return 경로는 없음 |
+| 예외 객체 초기화 | 할당 크기에 맞는 정수 scalar 초기화 또는 §7.2에 따라 검증된 클래스 생성자의 정상 완료. 일반 외부 pointer store의 검증을 생략하지 않음 |
+| `LibcppThrow` | 검증된 객체 초기화·정확한 live 주소·global RTTI origin을 확인한 뒤 exception flow만 생성. Null 또는 확인된 함수 주소의 destructor를 기록하며 아직 실행하지 않음 |
 | `LibcppRethrow` | active catch가 있는 경우 그 예외를 재전파. 새 normal-return 경로를 만들지 않음 |
 | `LandingPad` / `ExtractElement` | 인증된 unwind edge에서만 예외 record를 생성. 객체 pointer와 selector에 동일한 예외 origin token을 부여 |
 | `LibcppBeginCatch` | pending 예외에서 추출된 객체 pointer인지 확인하고 active catch로 전환 |
-| `LibcppEndCatch` | 지원된 예외의 active catch를 종료. 재전파 중인 pending 예외를 삭제하지 않음 |
+| `LibcppEndCatch` | 재throw는 소유 예외를 보존. 실제 파괴가 필요한 catch 종료는 기록된 destructor 계약에 따라 정상/프로그램 종료/미확인을 구분 |
 | `InsertElement` / `Resume` | 동일 예외 token의 객체·selector 두 필드가 모두 구성되었는지 확인한 뒤 함수 밖의 exception exit로 수집 |
 | `LibcppFreeException` | 추적 중인 객체의 정확한 base에 한하여 해제와 초기화 무효화 |
 
@@ -806,8 +807,9 @@ rethrow다. RTTI selector를 이용한 typed catch 판정, 클래스 생성자/�
 실제 사용되는 필드가 undef이거나 두 필드의 예외 origin이 다르면 인증하지 않는다.
 일반적인 undef 연산을 허용한다는 뜻이 아니다. 재실행한 throw는 새로운 token으로
 구분하며 pending/active catch 및 예외 record는 경로별 상태로 유지한다.
-예외 객체의 정확한 주소는 fresh 할당 결과와 검증된 pointer copy/bitcast로만
-복원한다. 재할당하면 과거 실행의 alias를 무효화하고, throw 뒤에는 객체의 소유권이
+예외 객체의 주소는 fresh 할당 결과와 검증된 pointer copy/bitcast 및 범위 내 상수
+offset shift로 복원한다. 실제 throw/free는 offset 0의 정확한 live base만 허용한다.
+재할당하면 과거 실행의 alias를 무효화하고, throw 뒤에는 객체의 소유권이
 runtime으로 넘어가므로 같은 raw pointer의 재throw/해제를 인증하지 않는다.
 
 이 계약의 runtime 의미는 기존 IKOS AR libcpp 모델을 따른다. 예외 할당은 그 모델의
@@ -833,6 +835,66 @@ C_exception = n₀ <= 0   (Complete)
 함수 내부에서 잡고 반환하면 해당 경로는 C_normal에 속하고 C_exception에는 넣지
 않는다. 재전파하면 C_exception에 속한다. `abort`는 어느 조건에도 넣지 않는다.
 알려진 runtime call이라는 이유만으로 관련 없는 unknown call까지 건너뛰지 않는다.
+
+### 7.2 클래스 예외 생성과 정리의 인증
+
+`throw Class(args...)`는 생성자 호출과 throw를 분리해서 분석한다. ABI에서 확인된
+constructor identity와 formal/actual 타입을 사용하고, 이름 일부가 비슷하다는 이유로
+임의 함수를 생성자로 인정하지 않는다. 본문이 있는 생성자는 fresh 예외 객체와
+actual argument를 넘겨 제한적으로 문맥 분석한다. 중첩 생성자 16단계, 재귀 및
+기존 경로 탐색 한도 초과는 Partial이다. 생성자가 정상 완료한 경우에만 해당 객체를
+constructed로 기록한다. 생성자에서 나온 예외는 enclosing Invoke cleanup 또는
+ordinary Call의 상위 handler로 전파하며, 미완료 객체의 constructed 상태를 제거한다.
+
+Fresh 예외 객체의 정수 field와 확인된 pointer/vtable store는 상수 byte offset,
+정의된 값, 할당 범위 및 정렬을 확인한다. 생성자 내부의 정수 field load는 그 경로의
+확인된 store에서만 복원한다. 임의 외부 메모리 읽기/쓰기나 불명확한 alias를 이
+규칙으로 허용하지 않는다. 정상 생성이 끝나도 미초기화 field를 읽을 수 있다고
+가정하는 것은 아니다. 일반 copy/move, 미지원 aggregate 초기화는 보수적으로 남긴다.
+Store와 byte 범위가 겹치는 과거 field 값은 무효화하며, load의 폭/sign이 기존
+typed 값과 일치하지 않으면 복원하지 않는다. 객체가 해제되거나 소유권이 이전되면
+생성 완료 기록만으로 throw를 인증하지 않고 live allocation을 다시 확인한다.
+
+본문이 없는 library 생성자는 검증된 모델만 사용한다. 첫 모델은 Itanium ABI의
+`std::logic_error`, `domain_error`, `invalid_argument`, `length_error`, `out_of_range`,
+`runtime_error`, `range_error`, `overflow_error`, `underflow_error`의 `const char*`
+생성자다. 정확한 declaration/constructor identity, this/char pointer/반환 타입,
+live fresh storage 및 immutable global의 범위 내 NUL 종료 문자열을 확인한다.
+모듈에 replacement allocation 정의나 사용된 new-handler 설치가 보이면 적용하지
+않는다. 이 모델은 기존 AR allocator와 기본 표준 라이브러리 runtime 계약 아래서
+정상 생성 또는 예외 전파를 허용하며, 둘 중 하나를 임의로 확정하지 않는다.
+다른 ABI/overload, unknown 문자열, 사용자가 제공한 본문에는 이 모델을 강제하지 않는다.
+모델 근거는 [C++ exception classes](https://eel.is/c++draft/std.exceptions)와 현재
+toolchain의 libc++ `stdexcept` 생성자/소멸자 계약이다.
+
+```text
+생성자 결과가 nondeterministic normal 또는 exception이면:
+Guarantee_X = Guarantee_X(normal continuation) ∧ Guarantee_X(exception continuation)
+```
+
+두 가능한 결과를 OR로 합쳐 유리한 경로만으로 종료를 인증하지 않는다. Normal
+생성 뒤의 명시적 throw와 생성자 실패 cleanup/resume가 모두 외부 예외로 이어지면
+그 공통 입력 영역은 C_exception으로 인증할 수 있다. 한 결과가 return/abort/미확인
+동작으로 이어지면 같은 영역을 exception 보장으로 넣지 않는다. 가능한 결과의
+종료가 다르면 해당 coverage를 Partial로 남긴다. Deterministic source branch들의
+서로 다른 입력 영역은 기존대로 OR로 합친다.
+Nondeterministic 결과를 교차할 때 DNF 조합은 1024개로 제한하고 한도 초과 시
+해당 보장 기여를 버리고 Partial로 남긴다. 한 결과를 임의로 선택하지 않는다.
+
+Destructor는 escaping throw 시 실행되지 않으므로, non-null destructor라는 이유만으로
+그 exception exit을 버리지 않는다. 예외 token에 cleanup 계약을 별도로 기록한다.
+Null destructor, 검증된 정상 destructor 및 위 표준 예외의 declaration 모델은 정상
+cleanup이다. 본문 분석으로 abort가 확인되면 파괴 시 program termination으로 처리한다.
+그 외는 unknown cleanup이다. Catch 종료에서 파괴가 필요할 때 unknown cleanup이면
+그 이후 경로는 Partial이며, rethrow는 그 객체를 파괴하지 않고 다음 소유자로 넘긴다.
+함수 간 exception summary로 cleanup 안전성을 전달할 때는 해당 component가 Complete인
+경우만 전체 객체에 대한 정상 cleanup 계약을 재사용한다. 미분석 destructor를
+noexcept라는 표기만으로 정상 반환한다고 가정하지 않는다.
+
+Benchmark 41의 strict_check는 위 모델에서 C_normal = (0 < v <= 500),
+C_exception = (v > 500)을 인증해야 한다. constructor 자체 throw, constructor abort,
+unknown constructor, unknown/aborting destructor 및 nondeterministic mixed exit을
+별도 regression으로 검증한다.
 
 ## 8. Exit Constraint 환원과 종료 보장 검증
 

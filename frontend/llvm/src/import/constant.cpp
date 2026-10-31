@@ -438,6 +438,37 @@ std::unique_ptr< ar::Statement > ConstantImporter::
     } else if (auto ptrtoint =
                    llvm::dyn_cast< llvm::PtrToIntInst >(inst.get())) {
       return this->translate_ptrtoint(result, ptrtoint, bb, exprs);
+    } else if (auto* binary =
+                   llvm::dyn_cast< llvm::BinaryOperator >(inst.get())) {
+      // Darwin class RTTI tags its name pointer using an integer constant
+      // expression: inttoptr(add(ptrtoint(name), high_bit)). Preserve the
+      // integer operation and its wrap flags instead of dropping the tag.
+      auto* type = ar::dyn_cast< ar::IntegerType >(result->type());
+      if (!type || (binary->getOpcode() != llvm::Instruction::Add &&
+                    binary->getOpcode() != llvm::Instruction::Sub))
+        throw ImportError("unsupported binary constant expression");
+      bool add = binary->getOpcode() == llvm::Instruction::Add;
+      auto op =
+          type->is_signed()
+              ? (add ? ar::BinaryOperation::SAdd : ar::BinaryOperation::SSub)
+              : (add ? ar::BinaryOperation::UAdd : ar::BinaryOperation::USub);
+      auto* left = this->translate_constant(llvm::cast< llvm::Constant >(
+                                                binary->getOperand(0)),
+                                            type,
+                                            bb,
+                                            exprs);
+      auto* right = this->translate_constant(llvm::cast< llvm::Constant >(
+                                                 binary->getOperand(1)),
+                                             type,
+                                             bb,
+                                             exprs);
+      return ar::BinaryOperation::create(op,
+                                         result,
+                                         left,
+                                         right,
+                                         type->is_signed()
+                                             ? binary->hasNoSignedWrap()
+                                             : binary->hasNoUnsignedWrap());
     } else {
       throw ImportError("unexpected llvm constant expression");
     }

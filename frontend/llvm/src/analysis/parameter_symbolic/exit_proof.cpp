@@ -1,9 +1,16 @@
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/exit_proof.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 #include <map>
 #include <set>
 #include <vector>
+
+#include <llvm/Demangle/Demangle.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/Module.h>
 
 #include <ikos/ar/semantic/bundle.hpp>
 #include <ikos/ar/semantic/code.hpp>
@@ -101,6 +108,15 @@ struct Path {
     unsigned fields = 0;
   };
   ar::BasicBlock* block;
+  std::size_t begin = 0, group = 0;
+  struct Frame {
+    ar::CallBase* call;
+    ar::BasicBlock* block;
+    std::size_t begin;
+    ar::Variable* object;
+    ar::Type* type;
+  };
+  std::vector< Frame > frames;
   SymbolicState values;
   std::map< ar::Variable*, Expr > origins;
   std::vector< ar::IntegerType* > parameter_types;
@@ -108,6 +124,7 @@ struct Path {
   std::map< ar::Variable*, ar::Type* > scalar_allocations;
   std::map< ar::Variable*, ZNumber > exception_allocations;
   std::map< ar::Variable*, ar::Variable* > exception_addresses;
+  std::map< ar::Variable*, ar::Function* > function_addresses;
   std::map< ar::Variable*, ar::Type* > initialized_exceptions;
   std::set< ar::Variable* > rtti_pointers;
   std::map< ar::Variable*, ExceptionRecord > exception_records;
@@ -115,6 +132,8 @@ struct Path {
       exception_selectors;
   ExceptionToken next_exception = 1, pending_exception = 0;
   std::vector< ExceptionToken > caught_exceptions;
+  enum Cleanup { SafeCleanup, TerminatingCleanup, UnknownCleanup };
+  std::map< ExceptionToken, Cleanup > cleanups;
   core::machine_int::ExpressionRanges< int > ranges;
   SymbolicCondition condition = SymbolicCondition::make_true();
   std::map< ar::BasicBlock*, unsigned > visits;
@@ -159,6 +178,15 @@ struct Path {
       return condition_expr_from_affine(val.expr, t->bit_width(), t->sign());
     return {};
   }
+  SymbolicValue value(ar::Value* v) const {
+    if (auto* global = ar::dyn_cast< ar::GlobalVariable >(v)) {
+      SymbolicLoc location;
+      location.base = global;
+      location.callee_local = false;
+      return SymbolicValue::from_loc(location);
+    }
+    return values.eval(v);
+  }
   void copy_exception_value(ar::Variable* result, ar::Value* operand) {
     auto* v = operand ? ar::dyn_cast< ar::Variable >(operand) : nullptr;
     if (v == result)
@@ -167,6 +195,7 @@ struct Path {
     exception_objects.erase(result);
     exception_selectors.erase(result);
     exception_addresses.erase(result);
+    function_addresses.erase(result);
     rtti_pointers.erase(result);
     if (v) {
       if (exception_records.count(v))
@@ -177,6 +206,8 @@ struct Path {
         exception_selectors[result] = exception_selectors.at(v);
       if (exception_addresses.count(v))
         exception_addresses[result] = exception_addresses.at(v);
+      if (function_addresses.count(v))
+        function_addresses[result] = function_addresses.at(v);
       if (rtti_pointers.count(v))
         rtti_pointers.insert(result);
     }
@@ -184,6 +215,9 @@ struct Path {
             operand ? ar::dyn_cast< ar::GlobalVariable >(operand) : nullptr)
       if (g->name().compare(0, 4, "_ZTI") == 0)
         rtti_pointers.insert(result);
+    if (auto* p = operand ? ar::dyn_cast< ar::FunctionPointerConstant >(operand)
+                          : nullptr)
+      function_addresses[result] = p->function();
   }
   Interval interval(const Expr& e) const {
     Interval i = e.evaluate([&](int v, uint64_t w, core::Signedness sign) {
@@ -350,7 +384,159 @@ enum class RuntimeFlow {
   Terminate
 };
 
-RuntimeFlow runtime_call(Path& path, ar::CallBase* call) {
+struct MemberName {
+  std::string context, name;
+  bool constructor = false, destructor = false;
+};
+
+MemberName member_name(ar::Function* function) {
+  MemberName result;
+  llvm::ItaniumPartialDemangler demangler;
+  if (!function || demangler.partialDemangle(function->name().c_str()) ||
+      !demangler.isCtorOrDtor())
+    return result;
+  auto read = [](char* value) {
+    std::string text = value ? value : "";
+    std::free(value);
+    return text;
+  };
+  result.context = read(demangler.getFunctionDeclContextName(nullptr, nullptr));
+  result.name = read(demangler.getFunctionBaseName(nullptr, nullptr));
+  result.destructor = !result.name.empty() && result.name[0] == '~';
+  result.constructor = !result.destructor && !result.name.empty();
+  return result;
+}
+
+bool standard_exception(const MemberName& member) {
+  static const std::set< std::string > names = {"std::logic_error",
+                                                "std::domain_error",
+                                                "std::invalid_argument",
+                                                "std::length_error",
+                                                "std::out_of_range",
+                                                "std::runtime_error",
+                                                "std::range_error",
+                                                "std::overflow_error",
+                                                "std::underflow_error"};
+  return names.count(member.context) != 0;
+}
+
+bool immutable_c_string(const Path& path, ar::Value* value) {
+  auto pointer = path.value(value);
+  if (!pointer.is_loc() || !pointer.loc.offset.is_const() ||
+      pointer.loc.offset.constant < 0)
+    return false;
+  auto* global = ar::dyn_cast< ar::GlobalVariable >(pointer.loc.base);
+  if (!global || !global->has_frontend())
+    return false;
+  auto* source = global->frontend< llvm::GlobalVariable >();
+  if (!source->isConstant() || !source->hasInitializer())
+    return false;
+  auto* bytes =
+      llvm::dyn_cast< llvm::ConstantDataArray >(source->getInitializer());
+  if (!bytes || !bytes->isString())
+    return false;
+  auto string = bytes->getAsString();
+  ZNumber offset(pointer.loc.offset.constant);
+  if (offset >= ZNumber(string.size()))
+    return false;
+  return string.drop_front(offset.to< std::size_t >()).contains('\0');
+}
+
+bool returns_void_or_this(ar::Function* function) {
+  if (function->type()->return_type()->is_void())
+    return true;
+  // Darwin's constructor/destructor ABI returns this. LLVM's returned
+  // attribute establishes that identity even if debug types introduce casts.
+  return function->type()->return_type()->is_pointer() &&
+         function->has_frontend() &&
+         function->frontend< llvm::Function >()
+             ->hasParamAttribute(0, llvm::Attribute::Returned);
+}
+
+bool standard_constructor_model(ar::Function* function,
+                                const Path& path,
+                                ar::CallBase* call) {
+  auto member = member_name(function);
+  if (!function || !function->is_declaration() || !member.constructor ||
+      !standard_exception(member) || call->num_arguments() != 2 ||
+      function->num_parameters() != 2 || function->type()->is_var_arg() ||
+      !immutable_c_string(path, call->argument(1)))
+    return false;
+  auto* message =
+      ar::dyn_cast< ar::PointerType >(function->type()->param_type(1));
+  auto* character =
+      message ? ar::dyn_cast< ar::IntegerType >(message->pointee()) : nullptr;
+  if (!character || character->bit_width() != 8)
+    return false;
+  auto* self = ar::dyn_cast< ar::PointerType >(function->type()->param_type(0));
+  if (!self || !self->pointee()->is_struct() || !returns_void_or_this(function))
+    return false;
+  // The built-in allocation contract is invalidated by visible replacement
+  // allocation functions or installed new-handlers in this module.
+  if (function->has_frontend()) {
+    auto* source = function->frontend< llvm::Function >();
+    for (const auto& f : *source->getParent()) {
+      auto name = f.getName();
+      if ((name.startswith("_Zn") && !f.isDeclaration()) ||
+          (name.contains("set_new_handler") && !f.use_empty()))
+        return false;
+    }
+  }
+  return true;
+}
+
+ar::Variable* construction_object(const Path& path, ar::CallBase* call) {
+  auto* function = callee(call);
+  if (!function || !member_name(function).constructor ||
+      call->num_arguments() == 0 || !returns_void_or_this(function) ||
+      function->type()->is_var_arg())
+    return nullptr;
+  auto* address = ar::dyn_cast< ar::Variable >(call->argument(0));
+  auto pointer = path.values.eval(call->argument(0));
+  auto* type = ar::dyn_cast< ar::PointerType >(call->argument(0)->type());
+  if (!address || !type || !type->pointee()->is_struct() || !pointer.is_loc() ||
+      !pointer.loc.offset.is_const() || pointer.loc.offset.constant != 0 ||
+      !path.exception_addresses.count(address) ||
+      path.exception_addresses.at(address) != pointer.loc.base ||
+      !path.exception_allocations.count(pointer.loc.base) ||
+      function->bundle()->data_layout().alloc_size_in_bytes(type->pointee()) >
+          path.exception_allocations.at(pointer.loc.base))
+    return nullptr;
+  return pointer.loc.base;
+}
+
+Path::Cleanup destructor_cleanup(ar::Function* function,
+                                 const SummaryStore* store) {
+  if (!function || function->num_parameters() != 1 ||
+      !returns_void_or_this(function))
+    return Path::UnknownCleanup;
+  auto* self = ar::dyn_cast< ar::PointerType >(function->type()->param_type(0));
+  if (!self || !self->pointee()->is_struct())
+    return Path::UnknownCleanup;
+  auto member = member_name(function);
+  if (!member.destructor)
+    return Path::UnknownCleanup;
+  if (function->is_declaration())
+    return standard_exception(member) ? Path::SafeCleanup
+                                      : Path::UnknownCleanup;
+  static thread_local std::set< ar::Function* > active;
+  if (!active.insert(function).second)
+    return Path::UnknownCleanup;
+  auto summary = prove_exit_conditions(function, store);
+  active.erase(function);
+  if (!summary.memory_preconditions.empty() || !summary.normal.complete ||
+      !summary.exception.complete || !summary.exception.condition.is_false())
+    return Path::UnknownCleanup;
+  if (summary.normal.condition.is_true())
+    return Path::SafeCleanup;
+  if (summary.normal.condition.is_false())
+    return Path::TerminatingCleanup;
+  return Path::UnknownCleanup;
+}
+
+RuntimeFlow runtime_call(Path& path,
+                         ar::CallBase* call,
+                         const SummaryStore* store) {
   auto* f = callee(call);
   if (!f)
     return RuntimeFlow::NotRuntime;
@@ -406,14 +592,31 @@ RuntimeFlow runtime_call(Path& path, ar::CallBase* call) {
           object.loc.offset.constant != 0 || !address ||
           !path.exception_addresses.count(address) ||
           path.exception_addresses.at(address) != object.loc.base ||
-          !path.initialized_exceptions.count(object.loc.base) || !known_rtti ||
-          !path.values.eval(call->argument(2)).is_null())
+          !path.exception_allocations.count(object.loc.base) ||
+          !path.initialized_exceptions.count(object.loc.base) || !known_rtti)
         return RuntimeFlow::Unsupported;
+      Path::Cleanup cleanup = Path::SafeCleanup;
+      if (!path.values.eval(call->argument(2)).is_null()) {
+        ar::Function* destructor = nullptr;
+        if (auto* pointer =
+                ar::dyn_cast< ar::FunctionPointerConstant >(call->argument(2)))
+          destructor = pointer->function();
+        else if (auto* variable =
+                     ar::dyn_cast< ar::Variable >(call->argument(2))) {
+          auto it = path.function_addresses.find(variable);
+          if (it != path.function_addresses.end())
+            destructor = it->second;
+        }
+        if (!destructor)
+          return RuntimeFlow::Unsupported;
+        cleanup = destructor_cleanup(destructor, store);
+      }
       // Ownership passes to the exception runtime. A later throw/free of the
       // raw pointer is not a fresh exception; rethrow uses the active token.
       path.initialized_exceptions.erase(object.loc.base);
       path.exception_allocations.erase(object.loc.base);
       path.pending_exception = path.next_exception++;
+      path.cleanups[path.pending_exception] = cleanup;
       return RuntimeFlow::Exception;
     }
     case ar::Intrinsic::LibcppRethrow:
@@ -439,6 +642,14 @@ RuntimeFlow runtime_call(Path& path, ar::CallBase* call) {
     case ar::Intrinsic::LibcppEndCatch:
       if (path.caught_exceptions.empty())
         return RuntimeFlow::Unsupported;
+      if (path.pending_exception != path.caught_exceptions.back()) {
+        auto cleanup = path.cleanups.find(path.caught_exceptions.back());
+        if (cleanup == path.cleanups.end() ||
+            cleanup->second == Path::UnknownCleanup)
+          return RuntimeFlow::Unsupported;
+        if (cleanup->second == Path::TerminatingCleanup)
+          return RuntimeFlow::Terminate;
+      }
       path.caught_exceptions.pop_back();
       return RuntimeFlow::Normal;
     case ar::Intrinsic::LibcppFreeException: {
@@ -501,6 +712,18 @@ bool compose_call(Path& path,
                   std::vector< WritableMemory >& requirements) {
   auto* f = callee(call);
   const auto* summary = f && store ? store->get(f) : nullptr;
+  FunctionSummary destructor_summary;
+  if (f && f->is_definition() && member_name(f).destructor &&
+      (!summary || !summary->normal.complete || !summary->exception.complete)) {
+    // ABI destructor wrappers (D1 -> D2) need the same body proof even when
+    // native exception handling has not visited their definitions yet.
+    static thread_local std::set< ar::Function* > active;
+    if (active.size() >= 16 || !active.insert(f).second)
+      return false;
+    destructor_summary = prove_exit_conditions(f, store);
+    active.erase(f);
+    summary = &destructor_summary;
+  }
   if (!summary)
     return false;
   bool available =
@@ -547,8 +770,58 @@ bool compose_call(Path& path,
     path.origins.erase(call->result());
     path.copy_exception_value(call->result(), nullptr);
   }
-  if (!normal && !path.condition.is_false())
+  if (!normal && !path.condition.is_false()) {
     path.pending_exception = path.next_exception++;
+    path.cleanups[path.pending_exception] = summary->exception.cleanup_safe
+                                                ? Path::SafeCleanup
+                                                : Path::UnknownCleanup;
+  }
+  return true;
+}
+
+// Each modeled nondeterministic operation creates two child obligations. A
+// guarantee is their intersection, never the union of favorable outcomes.
+struct ProofGroup {
+  SymbolicCondition normal = SymbolicCondition::make_false();
+  SymbolicCondition exception = SymbolicCondition::make_false();
+  std::vector< std::pair< std::size_t, std::size_t > > alternatives;
+};
+
+bool enter_constructor(Path& path,
+                       ar::CallBase* call,
+                       std::size_t next,
+                       ar::Variable* object) {
+  auto* function = callee(call);
+  if (!function || !function->is_definition() || path.frames.size() >= 16 ||
+      function->num_parameters() != call->num_arguments() ||
+      function == path.block->code()->function())
+    return false;
+  for (const auto& frame : path.frames)
+    if (frame.block->code()->function() == function)
+      return false;
+  std::vector< SymbolicValue > values;
+  std::vector< Expr > origins;
+  for (auto it = call->arg_begin(); it != call->arg_end(); ++it) {
+    values.push_back(path.value(*it));
+    origins.push_back(path.eval(*it));
+  }
+  auto* type =
+      ar::cast< ar::PointerType >(call->argument(0)->type())->pointee();
+  auto* invoke = ar::dyn_cast< ar::Invoke >(call);
+  path.frames.push_back({call,
+                         invoke ? invoke->normal_dest() : path.block,
+                         invoke ? 0 : next,
+                         object,
+                         type});
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    auto* formal = function->param(i);
+    path.copy_exception_value(formal,
+                              call->argument(static_cast< unsigned >(i)));
+    path.values.sigma[formal] = values[i];
+    path.origins[formal] = origins[i];
+  }
+  path.block = function->body()->entry_block();
+  path.begin = 0;
   return true;
 }
 
@@ -567,6 +840,35 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
   result.exception.has_exit = code->exception_exit_block_or_null() != nullptr;
   std::vector< Path > pending;
   pending.emplace_back(code->entry_block(), f);
+  std::vector< ProofGroup > groups(1);
+  bool cleanup_safe = true;
+  auto collect_exception = [&](const Path& path) {
+    groups[path.group].exception.join_with(path.condition);
+    result.exception.has_exit = true;
+    auto cleanup = path.cleanups.find(path.pending_exception);
+    if (cleanup == path.cleanups.end() || cleanup->second != Path::SafeCleanup)
+      cleanup_safe = false;
+  };
+  auto propagate_exception = [&](Path path) {
+    while (!path.frames.empty()) {
+      auto frame = path.frames.back();
+      path.frames.pop_back();
+      path.initialized_exceptions.erase(frame.object);
+      if (auto* invoke = ar::dyn_cast< ar::Invoke >(frame.call)) {
+        path.block = invoke->exception_dest();
+        path.begin = 0;
+        pending.push_back(std::move(path));
+        return;
+      }
+    }
+    collect_exception(path);
+  };
+  auto split = [&](std::size_t parent) {
+    std::size_t normal = groups.size(), exception = normal + 1;
+    groups.resize(groups.size() + 2);
+    groups[parent].alternatives.emplace_back(normal, exception);
+    return std::make_pair(normal, exception);
+  };
   unsigned budget = 0;
   auto incomplete = [&] {
     result.normal.complete = false;
@@ -585,7 +887,10 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
     }
     bool modeled = true, terminated = false;
     ar::Invoke* invoke = nullptr;
+    std::size_t index = 0;
     for (ar::Statement* stmt : *path.block) {
+      if (index++ < path.begin)
+        continue;
       if (path.condition.is_false())
         break;
       if (stmt->has_undefined_constant_operand() &&
@@ -607,10 +912,38 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
           break;
         }
       } else if (auto* call = ar::dyn_cast< ar::Call >(stmt)) {
-        auto flow = runtime_call(path, call);
+        if (auto* object = construction_object(path, call)) {
+          if (callee(call)->is_definition()) {
+            if (!enter_constructor(path, call, index, object)) {
+              modeled = false;
+              break;
+            }
+            pending.push_back(std::move(path));
+            terminated = true;
+            break;
+          }
+          if (standard_constructor_model(callee(call), path, call)) {
+            auto children = split(path.group);
+            Path escaping = path;
+            escaping.group = children.second;
+            escaping.pending_exception = escaping.next_exception++;
+            escaping.cleanups[escaping.pending_exception] = Path::SafeCleanup;
+            propagate_exception(std::move(escaping));
+            path.group = children.first;
+            path.initialized_exceptions[object] =
+                ar::cast< ar::PointerType >(call->argument(0)->type())
+                    ->pointee();
+            if (call->has_result()) {
+              path.copy_exception_value(call->result(), call->argument(0));
+              path.values.sigma[call->result()] =
+                  path.values.eval(call->argument(0));
+            }
+            continue;
+          }
+        }
+        auto flow = runtime_call(path, call, store);
         if (flow == RuntimeFlow::Exception) {
-          result.exception.condition.join_with(path.condition);
-          result.exception.has_exit = true;
+          propagate_exception(path);
           terminated = true;
           break;
         }
@@ -635,8 +968,7 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
                                               exception_complete,
                                               result.memory_preconditions);
         if (exception_modeled && !escaping.condition.is_false()) {
-          result.exception.condition.join_with(escaping.condition);
-          result.exception.has_exit = true;
+          propagate_exception(std::move(escaping));
         }
         if (!compose_call(path,
                           call,
@@ -651,11 +983,50 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
           incomplete();
         continue;
       } else if (auto* inv = ar::dyn_cast< ar::Invoke >(stmt)) {
+        if (auto* object = construction_object(path, inv)) {
+          if (callee(inv)->is_definition()) {
+            if (!enter_constructor(path, inv, 0, object)) {
+              modeled = false;
+              break;
+            }
+            pending.push_back(std::move(path));
+            terminated = true;
+            break;
+          }
+          if (standard_constructor_model(callee(inv), path, inv)) {
+            auto children = split(path.group);
+            Path escaping = path;
+            escaping.group = children.second;
+            escaping.block = inv->exception_dest();
+            escaping.begin = 0;
+            escaping.pending_exception = escaping.next_exception++;
+            escaping.cleanups[escaping.pending_exception] = Path::SafeCleanup;
+            pending.push_back(std::move(escaping));
+            path.group = children.first;
+            path.initialized_exceptions[object] =
+                ar::cast< ar::PointerType >(inv->argument(0)->type())
+                    ->pointee();
+            if (inv->has_result()) {
+              path.copy_exception_value(inv->result(), inv->argument(0));
+              path.values.sigma[inv->result()] =
+                  path.values.eval(inv->argument(0));
+            }
+            path.block = inv->normal_dest();
+            path.begin = 0;
+            pending.push_back(std::move(path));
+            terminated = true;
+            break;
+          }
+        }
         invoke = inv;
         break;
       } else if (auto* assign = ar::dyn_cast< ar::Assignment >(stmt)) {
         path.origins[assign->result()] = path.eval(assign->operand());
         path.copy_exception_value(assign->result(), assign->operand());
+        if (ar::isa< ar::GlobalVariable >(assign->operand())) {
+          path.values.sigma[assign->result()] = path.value(assign->operand());
+          continue;
+        }
       } else if (auto* binary = ar::dyn_cast< ar::BinaryOperation >(stmt)) {
         Bin op;
         auto l = path.eval(binary->left()), r = path.eval(binary->right());
@@ -679,6 +1050,10 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
             unary->result()->type()->is_pointer() &&
             unary->operand()->type()->is_pointer()) {
           path.copy_exception_value(unary->result(), unary->operand());
+          if (ar::isa< ar::GlobalVariable >(unary->operand())) {
+            path.values.sigma[unary->result()] = path.value(unary->operand());
+            continue;
+          }
         } else if (t && e &&
                    (unary->op() == ar::UnaryOperation::UTrunc ||
                     unary->op() == ar::UnaryOperation::STrunc ||
@@ -719,26 +1094,79 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
                                          integer,
                                          store_stmt->alignment(),
                                          result.memory_preconditions);
+        bool class_field = false;
+        if (addr.is_loc() && address &&
+            path.exception_addresses.count(address) &&
+            path.exception_addresses.at(address) == addr.loc.base &&
+            addr.loc.offset.is_const() && addr.loc.offset.constant >= 0 &&
+            path.exception_allocations.count(addr.loc.base)) {
+          auto& layout = f->bundle()->data_layout();
+          auto bytes = layout.store_size_in_bytes(store_stmt->value()->type());
+          uint64_t alignment = std::max(uint64_t(1), store_stmt->alignment());
+          auto value = path.value(store_stmt->value());
+          bool defined = integer ? bool(path.eval(store_stmt->value()))
+                                 : (value.is_loc() || value.is_null() ||
+                                    ar::isa< ar::FunctionPointerConstant >(
+                                        store_stmt->value()));
+          class_field =
+              defined &&
+              ZNumber(addr.loc.offset.constant) + bytes <=
+                  path.exception_allocations.at(addr.loc.base) &&
+              ZNumber(addr.loc.offset.constant) % ZNumber(alignment) == 0;
+        }
         if (store_stmt->is_volatile() ||
-            (!scalar && !exception_object && !external)) {
+            (!scalar && !exception_object && !external && !class_field)) {
           modeled = false;
           break;
         }
-        path.memory[addr.loc] = path.eval(store_stmt->value());
+        auto stored = path.eval(store_stmt->value());
+        for (auto it = path.memory.begin(); it != path.memory.end();) {
+          bool disjoint = false;
+          if (it->first.base == addr.loc.base && stored && it->second &&
+              it->first.offset.is_const() && addr.loc.offset.is_const()) {
+            ZNumber old_begin(it->first.offset.constant),
+                new_begin(addr.loc.offset.constant);
+            disjoint =
+                old_begin + ZNumber((it->second.bit_width() + 7) / 8) <=
+                    new_begin ||
+                new_begin + ZNumber((stored.bit_width() + 7) / 8) <= old_begin;
+          }
+          if (it->first.base == addr.loc.base && !disjoint)
+            it = path.memory.erase(it);
+          else
+            ++it;
+        }
+        path.memory[addr.loc] = stored;
         if (exception_object)
           path.initialized_exceptions[addr.loc.base] =
               store_stmt->value()->type();
       } else if (auto* load = ar::dyn_cast< ar::Load >(stmt)) {
         auto addr = path.values.eval(load->operand());
-        if (!addr.is_loc() || !addr.loc.callee_local ||
-            !addr.loc.offset.is_const() || addr.loc.offset.constant != 0 ||
-            !path.scalar_allocations.count(addr.loc.base) ||
-            path.scalar_allocations[addr.loc.base] != load->result()->type()) {
+        bool scalar =
+            addr.is_loc() && addr.loc.callee_local &&
+            addr.loc.offset.is_const() && addr.loc.offset.constant == 0 &&
+            path.scalar_allocations.count(addr.loc.base) &&
+            path.scalar_allocations[addr.loc.base] == load->result()->type();
+        auto* address = ar::dyn_cast< ar::Variable >(load->operand());
+        bool class_field =
+            addr.is_loc() && address &&
+            path.exception_addresses.count(address) &&
+            path.exception_addresses.at(address) == addr.loc.base &&
+            path.exception_allocations.count(addr.loc.base) &&
+            addr.loc.offset.is_const() && addr.loc.offset.constant >= 0 &&
+            ZNumber(addr.loc.offset.constant) +
+                    f->bundle()->data_layout().store_size_in_bytes(
+                        load->result()->type()) <=
+                path.exception_allocations.at(addr.loc.base);
+        if (load->is_volatile() || (!scalar && !class_field)) {
           modeled = false;
           break;
         }
         auto it = path.memory.find(addr.loc);
-        if (it == path.memory.end()) {
+        auto* type = ar::dyn_cast< ar::IntegerType >(load->result()->type());
+        if (it == path.memory.end() || !it->second || !type ||
+            it->second.bit_width() != type->bit_width() ||
+            it->second.sign() != type->sign()) {
           modeled = false;
           break;
         }
@@ -815,13 +1243,72 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
           modeled = false;
           break;
         }
-        result.exception.condition.join_with(path.condition);
-        result.exception.has_exit = true;
+        propagate_exception(path);
         terminated = true;
         break;
       } else if (ar::isa< ar::Unreachable >(stmt)) {
         terminated = true;
         break;
+      } else if (auto* ret = ar::dyn_cast< ar::ReturnValue >(stmt)) {
+        if (!path.frames.empty()) {
+          auto frame = path.frames.back();
+          path.frames.pop_back();
+          if (!path.exception_allocations.count(frame.object)) {
+            modeled = false;
+            break;
+          }
+          if (frame.call->has_result()) {
+            if (!ret->has_operand()) {
+              modeled = false;
+              break;
+            }
+            auto value = path.values.eval(ret->operand());
+            auto origin = path.eval(ret->operand());
+            path.copy_exception_value(frame.call->result(), ret->operand());
+            path.values.sigma[frame.call->result()] = value;
+            path.origins[frame.call->result()] = origin;
+          }
+          path.initialized_exceptions[frame.object] = frame.type;
+          path.block = frame.block;
+          path.begin = frame.begin;
+          pending.push_back(std::move(path));
+          terminated = true;
+          break;
+        }
+      } else if (auto* shift = ar::dyn_cast< ar::PointerShift >(stmt)) {
+        auto pointer = path.value(shift->pointer());
+        auto* source = ar::dyn_cast< ar::Variable >(shift->pointer());
+        ar::Variable* base = source && path.exception_addresses.count(source)
+                                 ? path.exception_addresses.at(source)
+                                 : nullptr;
+        path.values.exec(stmt);
+        if (pointer.is_loc() && pointer.loc.offset.is_const()) {
+          ZNumber offset(pointer.loc.offset.constant);
+          bool constant = true;
+          for (auto it = shift->term_begin(); it != shift->term_end(); ++it) {
+            auto element = *it;
+            auto term = path.eval(element.second);
+            if (!term || !term.is_constant()) {
+              constant = false;
+              break;
+            }
+            offset += element.first.to_z_number() *
+                      term.node().constant.to_z_number();
+          }
+          if (constant && offset.fits< int >()) {
+            pointer.loc.offset = SymbolicExpr::from_const(offset.to< int >());
+            path.values.sigma[shift->result()] = pointer;
+          }
+        }
+        path.copy_exception_value(shift->result(), nullptr);
+        auto value = path.values.eval(shift->result());
+        if (base && value.is_loc() && value.loc.base == base &&
+            value.loc.offset.is_const() && value.loc.offset.constant >= 0 &&
+            path.exception_allocations.count(base) &&
+            ZNumber(value.loc.offset.constant) <=
+                path.exception_allocations.at(base))
+          path.exception_addresses[shift->result()] = base;
+        continue;
       } else if (!ar::isa< ar::ReturnValue >(stmt) &&
                  !ar::isa< ar::PointerShift >(stmt)) {
         modeled = false;
@@ -836,11 +1323,11 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
     if (terminated || path.condition.is_false())
       continue;
     if (path.block == code->normal_exit_block_or_null()) {
-      result.normal.condition.join_with(path.condition);
+      groups[path.group].normal.join_with(path.condition);
       continue;
     }
     if (path.block == code->exception_exit_block_or_null()) {
-      result.exception.condition.join_with(path.condition);
+      propagate_exception(path);
       continue;
     }
     for (auto it = path.block->successor_begin();
@@ -848,9 +1335,10 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
          ++it) {
       Path next = path;
       next.block = *it;
+      next.begin = 0;
       if (invoke) {
         bool normal = (*it == invoke->normal_dest());
-        auto flow = runtime_call(next, invoke);
+        auto flow = runtime_call(next, invoke, store);
         if (flow == RuntimeFlow::Terminate)
           continue;
         if (flow == RuntimeFlow::Normal || flow == RuntimeFlow::Exception) {
@@ -877,6 +1365,39 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
       pending.push_back(std::move(next));
     }
   }
+  for (std::size_t i = groups.size(); i-- > 0;) {
+    auto common = [](SymbolicCondition left,
+                     const SymbolicCondition& right,
+                     bool& complete) {
+      if (!right.disjuncts.empty() &&
+          left.disjuncts.size() > 1024 / right.disjuncts.size()) {
+        complete = false;
+        return SymbolicCondition::make_false();
+      }
+      left.meet_with(right);
+      return left;
+    };
+    for (auto children : groups[i].alternatives) {
+      // Mixed normal/exception/termination outcomes do not establish exact
+      // per-exit coverage, even when their common guarantee is empty.
+      if (!groups[children.first].normal.equals(groups[children.second].normal))
+        result.normal.complete = false;
+      if (!groups[children.first].exception.equals(
+              groups[children.second].exception))
+        result.exception.complete = false;
+      auto normal = common(groups[children.first].normal,
+                           groups[children.second].normal,
+                           result.normal.complete);
+      groups[i].normal.join_with(normal);
+      auto exception = common(groups[children.first].exception,
+                              groups[children.second].exception,
+                              result.exception.complete);
+      groups[i].exception.join_with(exception);
+    }
+  }
+  result.normal.condition = std::move(groups[0].normal);
+  result.exception.condition = std::move(groups[0].exception);
+  result.exception.cleanup_safe = result.exception.complete && cleanup_safe;
   return result;
 }
 

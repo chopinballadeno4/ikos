@@ -46,13 +46,18 @@ def main():
               "pointer36", "rethrow36", "memory37", "mixed39", "split40",
               "ordinary_wrapper31", "catch_and_rethrow", "typed_catch_fallback",
               "memory_wrapper37", "local_memory37", "mismatched_memory37",
-              "volatile_memory37", "external_load37"]
+              "volatile_memory37", "external_load37", "class41", "user_class41",
+              "constructor_throws41", "constructor_aborts41", "unknown_constructor41",
+              "unknown_cleanup41", "catch_unknown_cleanup41", "catch_aborting_cleanup41",
+              "catch_std_class41", "rethrow_std_class41", "nondeterministic_constructor41",
+              "unknown_message41", "overlapping_class41"]
     safe = {"normal_division_safe", "caught_division_safe", "normal_bounds_safe",
-            "caught_bounds_safe", "rethrow_pointer_safe", "memory_effects_safe"}
+            "caught_bounds_safe", "rethrow_pointer_safe", "memory_effects_safe",
+            "class_normal_division_safe", "class_caught_division_safe"}
     unsafe = {"swallowed_keeps_warning", "caught_zero_keeps_warning", "unknown_exception_keeps_warning",
               "unknown_argument_keeps_warning", "unknown_memory_pointer_keeps_warning",
               "null_memory_pointer_keeps_error", "offset_memory_pointer_keeps_error",
-              "mismatched_memory_pointer_keeps_error"}
+              "mismatched_memory_pointer_keeps_error", "class_zero_keeps_warning"}
     with tempfile.TemporaryDirectory(prefix="ikos-exception-regression-") as folder:
         folder = pathlib.Path(folder)
         bc, pp = folder / "input.bc", folder / "input.pp.bc"
@@ -72,12 +77,20 @@ def main():
             "split40": (lambda n: n > 0, lambda n: n < 0),
             "ordinary_wrapper31": (lambda n: n > 0, lambda n: n <= 0),
             "catch_and_rethrow": (lambda n: n >= -3, lambda n: n < -3),
+            "class41": (lambda n: 0 < n <= 500, lambda n: n > 500),
+            "user_class41": (lambda n: n <= 500, lambda n: n > 500),
+            "constructor_throws41": (lambda n: n <= 500, lambda n: n > 500),
+            "constructor_aborts41": (lambda n: n <= 500, lambda n: 500 < n <= 700),
+            "unknown_cleanup41": (lambda n: n <= 500, lambda n: n > 500),
+            "catch_aborting_cleanup41": (lambda n: n <= 500, lambda n: False),
+            "catch_std_class41": (lambda n: n > 0, lambda n: False),
+            "rethrow_std_class41": (lambda n: 0 < n <= 500, lambda n: n > 500),
         }
         for name, predicates in expected.items():
             for flow, predicate in zip(("normal", "exception"), predicates):
                 formula, level = component(trace, name, flow)
                 assert level == "Complete", (name, flow, level, formula)
-                for n in [-2147483648, *range(-20, 21), 2147483647]:
+                for n in [-2147483648, *range(-20, 21), 499, 500, 501, 700, 701, 2147483647]:
                     assert evaluate(formula, n) == predicate(n), (name, flow, formula, n)
             print(name + ": normal/exception formulas verified")
         for name in ("pointer36", "rethrow36"):
@@ -105,6 +118,15 @@ def main():
             for flow in ("normal", "exception"):
                 assert component(trace, name, flow)[1] == "Partial", (name, flow)
         print("unknown calls, unsupported catch/load and mismatched/volatile memory: fallback verified")
+        for name in ("unknown_constructor41", "catch_unknown_cleanup41", "unknown_message41"):
+            for flow in ("normal", "exception"):
+                assert component(trace, name, flow)[1] == "Partial", (name, flow)
+        formula, level = component(trace, "nondeterministic_constructor41", "exception")
+        assert (formula, level) == ("false", "Partial"), (formula, level)
+        # On this little-endian target the overlapping byte write clears code
+        # and aborts. A stale 32-bit value must never certify the later throw.
+        assert component(trace, "overlapping_class41", "exception")[0] == "false"
+        print("class exceptions: unknown constructors/cleanup and mixed nondeterministic exits stay partial")
         precondition_entries = {name for name in safe | unsafe if "memory_pointer" in name} | {"memory_effects_safe"}
         runs = [(entry, 1) for entry in sorted(safe | unsafe)]
         runs += [(entry, 2) for entry in sorted(precondition_entries)]
@@ -124,6 +146,24 @@ def main():
             if entry.endswith("keeps_error"):
                 assert counts.get(2, 0) > 0, counts
             print(entry + " (j=" + str(jobs) + "): checker result verified")
+        # A visible replacement allocator can terminate during message
+        # construction. Do not reuse the default library outcome contract.
+        replacement = folder / "replacement.cpp"
+        replacement.write_text('''#include <cstdlib>
+#include <stdexcept>
+void* operator new(std::size_t) { std::abort(); }
+extern "C" void replaced_allocation(int n) {
+  if (n > 500) throw std::runtime_error("message");
+}
+''')
+        command([opts.clang, "-c", "-emit-llvm", "-g", "-O0", "-std=c++17",
+                 "-Xclang", "-disable-O0-optnone", str(replacement), "-o", str(bc)])
+        command([opts.ikos_pp, "-opt=basic", "-entry-points=replaced_allocation", str(bc), "-o", str(pp)])
+        trace = command([opts.ikos_analyzer, "-a=dbz", "-d=interval", "-proc=inter",
+                         "-entry-points=replaced_allocation", "--trace-ar-stmts", "--progress=no",
+                         "-o", str(folder / "replacement.db"), str(pp)])
+        assert component(trace, "replaced_allocation", "exception") == ("false", "Partial")
+        print("replacement allocator: standard constructor model disabled")
 
 
 if __name__ == "__main__":

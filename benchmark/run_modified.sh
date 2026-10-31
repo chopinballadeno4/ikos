@@ -16,13 +16,13 @@ total_failed=0
 pick_analyses() {
     local name="$1"
     local num="${name%%_*}"
-    if   [[ "$num" -eq 32 || "$num" -eq 34 ]]; then echo "boa"
-    elif [[ "$num" -eq 36 ]]; then echo "nullity"
+    if   [[ "$num" -eq 42 || "$num" -eq 44 || "$num" -eq 46 || "$num" -eq 48 || "$num" -eq 50 ]]; then echo "boa"
+    elif [[ "$num" -eq 49 ]]; then echo "nullity"
     else echo "dbz"
     fi
 }
 
-for src in "$BENCHMARK_DIR"/3[1-9]_*.cpp "$BENCHMARK_DIR"/40_*.cpp; do
+for src in "$BENCHMARK_DIR"/4[1-9]_*.cpp "$BENCHMARK_DIR"/50_*.cpp; do
     [[ -f "$src" ]] || continue
     name=$(basename "$src")
     analyses=$(pick_analyses "$name")

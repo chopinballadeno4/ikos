@@ -1289,9 +1289,15 @@ Call의 caught-to-propagated 변환 또는 Invoke edge 선택
 merge를 유지하고 ρ는 interval join/widening을 수행한다.
 
 종료 보장 인증의 메모리 지원은 현재 함수에서 할당한 scalar 1개와 offset 0의
-타입이 일치하는 store/load, 예외 runtime 규칙으로 검증한 정수 예외 객체의
+타입이 일치하는 store/load, 예외 runtime 규칙으로 검증한 정수/클래스 예외 객체의
 초기화 및 Writable 전제를 가진 정수 scalar formal-pointer store다(상세 규칙:
-DEV_TRANSFER_FUNCTION.md §7.1, §8). 전제로 표현하지 못하는 외부 pointer 접근이나
+DEV_TRANSFER_FUNCTION.md §7.1~7.2, §8). 클래스 field는 fresh 할당 내 상수 offset과
+타입 크기/정렬/값의 정의 가능성을 확인한다. 생성자 문맥 분석은 최대 16단계이며
+재귀/미지원 동작은 Partial이다. 표준 생성자 모델의 서로 다른 가능한 결과는
+보장 영역을 교차해서 인증한다. 같은 입력에서 종료 종류가 다르면 그 flow의
+coverage는 Partial이다. Global RTTI의 pointer tag는 정수 상수 add/sub를 wrapping 및
+no-wrap flag와 함께 AR로 import하며, class identity나 pointer 값을 임의로 지우지 않는다.
+전제로 표현하지 못하는 외부 pointer 접근이나
 일반 alias 의존 관계는 Partial이다. No-wrap 연산의 정의역을 기존 조건으로 증명할 수
 없으면 넓은 정수식으로 overflow 배제 조건을 보존하고 Partial로 남긴다.
 나눗셈과 나머지의 인증 범위는 양의 상수 제수다. 반환값 summary는 생성하지 않는다.

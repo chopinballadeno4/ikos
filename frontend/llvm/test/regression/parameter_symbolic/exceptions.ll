@@ -3,6 +3,9 @@ target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.14.0"
 
 @_ZTIi = external global i8
+; Darwin uses this tagged pointer form in class RTTI name fields.
+@type_name = private constant [4 x i8] c"Tag\00"
+@tagged_type_name = constant i8* inttoptr (i64 add (i64 ptrtoint ([4 x i8]* @type_name to i64), i64 -9223372036854775808) to i8*)
 declare i8* @__cxa_allocate_exception(i64)
 declare void @__cxa_free_exception(i8*)
 declare void @__cxa_throw(i8*, i8*, i8*) noreturn
@@ -75,12 +78,13 @@ entry:
 ; UNINITIALIZED: C_exception (parameter constraints):
 ; UNINITIALIZED-NEXT: false
 ; DESTRUCTOR-LABEL: Function: unsupported_destructor
-; DESTRUCTOR: coverage: Partial
+; A destructor is deferred until cleanup, not executed by the escaping throw.
+; DESTRUCTOR: coverage: Complete
 ; DESTRUCTOR: C_normal (parameter constraints):
 ; DESTRUCTOR-NEXT: n0 > 0
-; DESTRUCTOR: coverage: Partial
+; DESTRUCTOR: coverage: Complete
 ; DESTRUCTOR: C_exception (parameter constraints):
-; DESTRUCTOR-NEXT: false
+; DESTRUCTOR-NEXT: n0 <= 0
 ; SCALAR-LABEL: Function: scalar_throw
 ; SCALAR: coverage: Complete
 ; SCALAR: C_normal (parameter constraints):

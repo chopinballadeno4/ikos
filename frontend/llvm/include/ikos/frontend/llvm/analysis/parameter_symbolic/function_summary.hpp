@@ -83,6 +83,8 @@ struct ExceptionSummary {
   bool available = false;
   bool has_exit = false;
   bool complete = false;
+  // Only Complete summaries may certify cleanup for every propagated object.
+  bool cleanup_safe = false;
   SymbolicCondition condition = SymbolicCondition::make_false();
   std::map< SymbolicLoc, SymbolicValue > mu_exit;
   std::vector< std::string > param_names;

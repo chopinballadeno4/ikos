@@ -1,4 +1,53 @@
 #include <cstdlib>
+#include <stdexcept>
+
+struct UserError {
+  int code;
+  explicit UserError(int n) : code(n) {}
+  ~UserError() {}
+};
+struct ConstructorThrows {
+  int code;
+  explicit ConstructorThrows(int n) {
+    if (n > 700)
+      throw 7;
+    code = n;
+  }
+  ~ConstructorThrows() {}
+};
+struct ConstructorAborts {
+  int code;
+  explicit ConstructorAborts(int n) {
+    if (n > 700)
+      std::abort();
+    code = n;
+  }
+};
+struct UnknownConstructor {
+  UnknownConstructor();
+  ~UnknownConstructor();
+};
+struct UnknownCleanup {
+  int code;
+  explicit UnknownCleanup(int n) : code(n) {}
+  ~UnknownCleanup();
+};
+struct AbortingCleanup {
+  int code;
+  explicit AbortingCleanup(int n) : code(n) {}
+  ~AbortingCleanup() { std::abort(); }
+};
+struct AbortAfterMessage : std::runtime_error {
+  AbortAfterMessage() : std::runtime_error("message") { std::abort(); }
+};
+struct OverlappingError {
+  int code;
+  OverlappingError() : code(256) {
+    reinterpret_cast< unsigned char* >(&code)[1] = 0;
+    if (code == 0)
+      std::abort();
+  }
+};
 
 extern "C" {
 int fresh_exception_int();
@@ -64,6 +113,69 @@ void external_load37(int* p) {
   if (*p == 0)
     throw 1;
 }
+void class41(int n) {
+  if (n <= 0)
+    std::abort();
+  if (n > 500)
+    throw std::overflow_error("too large");
+}
+void user_class41(int n) {
+  if (n > 500)
+    throw UserError(n);
+}
+void constructor_throws41(int n) {
+  if (n > 500)
+    throw ConstructorThrows(n);
+}
+void constructor_aborts41(int n) {
+  if (n > 500)
+    throw ConstructorAborts(n);
+}
+void unknown_constructor41(int n) {
+  if (n > 500)
+    throw UnknownConstructor();
+}
+void unknown_cleanup41(int n) {
+  if (n > 500)
+    throw UnknownCleanup(n);
+}
+void catch_unknown_cleanup41(int n) {
+  try {
+    unknown_cleanup41(n);
+  } catch (...) {
+  }
+}
+void catch_aborting_cleanup41(int n) {
+  try {
+    if (n > 500)
+      throw AbortingCleanup(n);
+  } catch (...) {
+  }
+}
+void catch_std_class41(int n) {
+  try {
+    class41(n);
+  } catch (...) {
+  }
+}
+void rethrow_std_class41(int n) {
+  try {
+    class41(n);
+  } catch (...) {
+    throw;
+  }
+}
+void nondeterministic_constructor41(int n) {
+  if (n > 500)
+    throw AbortAfterMessage();
+}
+void unknown_message41(const char* message) {
+  throw std::runtime_error(message);
+}
+void overlapping_class41(int n) {
+  if (n > 500)
+    throw OverlappingError();
+}
 void mixed39(int n) {
   if (n > 0)
     throw 1;
@@ -106,6 +218,34 @@ int caught_division_safe() {
   int n = fresh_exception_int();
   try {
     exception33(n);
+    return 0;
+  } catch (...) {
+    return 100 / n;
+  }
+}
+int class_normal_division_safe() {
+  int n = fresh_exception_int();
+  try {
+    class41(n);
+    return 100 / n;
+  } catch (...) {
+    return 0;
+  }
+}
+int class_caught_division_safe() {
+  int n = fresh_exception_int();
+  try {
+    rethrow_std_class41(n);
+    return 0;
+  } catch (...) {
+    return 100 / n;
+  }
+}
+int class_zero_keeps_warning() {
+  int n = fresh_exception_int();
+  try {
+    if (n <= 0)
+      throw std::logic_error("nonpositive");
     return 0;
   } catch (...) {
     return 100 / n;
