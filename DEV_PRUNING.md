@@ -107,10 +107,11 @@ component는 두지 않는다. 적용이 허용된 조건에서 얻은 표현식
 | `L + δ` | `L`로부터 정확한 offset `δ`에 있는 derived location |
 | `v^0(L)` | Callee 진입 시점 location `L`의 scalar content |
 | `ℓ^0(L)` | Callee 진입 시점 location `L`의 pointer-valued content |
-| `C_X(g)` | Callee g가 flow X로 종료함을 보장하는 입력 충분조건 |
+| `C_X(g)` | 정의된 실행에서 callee g가 flow X로 종료함을 보장하는 입력 충분조건 |
 | `Coverage_X(g)` | Partial 또는 Complete; 해당 flow 입력의 포괄성 증명 |
-| `GuaranteedExitInputs_X(g)` | 해당 입력의 모든 허용 실행이 정의된 동작으로 유한 시간 내 X 종료 |
-| `PossibleExitInputs_X(g)` | X로 종료하는 실행이 존재하는 입력 |
+| `DefInputs(g)` | 정의된 실행이 존재하는 입력 영역; UB 안전성 인증이나 추가 Requires atom이 아님 |
+| `GuaranteedExitInputs_X(g)` | DefInputs 중 모든 허용된 정의된 실행이 유한 시간 내 X 종료 |
+| `PossibleExitInputs_X(g)` | X로 종료하는 정의된 실행이 존재하는 입력 |
 | `μ_X(g)` | Flow `X` 종료 시의 caller-visible memory summary |
 
 Flow별 FunctionSummary는 다음 형식이다.
@@ -234,7 +235,8 @@ Normal flow와 exception flow가 모두 불가능하고 program exit만 가능�
 ### 3.4 종료 보장과 caller soundness
 
 ```text
-[[P_memory(g) ∧ C_X(g)]] ⊆ GuaranteedExitInputs_X(g) ⊆ PossibleExitInputs_X(g)
+[[P_memory(g) ∧ C_X(g)]] ∩ DefInputs(g)
+    ⊆ GuaranteedExitInputs_X(g) ⊆ PossibleExitInputs_X(g)
 Coverage_X(g)=Complete ⇒ (PossibleExitInputs_X(g) ∩ [[P_memory(g)]]) ⊆ [[C_X(g)]]
 Reach_{c,X} ⊆ γ(A_{c,X}^post)
 ```
@@ -245,6 +247,13 @@ normal state 전체가 치환된 P_memory를 만족함을 먼저 증명해야 �
 NonNull이나 store 이후의 값으로 entry 전제를 소급해서 증명하지 않는다. 증명
 실패 시 두 flow의 C_X와 μ_X를 모두 적용하지 않고 기존 IKOS 결과를 유지한다.
 검증은 sequential/concurrent inlining 모두 동일하게 적용한다.
+
+종료 보장 및 Reach는 정의된 실행을 대상으로 한다. No-wrap overflow 배제 입력
+조건을 C_X에 자동 생성하지 않으며, Complete는 해당 연산의 overflow 부재 증거가
+아니다. DefInputs를 새 call-entry 검사로 요구하지 않고, 기존 arithmetic transfer와
+checker는 별도로 유지한다. Summary의 call 이후 flow pruning을 call 이전의
+산술 오류 검사 생략이나 경고 삭제의 근거로 사용하지 않는다. 소스의 명시적인
+범위 검사는 그 값이 INT64_MAX 등이라도 실제 조건이므로 보존한다.
 
 현재 native 적용에서 Writable을 해소하는 범위는 initialized non-null pointer의
 단일 points-to가 살아 있는 stack scalar이고 offset 0, 정확한 pointee type,
@@ -1298,8 +1307,12 @@ DEV_TRANSFER_FUNCTION.md §7.1~7.2, §8). 클래스 field는 fresh 할당 내 �
 coverage는 Partial이다. Global RTTI의 pointer tag는 정수 상수 add/sub를 wrapping 및
 no-wrap flag와 함께 AR로 import하며, class identity나 pointer 값을 임의로 지우지 않는다.
 전제로 표현하지 못하는 외부 pointer 접근이나
-일반 alias 의존 관계는 Partial이다. No-wrap 연산의 정의역을 기존 조건으로 증명할 수
-없으면 넓은 정수식으로 overflow 배제 조건을 보존하고 Partial로 남긴다.
+일반 alias 의존 관계는 Partial이다. No-wrap 산술은 정의된 실행의 의미론으로
+해석하므로 두 배 width의 overflow 배제 atom을 생성하지 않으며, overflow 가능성만으로
+Partial로 낮추지 않는다(DEV_SUMMARY.md §1.1·5). 기존 오류 checker는 유지한다.
+σ의 정확한 affine actual을 우선 재사용하고 typed origin과의 값 동치를 확인한다.
+Wrapping 연산, cast/truncation 및 소스의 실제 검사는 정확히 보존한다. 미지원
+연산/호출/메모리를 정의된 실행 전제로 생략하지 않는다.
 나눗셈과 나머지의 인증 범위는 양의 상수 제수다. 반환값 summary는 생성하지 않는다.
 
 현재 IKOS 본 분석 구현은 interprocedural dynamic inlining에서 callee가 정확히

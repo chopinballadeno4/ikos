@@ -28,24 +28,37 @@
 본 명세의 `C_X(f)`는 입력이 조건을 만족하면 flow `X`로 종료함을 보장하는
 **충분조건**이다. 단순히 해당 flow가 가능하다는 필요조건으로 해석하지 않는다.
 `X`는 normal 또는 exception이다. 입력에는 parameter와 필요한 entry-memory 및
-환경 전제가 포함되며, 모든 보장은 명시한 전제 아래에서 성립해야 한다.
+환경 전제가 포함되며, 모든 보장은 명시한 전제와 **정의된 실행의 의미론** 아래에서
+성립해야 한다. C_X는 함수가 UB 없이 실행됨을 증명하는 안전성 인증서가 아니다.
 
 ```text
+DefInputs(f)
+    = 정의된 실행이 존재하는 입력 집합 (무한 실행도 실행에 포함)
 GuaranteedExitInputs_X(f)
-    = 해당 입력에서 허용되는 모든 실행이 유한 시간 안에 정의된 동작으로
+    = DefInputs(f) 중 모든 허용된 정의된 실행이 유한 시간 안에
       flow X에 도달하는 입력 집합
 PossibleExitInputs_X(f)
-    = 해당 입력에서 flow X에 도달하는 실행이 존재하는 입력 집합
+    = 해당 입력에서 flow X에 도달하는 정의된 실행이 존재하는 입력 집합
 
-[[P_memory(f) ∧ C_X(f)]] ⊆ GuaranteedExitInputs_X(f) ⊆ PossibleExitInputs_X(f)
+[[P_memory(f) ∧ C_X(f)]] ∩ DefInputs(f)
+    ⊆ GuaranteedExitInputs_X(f) ⊆ PossibleExitInputs_X(f)
 ```
+
+이 의미론은 no-wrap 산술의 overflow를 일으키는 실행을 종료 보장 대상에서 제외한다.
+따라서 no-wrap add/sub/mul을 보았다는 이유로 `n+bias<=INT64_MAX`,
+`3*n<=INT64_MAX` 같은 입력 제약을 생성·저장·출력하지 않는다. DefInputs는
+caller가 입증해야 하는 추가 Requires atom이 아니라 보장의 의미론적 범위이다.
+정의되지 않은 실행의 종료 종류에 대해서는 C_X가 보장하지 않는다. Overflow 등
+오류 검사는 기존 IKOS transfer/checker가 계속 수행하며, C_X 또는 Complete를
+근거로 이미 실행한 연산의 안전성을 소급 인증하거나 오류 검사를 생략하지 않는다.
 
 결정적인 guard 함수에서 실제 정상 종료 입력이 `1 <= n <= 1000`이라면
 `1 <= n <= 500`은 허용하지만 `1 <= n <= 1500`은 허용하지 않는다.
 보장할 수 있는 입력을 일부 놓치는 것은 허용하며, 보장하지 못하는 입력을
 종료가 보장된 입력으로 포함하는 것은 금지한다. `C_X`가 나타내는 집합은
-P_memory 안에서의 under-approximation이다. 분석기 전체의 도달 가능 상태는 여전히 실제 실행을
-모두 포함하는 over-approximation이어야 하며, false positive는 허용한다.
+P_memory와 DefInputs 안에서의 under-approximation이다. 분석기 전체의 도달 가능
+상태는 여전히 정의된 실제 실행을 모두 포함하는 over-approximation이어야 하며,
+false positive는 허용한다.
 
 각 flow는 조건과 별도로 coverage를 가진다.
 
@@ -56,11 +69,13 @@ Complete ⇒ (PossibleExitInputs_X(f) ∩ [[P_memory(f)]]) ⊆ [[C_X(f)]]
 
 `Partial`은 충분조건이 유효하지만 해당 flow의 모든 입력을 포괄한다고 증명하지
 못한 상태이다. `Complete`는 명시된 P_memory 안에서 반대 포함까지 증명한 상태이며,
-그 전제 안에서 종료 입력과 C_X가 일치한다. 전제는 없으면 true이며 §3에서 정의한다.
+그 전제와 DefInputs 안에서 종료 입력과 C_X가 일치한다. 메모리 전제는 없으면
+true이며 §3에서 정의한다.
 경로를 일부 누락하거나 loop/call의 의미를 분석하지 못하면
 자동으로 Complete가 되지 않는다. 분석기 invariant가 over-approximation이라는
 사실만으로 충분조건이나 종료성, coverage가 증명되지는 않는다. Nondeterministic
-call, 미확인 예외, 무한 loop 또는 UB 가능성이 남은 입력을 보장 영역에 넣지 않는다.
+call, 미확인 예외 또는 무한 loop를 무시하여 종료를 보장하지 않는다. No-wrap의
+overflow 가능성만으로 coverage를 Partial로 낮추거나 임의의 입력 상한을 붙이지 않는다.
 
 부분 조건의 밖은 **미확인 영역**이다. `¬C_X`를 해당 flow의 불가능성으로
 해석하거나 그 영역을 caller 분석에서 삭제해서는 안 된다. Caller에서 전역
@@ -342,11 +357,12 @@ FunctionSummary(f) = {
 전제가 없으면 true다. `Writable(P_i, T, size, alignment)`는 해당 pointer가 살아
 있는 쓰기 가능한 T 객체의 요구 범위를 올바른 정렬로 가리킨다는 뜻이다. NonNull은
 이 전제를 대신하지 못한다. 전제를 가진 summary의 C_X와 Complete는 모두
-`P_memory` 안에서만 성립한다. 실제 종료 보장 영역은 `P_memory ∧ C_X`이며,
+`P_memory`와 정의된 실행 안에서만 성립한다. 실제 종료 보장 영역은
+`[[P_memory ∧ C_X]] ∩ DefInputs`이며,
 전제 밖에서는 종료 조건도 memory effect도 재사용하지 않는다.
 
 ```text
-[[P_memory ∧ C_X]] ⊆ GuaranteedExitInputs_X
+[[P_memory ∧ C_X]] ∩ DefInputs ⊆ GuaranteedExitInputs_X
 Coverage_X = Complete ⇒ (PossibleExitInputs_X ∩ [[P_memory]]) ⊆ [[C_X]]
 ```
 
@@ -473,16 +489,35 @@ parameter-origin 조건으로 환원한다. 먼저 `σ`의 정확한 관계를 �
 invariant만을 충분조건의 증거로 사용하지 않으며, liveness로 지워진 제약이 최종
 invariant에 남아 있다고 가정하지 않는다.
 
+`σ`의 affine 후보는 operand의 실제 bitwidth/sign과 reaching definition에 대해
+값 동치를 확인한 뒤 우선 사용한다. 예를 들어 `s1=3*n`, `s2=2*n`, `s3=s1-s2`,
+`s0=n+bias`, `s4=s3+bias-s0`이면 정의된 실행에서 `σ(s3)=n`, `σ(s4)=0`이므로
+`leaf_check(s3+s4)`의 actual은 `n`이다. 이미 환원된 값을 원래 SSA 트리로 다시
+확장하지 않는다. Cast/truncation 경계는 임의로 지우지 않으며, 동치를 확인하지
+못하면 typed origin을 사용한다. Affine 계수의 구현상 표현 한도를 넘으면 TOP으로
+내리고 typed origin으로 복원하며, 계수 overflow를 관계로 저장하지 않는다.
+
+값 관계의 단순화는 정의된 실행의 의미론 안에서 적용한다. No-wrap 연산의 안전성을
+무조건 보장하는 입력 영역을 별도로 만들지 않으며, 두 배 width의 overflow 배제
+atom도 생성하지 않는다. 43번 mid_chain과 outer_guard는 정상 조건 `0<n<=200`,
+예외 조건 `n>200`을 요약한다. 원래 경로에서 얻은 `n>0 && n>200` 같은 동치 형태도
+허용한다. `n+bias<=INT64_MAX`나 `3*n<=INT64_MAX`를 자동으로 붙이지 않는다.
+반면 소스에 명시한 `if(n>INT64_MAX/3)` 검사는 실제 flow를 결정하므로 보존한다.
+Unsigned wrapping은 정의된 연산이므로 modulo 의미를 유지하고, truncation이나
+29/30번의 원래 검사 atom도 삭제하지 않는다. 미지원 값 관계/호출/메모리/loop를
+정의된 실행 전제라는 이유로 생략하지 않으며, 기존 Partial fallback을 유지한다.
+
 ```text
 Candidate_X,i = RestoreCondition(PathConditions_X,i, σ_i, SSAOrigins)
 C_X,i = CertifyExit(Candidate_X,i, path/call/loop semantics)
 C_X   = OR { C_X,i | 종료 보장이 검증된 영역 i }
 ```
 
-`CertifyExit`는 단순한 구문 치환과 구분한다. 해당 조건에서 경로 선택, 연산의
-정의 가능성, call의 종료 보장 및 필요한 loop 종료성이 성립해야 한다. 불완전한
-분석 결과에 도달 가능한 exit가 있다는 사실만으로 경로 전체를 인증하지 않는다.
-해당 영역의 모든 실행이 flow X로 종료한다는 증거가 없으면 영역을 기여시키지 않는다.
+`CertifyExit`는 단순한 구문 치환과 구분한다. 해당 조건의 모든 정의된 실행에서
+경로 선택과 값 관계/effect, call의 종료 보장 및 필요한 loop 종료성이 성립해야 한다.
+불완전한 분석 결과에 도달 가능한 exit가 있다는 사실만으로 경로 전체를 인증하지
+않는다. 해당 영역의 모든 정의된 실행이 flow X로 종료한다는 증거가 없으면 영역을
+기여시키지 않는다.
 
 Callee 보장 조건을 정확히 치환할 수 있으면 call 이전의 보장 영역과 논리곱하여
 합성한다. Callee가 Partial이면 그 보장 영역 밖을 제거하지 않으며, caller의
@@ -539,16 +574,19 @@ statement s 이후의 보장 Q까지 flow X로 진행함을 보장하는 입력 
 조건의 수치 연산은 typed IR 의미로 해석한다.
 
 ```text
-X 종류의 return/exception terminal → 해당 terminal의 Definedness
+X 종류의 return/exception terminal → RequiredInD(terminal)
 다른 종료 종류의 terminal         → false
-순수 assignment x=e               → Defined(e) AND Q[x←e]
-if B then t else f                 → Defined(B) AND
+순수 assignment x=e               → RequiredInD(e) AND Q[x←e]
+if B then t else f                 → RequiredInD(B) AND
                                       ((B AND S_X(t,Q)) OR
                                        (NOT B AND S_X(f,Q)))
 ```
 
-`Defined`는 UB/poison 등을 일으키지 않는 입력 전제이며, 증명 없이 true로 두지
-않는다. 단순 void return처럼 조건 없이 정의된 terminal은 true가 될 수 있다.
+이 규칙은 정의된 실행에 대해 해석한다. `RequiredInD`는 그 의미론 외에 proof에서
+확인해야 하는 전제이며 no-wrap overflow 배제 입력 제약은 포함하지 않는다. 명시적
+분기, 지원 범위의 나눗셈 전제 및 Writable 메모리 전제 등은 기존 규칙대로 처리한다.
+미지원 연산이나 call의 종료/효과를 true로 대체하는 규칙이 아니다. 단순 void return처럼
+추가 전제가 없는 terminal은 true가 될 수 있다.
 Branch의 B는 §2.6으로 복원한다. 복원하지 못한 B를 true로 바꾸지 않으며 각
 분기의 보장 기여는 §6에 따라 처리한다. 동작을 모두 모델링한 acyclic CFG에서
 이 규칙을 정확히 적용하면 Complete를 증명할 수 있다. 경로별 증명 결과를 일부만
@@ -586,7 +624,7 @@ parity guard와 홀수 경로의 뺄셈 비교는 다른 조건에서 함의된�
 않는다. 단순히 `G`만 저장하거나 ITE를 출력한 채 분기별 DNF 치환을 지원하지 않는
 상태를 이 예제의 완료로 보지 않는다.
 
-이는 원래 검사들을 보존한 정확한 정상 종료 조건이다. Definedness와 전체 경로
+이는 원래 검사들을 보존한 정확한 정상 종료 조건이다. 정의된 실행의 전체 경로
 포괄성을 확인하면 Complete이며, 중복 조건 제거 증명 없이도 생성할 수 있다.
 σ의 flat merge에서 aligned가 TOP이어도 검증된 reaching definition과 guard를
 역추적한다. 분기별 대입과 guard의 상관관계를 지운 뒤 값 집합만 나열하거나 잘못된
@@ -1352,7 +1390,7 @@ zero/non-zero 보조 상태 및 DBZ checker 연계를 도입할 수 있으며, �
 
 21. 미분석 exception 영역은 Partial 또는 Unavailable이며 불가능으로 취급하지 않는다.
 
-22. [[P_memory ∧ C_X]] ⊆ GuaranteedExitInputs_X를 유지하고, P_memory 안의 coverage를 독립적으로 증명한다.
+22. [[P_memory ∧ C_X]] ∩ DefInputs ⊆ GuaranteedExitInputs_X를 유지하고, P_memory 안의 정의된 실행에 대한 coverage를 독립적으로 증명한다.
 
 23. Partial 영역 밖의 실제 실행은 caller에서 보존한다.
 

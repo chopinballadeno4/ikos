@@ -1,3 +1,4 @@
+#include <climits>
 #include <cstdlib>
 #include <stdexcept>
 
@@ -52,6 +53,86 @@ struct OverlappingError {
 extern "C" {
 int fresh_exception_int();
 int* fresh_exception_pointer();
+
+void affine_leaf43(long v) {
+  if (v <= 0)
+    std::abort();
+  if (v > 200)
+    throw std::range_error("too large");
+}
+void affine_mid43(long n, long bias) {
+  long s0 = n + bias;
+  long s1 = n * 3;
+  long s2 = n * 2;
+  long s3 = s1 - s2;
+  long s4 = s3 + bias - s0;
+  affine_leaf43(s3 + s4);
+}
+void affine_reordered43(long n, long bias) {
+  long s0 = n + bias;
+  long s2 = n * 2;
+  long s1 = n * 3;
+  long s3 = s1 - s2;
+  long s4 = s3 + bias - s0;
+  affine_leaf43(s3 + s4);
+}
+void affine_negative_scale43(long n) {
+  long a = n * -4;
+  long b = n * -3;
+  affine_leaf43(b - a);
+}
+void affine_equivalent_bounds43(long n) {
+  long a = n * 3;
+  long b = n * 2 + n;
+  affine_leaf43(a - b + 1);
+}
+void affine_explicit_limit43(long n) {
+  if (n > LONG_MAX / 3)
+    throw 1;
+  affine_leaf43(n);
+}
+long affine_overflow_before_call43(long n) {
+  long value = n * 3;
+  affine_leaf43(n);
+  return value;
+}
+void affine_overflow_in_callee43() {
+  affine_mid43(1, LONG_MAX);
+}
+void affine_wrapped_input43(unsigned long n) {
+  unsigned long wrapped = n * 2;
+  long value = static_cast< long >(wrapped);
+  affine_leaf43(value + 1);
+}
+void affine_truncated_input43(unsigned long n) {
+  unsigned char truncated = static_cast< unsigned char >(n);
+  affine_leaf43(static_cast< long >(truncated) + 1);
+}
+void affine_outer43(long x) {
+  long local_bias = x * 2;
+  long extra = local_bias - x;
+  affine_mid43(extra, local_bias);
+}
+void affine_cast43(int n) {
+  long a = static_cast< unsigned >(n);
+  long b = n;
+  affine_leaf43(a - b);
+}
+void affine_large_coefficient43(long n) {
+  long a = n * 1073741824;
+  long b = a * 4;
+  affine_leaf43((b - b) + 1);
+}
+long affine_chain_division_safe() {
+  long n = fresh_exception_int();
+  affine_outer43(n);
+  return 100 / n;
+}
+long affine_shift_keeps_zero() {
+  long n = fresh_exception_int();
+  affine_leaf43(n + 1);
+  return 100 / n;
+}
 void opaque_exception_call();
 
 void positive31(int n) {

@@ -101,6 +101,64 @@ bool binary_operator(ar::BinaryOperation* s, Bin& op) {
   return true;
 }
 
+// Check an affine sigma candidate against the typed reaching definition in
+// the modular ring of its result width. Casts and non-affine operations stay
+// opaque: cancellation must not erase a sign extension or truncation.
+struct ModularAffine {
+  std::map< Expr, ZNumber > terms;
+  ZNumber constant{0};
+
+  void add(const ModularAffine& other, const ZNumber& factor) {
+    constant += other.constant * factor;
+    for (const auto& term : other.terms)
+      terms[term.first] += term.second * factor;
+  }
+  static ModularAffine from(const Expr& e) {
+    ModularAffine result;
+    if (e.is_constant()) {
+      result.constant = e.node().constant.to_z_number();
+    } else if (e.node().kind == Expr::Binary &&
+               (e.node().op == Bin::Add || e.node().op == Bin::AddNoWrap ||
+                e.node().op == Bin::Sub || e.node().op == Bin::SubNoWrap)) {
+      result = from(e.left());
+      result.add(from(e.right()),
+                 e.node().op == Bin::Sub || e.node().op == Bin::SubNoWrap
+                     ? ZNumber(-1)
+                     : ZNumber(1));
+    } else if (e.node().kind == Expr::Binary &&
+               (e.node().op == Bin::Mul || e.node().op == Bin::MulNoWrap) &&
+               (e.left().is_constant() || e.right().is_constant())) {
+      auto factor = e.left().is_constant() ? e.left() : e.right();
+      auto operand = e.left().is_constant() ? e.right() : e.left();
+      result.add(from(operand), factor.node().constant.to_z_number());
+    } else {
+      result.terms[e] = 1;
+    }
+    return result;
+  }
+  void normalize(uint64_t width) {
+    constant = MachineInt(constant, width, core::Unsigned).to_z_number();
+    for (auto it = terms.begin(); it != terms.end();) {
+      it->second = MachineInt(it->second, width, core::Unsigned).to_z_number();
+      if (it->second == 0)
+        it = terms.erase(it);
+      else
+        ++it;
+    }
+  }
+};
+
+bool same_affine_value(const Expr& candidate, const Expr& origin) {
+  if (!candidate || !origin || candidate.bit_width() != origin.bit_width() ||
+      candidate.sign() != origin.sign())
+    return false;
+  auto left = ModularAffine::from(candidate),
+       right = ModularAffine::from(origin);
+  left.normalize(candidate.bit_width());
+  right.normalize(origin.bit_width());
+  return left.constant == right.constant && left.terms == right.terms;
+}
+
 struct Path {
   using ExceptionToken = uint64_t;
   struct ExceptionRecord {
@@ -170,12 +228,16 @@ struct Path {
     }
     if (auto* var = ar::dyn_cast< ar::Variable >(v)) {
       auto it = origins.find(var);
-      if (it != origins.end())
+      if (it != origins.end()) {
+        if (value.is_expr()) {
+          auto affine =
+              condition_expr_from_affine(value.expr, t->bit_width(), t->sign());
+          if (same_affine_value(affine, it->second))
+            return affine;
+        }
         return it->second;
+      }
     }
-    auto val = values.eval(v);
-    if (val.is_expr())
-      return condition_expr_from_affine(val.expr, t->bit_width(), t->sign());
     return {};
   }
   SymbolicValue value(ar::Value* v) const {
@@ -283,48 +345,15 @@ SymbolicConstraint constraint(Pred::Predicate p, Expr l, Expr r) {
   return SymbolicConstraint::make_typed(p, std::move(l), std::move(r));
 }
 
-bool defined_binary(Path& path,
-                    ar::BinaryOperation* s,
-                    const Expr& l,
-                    const Expr& r,
-                    Bin op,
-                    bool& complete) {
+bool defined_binary(
+    Path& path, const Expr& l, const Expr& r, Bin op, bool& complete) {
   if (!l || !r)
     return false;
-  if (op == Bin::AddNoWrap || op == Bin::SubNoWrap || op == Bin::MulNoWrap) {
-    Interval li = path.interval(l), ri = path.interval(r);
-    if (li.is_bottom() || ri.is_bottom()) {
-      path.condition = SymbolicCondition::make_false();
-      return true;
-    }
-    auto a = li.to_z_interval(), b = ri.to_z_interval();
-    auto result = op == Bin::AddNoWrap   ? a + b
-                  : op == Bin::SubNoWrap ? a - b
-                                         : a * b;
-    ZNumber min = MachineInt::min(l.bit_width(), l.sign()).to_z_number();
-    ZNumber max = MachineInt::max(l.bit_width(), l.sign()).to_z_number();
-    if (result.lb().is_finite() && result.ub().is_finite() &&
-        *result.lb().number() >= min && *result.ub().number() <= max)
-      return true;
-    // Exact sufficient definedness, using a wider representation that cannot
-    // overflow for two operands of the original width. Do not call this full
-    // coverage without a proof that all possible return inputs are covered.
-    complete = false;
-    uint64_t w = l.bit_width() * 2;
-    auto wide = Expr::binary(op == Bin::AddNoWrap   ? Bin::Add
-                             : op == Bin::SubNoWrap ? Bin::Sub
-                                                    : Bin::Mul,
-                             Expr::cast(l, w, l.sign()),
-                             Expr::cast(r, w, r.sign()));
-    auto ge = l.sign() == core::Signed ? Pred::SIGE : Pred::UIGE;
-    auto le = l.sign() == core::Signed ? Pred::SILE : Pred::UILE;
-    return path.add(constraint(ge,
-                               wide,
-                               Expr::constant(MachineInt(min, w, l.sign())))) &&
-           path.add(constraint(le,
-                               wide,
-                               Expr::constant(MachineInt(max, w, l.sign()))));
-  }
+  // Exit guarantees range over defined executions. No-wrap flags exclude
+  // overflow from that semantic domain; do not manufacture input bounds in
+  // C_X. Native arithmetic transfer and overflow checkers remain unchanged.
+  if (op == Bin::AddNoWrap || op == Bin::SubNoWrap || op == Bin::MulNoWrap)
+    return true;
   if (op == Bin::Div || op == Bin::DivExact || op == Bin::Rem) {
     auto ri = path.interval(r);
     if (ri.is_bottom()) {
@@ -1032,13 +1061,19 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
         auto l = path.eval(binary->left()), r = path.eval(binary->right());
         bool total = true;
         if (!binary_operator(binary, op) ||
-            !defined_binary(path, binary, l, r, op, total)) {
+            !defined_binary(path, l, r, op, total)) {
           modeled = false;
           break;
         }
         if (!total)
           incomplete();
-        path.origins[binary->result()] = Expr::binary(op, l, r);
+        // Under the defined-execution contract, no-wrap and modular values
+        // agree. Keep the typed value AST without adding overflow guards.
+        auto value_op = op == Bin::AddNoWrap   ? Bin::Add
+                        : op == Bin::SubNoWrap ? Bin::Sub
+                        : op == Bin::MulNoWrap ? Bin::Mul
+                                               : op;
+        path.origins[binary->result()] = Expr::binary(value_op, l, r);
         if (!path.origins[binary->result()]) {
           modeled = false;
           break;

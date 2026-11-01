@@ -470,6 +470,29 @@ void SymbolicState::exec_binary_op(ar::BinaryOperation* s) {
     return;
   }
 
+  // Sigma uses bounded host coefficients. Losing representability must yield
+  // TOP, never overflow a coefficient and invent an affine cancellation.
+  auto combine = [&](const core::ZNumber& a, const core::ZNumber& b) {
+    SymbolicExpr result;
+    core::ZNumber constant =
+        a * core::ZNumber(le->constant) + b * core::ZNumber(re->constant);
+    if (!constant.fits< int >())
+      return SymbolicValue::top();
+    result.constant = constant.to< int >();
+    std::map< int, core::ZNumber > coefficients;
+    for (const auto& term : le->coeffs)
+      coefficients[term.first] += a * core::ZNumber(term.second);
+    for (const auto& term : re->coeffs)
+      coefficients[term.first] += b * core::ZNumber(term.second);
+    for (const auto& term : coefficients) {
+      if (!term.second.fits< int >())
+        return SymbolicValue::top();
+      if (term.second != 0)
+        result.coeffs[term.first] = term.second.to< int >();
+    }
+    return SymbolicValue::from_expr(std::move(result));
+  };
+
   switch (s->op()) {
     case Op::UAdd:
     case Op::SAdd:
@@ -477,7 +500,7 @@ void SymbolicState::exec_binary_op(ar::BinaryOperation* s) {
         sigma[s->result()] = SymbolicValue::top();
         break;
       }
-      sigma[s->result()] = SymbolicValue::from_expr(*le + *re);
+      sigma[s->result()] = combine(core::ZNumber(1), core::ZNumber(1));
       break;
     case Op::USub:
     case Op::SSub:
@@ -485,7 +508,7 @@ void SymbolicState::exec_binary_op(ar::BinaryOperation* s) {
         sigma[s->result()] = SymbolicValue::top();
         break;
       }
-      sigma[s->result()] = SymbolicValue::from_expr(*le - *re);
+      sigma[s->result()] = combine(core::ZNumber(1), core::ZNumber(-1));
       break;
     case Op::UMul:
     case Op::SMul:
@@ -494,9 +517,11 @@ void SymbolicState::exec_binary_op(ar::BinaryOperation* s) {
         break;
       }
       if (le->is_const()) {
-        sigma[s->result()] = SymbolicValue::from_expr(*re * le->constant);
+        sigma[s->result()] =
+            combine(core::ZNumber(0), core::ZNumber(le->constant));
       } else if (re->is_const()) {
-        sigma[s->result()] = SymbolicValue::from_expr(*le * re->constant);
+        sigma[s->result()] =
+            combine(core::ZNumber(re->constant), core::ZNumber(0));
       } else {
         sigma[s->result()] = SymbolicValue::top();
       }
@@ -506,7 +531,8 @@ void SymbolicState::exec_binary_op(ar::BinaryOperation* s) {
       if (s->has_no_wrap() && re->is_const()) {
         int shift = re->constant;
         if (shift >= 0 && shift < 32) {
-          sigma[s->result()] = SymbolicValue::from_expr(*le * (1 << shift));
+          sigma[s->result()] =
+              combine(core::ZNumber(1) << shift, core::ZNumber(0));
         } else {
           sigma[s->result()] = SymbolicValue::top();
         }

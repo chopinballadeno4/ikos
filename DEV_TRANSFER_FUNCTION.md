@@ -10,7 +10,8 @@ caller에서 summary를 실제로 적용하여 normal flow를 pruning하거나 c
 
 
 개정된 종료 보장 계약은 DEV_SUMMARY.md §1.1을 따른다. `C_X`는 충분조건이며
-`[[P_memory ∧ C_X]] ⊆ GuaranteedExitInputs_X`이다(P_memory가 없으면 true).
+`[[P_memory ∧ C_X]] ∩ DefInputs ⊆ GuaranteedExitInputs_X`이다(P_memory가 없으면 true).
+이 보장은 정의된 실행에 한정하며, C_X는 연산의 UB 부재를 인증하지 않는다.
 Partial/Complete는 명시된 전제 안에서 구분하고 미확인 입력은
 caller 분석에 남긴다. 이 문서는 목표 명세이며 현재 코드의 충족 여부는 별도다.
 
@@ -909,9 +910,9 @@ C_X,i = CertifyExit(Candidate_X,i, path/call/loop semantics)
 
 `RestoreCondition`은 표현식 복원이며 `CertifyExit`는 종료 보장 검증이다. Abstract
 exit invariant는 일반적으로 필요조건일 뿐이므로 그것을 충분조건으로 재명명하지
-않는다. 경로 선택, 정의된 연산, callee 보장과 필요한 loop 종료성이 해당 영역의
-모든 실행에 대해 확인되어야 한다. 외부 call의 정상 반환이나 예외 부재도 근거 없이
-가정하지 않는다.
+않는다. 경로 선택, 값 관계/effect, callee 보장과 필요한 loop 종료성이 해당 영역의
+모든 정의된 실행에 대해 확인되어야 한다. 외부 call의 정상 반환이나 예외 부재도
+근거 없이 가정하지 않는다.
 
 포인터 parameter의 offset 0에 formal pointee와 타입이 일치하는 정수 scalar를
 non-volatile store하는 경우, 그 store를 무시하지 않고 DEV_SUMMARY.md §3의
@@ -927,12 +928,24 @@ Callee 합성 시 메모리 전제도 actual argument에 치환한다. Actual이
 객체인 경우만 인증하고, 미지원 호출 뒤에도 살아 있다고 추측하지 않는다.
 
 기본 증명 구성은 DEV_SUMMARY.md §5.2를 따른다. Acyclic guard의 return/다른
-terminal, 순수 assignment 및 branch에 대해 typed definedness와 backward 충분조건을
+terminal, 순수 assignment 및 branch에 대해 정의된 실행의 typed 의미와 backward 충분조건을
 구성한다. 미지원 call/loop의 효과나 종료성을 생략한 채 인증하지 않는다. 기존
 forward transfer/fixpoint는 값 관계 추적과 보조 증명에 사용하며 종료 보장 검증을
 자동으로 대체하지 않는다.
 
 ### 8.1 SubstConstraint / RestoreCondition
+
+값 치환은 DEV_SUMMARY.md §5와 같이 검증된 `σ` affine 관계를 먼저 사용하고,
+지원하지 못하는 관계에 typed SSA origin을 사용한다. 동일 result width의 modular
+affine 등식으로 값 동치를 확인할 수 있지만, cast/비선형 노드를 그 경계 너머의
+수학적 선형식으로 간주하지 않는다. 계수의 host 정수 overflow는 TOP fallback이다.
+No-wrap 연산의 값 관계는 정의된 실행 안에서 해석한다. Add/sub/mul의 overflow를
+배제하기 위한 두 배 width atom은 생성하지 않는다. `C_X`와 Complete를 이용하여
+해당 연산의 안전성을 소급 인증하지 않으며 native transfer/overflow checker는 유지한다.
+No-wrap의 overflow 가능성만으로 coverage를 낮추지 않고, 정의된 실행의 exit 포괄성을
+검증한다. 소스에 명시된 범위 조건, 나눗셈/나머지 및 29/30번 검사는 그대로 보존한다.
+Unsigned wrapping이나 truncation의 의미를 제거하는 규칙도 아니다. 필요한 의미를
+복원하지 못하면 기존 Partial fallback을 따른다.
 
 ```text
 Atom ::= Compare(predicate, CondExpr, CondExpr)

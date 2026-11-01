@@ -50,20 +50,28 @@ def main():
               "constructor_throws41", "constructor_aborts41", "unknown_constructor41",
               "unknown_cleanup41", "catch_unknown_cleanup41", "catch_aborting_cleanup41",
               "catch_std_class41", "rethrow_std_class41", "nondeterministic_constructor41",
-              "unknown_message41", "overlapping_class41"]
+              "unknown_message41", "overlapping_class41", "affine_leaf43",
+              "affine_mid43", "affine_outer43", "affine_cast43",
+              "affine_large_coefficient43", "affine_reordered43",
+              "affine_negative_scale43", "affine_wrapped_input43",
+              "affine_truncated_input43", "affine_equivalent_bounds43",
+              "affine_explicit_limit43"]
     safe = {"normal_division_safe", "caught_division_safe", "normal_bounds_safe",
             "caught_bounds_safe", "rethrow_pointer_safe", "memory_effects_safe",
-            "class_normal_division_safe", "class_caught_division_safe"}
+            "class_normal_division_safe", "class_caught_division_safe",
+            "affine_chain_division_safe"}
     unsafe = {"swallowed_keeps_warning", "caught_zero_keeps_warning", "unknown_exception_keeps_warning",
               "unknown_argument_keeps_warning", "unknown_memory_pointer_keeps_warning",
               "null_memory_pointer_keeps_error", "offset_memory_pointer_keeps_error",
-              "mismatched_memory_pointer_keeps_error", "class_zero_keeps_warning"}
+              "mismatched_memory_pointer_keeps_error", "class_zero_keeps_warning",
+              "affine_shift_keeps_zero"}
+    overflow = {"affine_overflow_before_call43", "affine_overflow_in_callee43"}
     with tempfile.TemporaryDirectory(prefix="ikos-exception-regression-") as folder:
         folder = pathlib.Path(folder)
         bc, pp = folder / "input.bc", folder / "input.pp.bc"
         command([opts.clang, "-c", "-emit-llvm", "-g", "-O0", "-std=c++17",
                  "-Xclang", "-disable-O0-optnone", str(source), "-o", str(bc)])
-        entries = guards + sorted(safe | unsafe)
+        entries = guards + sorted(safe | unsafe | overflow)
         command([opts.ikos_pp, "-opt=basic", "-entry-points=" + ",".join(entries), str(bc), "-o", str(pp)])
         trace = command([opts.ikos_analyzer, "-a=dbz", "-d=interval", "-proc=inter",
                          "-entry-points=" + ",".join(guards), "--trace-ar-stmts", "--progress=no",
@@ -93,6 +101,86 @@ def main():
                 for n in [-2147483648, *range(-20, 21), 499, 500, 501, 700, 701, 2147483647]:
                     assert evaluate(formula, n) == predicate(n), (name, flow, formula, n)
             print(name + ": normal/exception formulas verified")
+        minimum, maximum = -(1 << 63), (1 << 63) - 1
+
+        def mid_exit(n, bias):
+            s0, s1, s2 = n + bias, n * 3, n * 2
+            s3 = s1 - s2
+            t = s3 + bias
+            s4 = t - s0
+            v = s3 + s4
+            defined = all(minimum <= x <= maximum for x in (s0, s1, s2, s3, t, s4, v))
+            return defined, (0 < v <= 200, v > 200)
+
+        samples = [minimum, minimum // 3, -201, -1, 0, 1, 199, 200, 201,
+                   maximum // 3, maximum // 3 + 1, maximum // 2, maximum]
+        for flow, which in (("normal", 0), ("exception", 1)):
+            for name in ("affine_mid43", "affine_reordered43"):
+                formula, level = component(trace, name, flow)
+                assert level == "Complete", (name, flow, level, formula)
+                # The guarantee concerns defined executions; arithmetic
+                # safety must not be manufactured into extra input bounds.
+                expected_formula = "p00 > 0 && p00 <= 200" if not which else "p00 > 0 && p00 > 200"
+                assert formula == expected_formula, (name, formula)
+                for n in samples:
+                    for bias in samples + [maximum - n, maximum - n + 1]:
+                        if minimum <= bias <= maximum:
+                            defined, exits = mid_exit(n, bias)
+                            if defined:
+                                assert holds(formula, n, bias) == exits[which], (name, flow, formula, n, bias)
+            formula, level = component(trace, "affine_outer43", flow)
+            assert level == "Complete", (flow, level, formula)
+            assert formula == expected_formula, formula
+            for n in samples:
+                defined, exits = mid_exit(n, 2 * n)
+                if defined and minimum <= 2 * n <= maximum:
+                    assert holds(formula, n) == exits[which], (flow, formula, n)
+            formula, level = component(trace, "affine_large_coefficient43", flow)
+            assert level == "Complete", (flow, level, formula)
+            assert "_128" not in formula, formula
+            for n in [*samples, -(1 << 31), (1 << 31) - 1, 1 << 31]:
+                if -(1 << 31) <= n < (1 << 31):
+                    assert evaluate(formula, n) == (not which), (flow, formula, n)
+            formula, level = component(trace, "affine_cast43", flow)
+            assert level == "Complete", (flow, level, formula)
+            for n in [-2147483648, -201, -1, 0, 1, 200, 2147483647]:
+                assert evaluate(formula, n) == (n < 0 if flow == "exception" else False), (flow, formula, n)
+            formula, level = component(trace, "affine_negative_scale43", flow)
+            assert level == "Complete", (flow, level, formula)
+            assert formula == expected_formula, formula
+            for n in [*samples, (1 << 61) - 1, 1 << 61, (1 << 61) + 1]:
+                if minimum <= -4 * n <= maximum and minimum <= -3 * n <= maximum:
+                    expected_value = 0 < n <= 200 if not which else n > 200
+                    assert evaluate(formula, n) == expected_value, (flow, formula, n)
+            formula, level = component(trace, "affine_equivalent_bounds43", flow)
+            assert level == "Complete", (flow, level, formula)
+            assert formula == ("true" if not which else "false"), formula
+            for n in samples + [-(maximum // 3), -(maximum // 3) - 1]:
+                if minimum <= 3 * n <= maximum:
+                    assert evaluate(formula, n) == (not which), (flow, formula, n)
+            formula, level = component(trace, "affine_explicit_limit43", flow)
+            assert level == "Complete", (flow, level, formula)
+            # A source-level overflow/range check is an actual branch. It
+            # must remain even though automatically generated guards are gone.
+            assert str(maximum // 3) in formula, formula
+            for n in samples:
+                expected_value = 0 < n <= 200 if not which else n > 200
+                assert evaluate(formula, n) == expected_value, (flow, formula, n)
+            for name in ("affine_wrapped_input43", "affine_truncated_input43"):
+                formula, level = component(trace, name, flow)
+                assert level == "Complete", (name, flow, level, formula)
+                unsigned_samples = [*range(256), (1 << 63) - 1, 1 << 63,
+                                    (1 << 63) + 1, (1 << 64) - 1]
+                for n in unsigned_samples:
+                    if name == "affine_wrapped_input43":
+                        value = (2 * n) % (1 << 64)
+                        if value >= (1 << 63): value -= 1 << 64
+                    else:
+                        value = n % 256
+                    defined = value != maximum
+                    expected_value = defined and (0 < value + 1 <= 200 if not which else value + 1 > 200)
+                    assert evaluate(formula, n) == expected_value, (name, flow, formula, n)
+        print("affine substitution: defined executions, source guards, casts and caller composition verified")
         for name in ("pointer36", "rethrow36"):
             for flow, atom in (("normal", "NonNull(p00)"), ("exception", "IsNull(p00)")):
                 formula, level = component(trace, name, flow)
@@ -146,6 +234,16 @@ def main():
             if entry.endswith("keeps_error"):
                 assert counts.get(2, 0) > 0, counts
             print(entry + " (j=" + str(jobs) + "): checker result verified")
+        for entry in sorted(overflow):
+            db = folder / (entry + "-sio.db")
+            command([opts.ikos_analyzer, "-a=sio", "-d=interval", "-proc=inter",
+                     "-entry-points=" + entry, "--progress=no", "-o", str(db), str(pp)])
+            with sqlite3.connect(db) as connection:
+                counts = dict(connection.execute("SELECT status, COUNT(*) FROM checks GROUP BY status"))
+            assert counts.get(1, 0) + counts.get(2, 0) > 0, (entry, counts)
+            if entry == "affine_overflow_in_callee43":
+                assert counts.get(2, 0) > 0, (entry, counts)
+            print(entry + ": native overflow diagnostic preserved")
         # A visible replacement allocator can terminate during message
         # construction. Do not reuse the default library outcome contract.
         replacement = folder / "replacement.cpp"
