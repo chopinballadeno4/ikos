@@ -790,7 +790,8 @@ Summary 생성기는 아래 동작을 일반 unknown call과 구분한다. 이�
 정수 scalar 및 검증 가능한 클래스 예외 객체, `catch (...)`, 검증된 cleanup/resume 및
 rethrow다. 클래스 생성은 아래 §7.2의 문맥 분석/검증된 library 계약으로 지원한다.
 RTTI selector를 이용한 typed catch 판정, 미확인 생성/정리 동작 및 §8의 Writable
-전제로도 모델링하지 못하는 외부 메모리 접근은 Partial fallback을 유지한다.
+전제로도 모델링하지 못하는 외부 메모리 접근은 flow별 Partial fallback을 적용한다.
+§8.2.1의 정상 복귀 불가능성 증명이 있으면 normal coverage는 유지할 수 있다.
 
 | AR 동작 | 보장 조건과 flow 처리 |
 |---|---|
@@ -822,7 +823,8 @@ Ordinary `Call`의 알려진 callee가 예외를 보장하면 그 조건은 현�
 exit로 합성하고, normal 조건만 다음 statement로 진행시킨다. `Invoke`는 callee의
 normal/exception 조건을 각각 해당 successor에만 적용한다. 알려진 intrinsic의
 불가능한 edge는 탐색하지 않는다. Unknown call은 예외가 없다고 가정하지 않으며,
-그 경로의 미확인 영역 때문에 coverage를 Partial로 낮춘다.
+그 경로의 미확인 영역 때문에 flow별 coverage를 재평가한다. §8.2.1의 별도 증명이
+있는 normal flow를 제외하면 Partial로 낮춘다.
 Ordinary Call로 전파되는 예외는 별도 CFG landing-pad block이 없어도 논리적인
 exception summary로 저장·출력한다. 명시적 CFG node 부재를 예외 부재로 오해하지 않는다.
 
@@ -943,7 +945,8 @@ No-wrap 연산의 값 관계는 정의된 실행 안에서 해석한다. Add/sub
 배제하기 위한 두 배 width atom은 생성하지 않는다. `C_X`와 Complete를 이용하여
 해당 연산의 안전성을 소급 인증하지 않으며 native transfer/overflow checker는 유지한다.
 No-wrap의 overflow 가능성만으로 coverage를 낮추지 않고, 정의된 실행의 exit 포괄성을
-검증한다. 소스에 명시된 범위 조건, 나눗셈/나머지 및 29/30번 검사는 그대로 보존한다.
+검증한다. 소스에 명시된 범위 조건과 나눗셈/나머지 검사는 복원하며, scalar 조건의
+논리적 중복만 DEV_SUMMARY.md §5에 따라 제거한다. 29/30번의 검사 보존 규칙은 유지한다.
 Unsigned wrapping이나 truncation의 의미를 제거하는 규칙도 아니다. 필요한 의미를
 복원하지 못하면 기존 Partial fallback을 따른다.
 
@@ -955,6 +958,14 @@ wrapping 연산 때문에 σ가 TOP이어도 `(c+4)-4=c`를 조건/argument로 �
 `SubstConstraint`뿐 아니라 caller actual을 넣는 typed substitution에도 같은 단순화를
 적용한다. Overflow 배제 조건을 새로 생성하거나 numerical domain의 interval hull을
 충분조건으로 바꾸는 규칙은 아니다.
+
+DNF 구성·합성에서는 동일 typed parameter/constant 비교의 정확한 집합 포함과
+보완 조건의 OR 흡수를 적용한다(DEV_SUMMARY.md §5). `n>300`이 `n>=0` 및 `n!=0`을
+함의하면 중복 항을 제거하고, `A || (!A && B)`는 `A || B`로 저장한다. `!=`의 내부
+구멍이나 다른 disjunct의 residual 조건은 보존한다. Cast/복합식은 이 scalar 규칙의
+대상이 아니며, 예산 한도에서는 기존 조건을 유지한다. 동치 변환은 coverage를 바꾸지 않는다.
+같은 scalar/constant의 `>=k && !=k`, `<=k && !=k`는 각각 `>k`, `<k`로 합친다.
+이 규칙은 signed/unsigned와 width/sign을 확인하며 내부 NE 구멍에는 적용하지 않는다.
 
 ```text
 Atom ::= Compare(predicate, CondExpr, CondExpr)
@@ -1007,6 +1018,33 @@ C_X = OR { C_X,i | 종료 보장이 인증된 영역 i }
 종료 보장으로 인증하지 않는다. Benchmark 21의 정확한 DNF는 DEV_SUMMARY.md §5.1을
 따른다.
 
+
+### 8.2.1 미지원 경로와 normal coverage의 독립 판정
+
+미지원 statement/호출을 만났다는 사실만으로 normal과 exception을 함께 Partial로
+낮추지 않는다. 그 경로의 나머지 CFG를 보수적으로 탐색하여 normal-return 가능성을
+별도로 검사한다. 현재 block부터 모든 successor를 따라가며 branch 조건을 가정하거나
+미지원 호출이 반환/종료한다고 단정하지 않는다. Normal-exit block 또는 ReturnValue가
+하나라도 도달 가능하면 정상 복귀 불가능성을 인증하지 않는다. Loop의 모든 edge도
+탐색하며 cycle을 보았다는 이유로 경로를 버리지 않는다.
+
+모든 continuation에서 normal return이 없음을 증명하면 그 누락 경로는 실제 normal
+exit 입력을 추가하지 않는다. 따라서 이미 인증한 C_normal의 coverage를 이 실패
+때문에 낮출 필요가 없다. 새 보장 입력을 추가하거나 이전의 Partial 원인을 취소하는
+규칙이 아니며, 예외의 전파/종료/cleanup은 아직 미확인이므로 exception coverage는
+Partial로 남긴다. CFG 탐색만으로 해당 경로의 종료성이나 C_exception을 인증하지 않는다.
+
+Constructor의 문맥 분석 frame이 남아 있으면 local return/예외가 caller의 handler로
+복귀할 수 있으므로 이 local CFG 증명을 적용하지 않는다. 탐색 한도는 1,024 block 및
+16,384 statement이며 한도 초과나 증명 실패 시 기존처럼 양쪽 coverage를 낮춘다.
+주 분석의 path/방문 한도 초과 및 callee coverage/치환의 불완전성을 이 규칙으로
+무시하지 않는다. 조건 복원에 실패한 경로는 새 보장 disjunct에 포함하지 않는다.
+
+45번의 `catch(range_error){abort();}`와 unmatched resume은 모두 정상 복귀하지
+않으므로 typed selector를 해석하지 못해도 `C_normal = n>0 && n<=300`을 Complete로
+인증한다. C_exception은 타입별 분류를 증명할 때까지 Partial이다. Catch가 예외를
+삼키거나 바깥 handler로 이동하여 정상 복귀할 수 있으면 이 증명을 사용할 수 없다.
+단순히 exception edge에서 왔다는 이유만으로 normal-return 가능성을 제외하지 않는다.
 
 ## 9. Function Summary
 

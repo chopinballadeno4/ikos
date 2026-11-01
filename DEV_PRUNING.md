@@ -134,6 +134,13 @@ Summary_X(g) = Known(C_X(g), Coverage_X(g), μ_X(g))
 `Unavailable`은 사용할 수 있는 summary가 없다는 뜻이다. 이 세 종류의 미확인,
 보장 및 불가능을 구분한다. 구체적인 계약은 DEV_SUMMARY.md §1.1·3을 따른다.
 
+Coverage_normal과 Coverage_exception은 독립적이다. 미지원 경로의 모든 CFG
+continuation에서 정상 복귀가 불가능함을 별도로 증명하면 normal Complete와
+exception Partial이 함께 존재할 수 있다(DEV_TRANSFER_FUNCTION.md §8.2.1).
+이 경우 검증된 C_normal으로 normal flow를 pruning하고, exception flow는 기존
+IKOS 상태를 유지한다. 미지원 typed catch가 있다는 이유만으로 normal Complete를
+거부하거나, normal Complete라는 이유로 exception을 함께 pruning하지 않는다.
+
 ### 2.5 Caller 문맥 mapping과 치환 결과
 
 | 기호 | 의미 |
@@ -1294,7 +1301,9 @@ Call의 caught-to-propagated 변환 또는 Invoke edge 선택
 `exit_proof.cpp`는 경로별 reaching definition으로 조건을 치환하고, 반환에 도달한
 인증 경로를 DNF로 합친다. 함수당 block-path 처리 1024회, 경로별 같은 block
 방문 16회를 한도로 한다. 미지원 연산·미확인 호출·한도 초과가 있으면 해당 경로를
-보장 영역에 넣지 않고 coverage를 Partial로 낮춘다. σ/μ의 값 관계는 기존 flat
+보장 영역에 넣지 않고 flow별 coverage를 재평가한다. 미지원 경로의 정상 복귀
+불가능성을 별도로 증명하면 normal coverage는 유지할 수 있고, 한도 초과에는 기존
+Partial fallback을 적용한다(DEV_TRANSFER_FUNCTION.md §8.2.1). σ/μ의 값 관계는 기존 flat
 merge를 유지하고 ρ는 interval join/widening을 수행한다.
 
 종료 보장 인증의 메모리 지원은 현재 함수에서 할당한 scalar 1개와 offset 0의
@@ -1317,6 +1326,14 @@ Typed 조건 복원과 actual 치환 뒤에는 동일 width/sign의 modular add/
 상쇄하여 더 작은 동치 식으로 단순화한다. Cast 경계 및 비선형 노드는 보존하고
 bounded 변환에 실패하면 기존 식을 유지한다(DEV_SUMMARY.md §5). 따라서 wrapping
 중간값이 σ에서 TOP이어도 최종 조건 `(c+4)-4<8`은 `c<8`로 적용할 수 있다.
+복원·합성된 DNF에는 DEV_SUMMARY.md §5의 scalar 논리 단순화도 적용한다.
+동일 width/sign의 parameter/constant 비교 사이에서 증명된 중복을 제거하고,
+residual 조건의 함의를 확인하여 `A || (!A && B)`를 `A || B`로 바꾼다. `!=`의
+내부 구멍과 29/30번의 비선형 검사 보존은 유지한다. 이는 동치 변환이며 interval
+hull로 보장 영역을 넓히거나 Partial을 Complete로 바꾸는 규칙이 아니다.
+`n>=k && n!=k`와 `n<=k && n!=k`는 동일 typed scalar/constant임을 확인한 뒤
+각각 `n>k`, `n<k`로 합친다. 따라서 45번의 `n>0 && n<=300`은 interval `[1,300]`으로
+적용할 수 있다. 내부의 0만 제외해야 하는 signed 구간은 이 규칙으로 분리하지 않는다.
 나눗셈과 나머지의 인증 범위는 양의 상수 제수다. 반환값 summary는 생성하지 않는다.
 
 현재 IKOS 본 분석 구현은 interprocedural dynamic inlining에서 callee가 정확히
@@ -1369,7 +1386,8 @@ mutable memory cell을 leaf로 공유하지 않는다. 재정의는 의존 식�
 단순 liveness forget은 정규화된 피연산자 식의 범위를 지우지 않는다. 식 깊이 32,
 bindings/bounds 각각 256개의 자원 한도를 넘으면 추가 정보를 생략한다.
 
-개정 후에도 NE(`!=`) atom을 summary에서 삭제하지 않는 원칙은 유지한다.
+개정 후에도 NE(`!=`) 검사의 의미를 summary에서 보존한다. §13.2 및 DEV_SUMMARY.md §5의
+동치인 중복 제거·끝점 제외 병합은 허용하지만 내부의 구멍을 버리는 약화는 금지한다.
 아래 numerical domain 적용은 유효한 Complete 조건이거나 별도로 적용 영역이
 증명된 경우만을 뜻한다. 적용 결과를 충분조건으로 재저장하지 않는다.
 

@@ -238,8 +238,11 @@ caller 적용은 DEV_PRUNING.md §5~7을 따른다. 22번의 동일 합 재계�
 normal과 exception 조건을 각각 수집한다. 클래스 생성자는 본문 분석 또는 확인된
 표준 라이브러리 모델을 사용한다. 정상 생성 뒤 throw하는 경로와 생성자 자체가
 예외를 전파하는 경로가 모두 같은 종료를 보장해야 그 입력을 인증한다. Destructor는
-실제 파괴 시점에 검증하며, unknown 생성/정리 또는 typed catch에는 Partial fallback을
-유지한다. 상세 계약과 library/runtime 모델의 범위는 DEV_TRANSFER_FUNCTION.md §7.1~7.2를 따른다.
+실제 파괴 시점에 검증하며, unknown 생성/정리 또는 typed catch에는 flow별 Partial
+fallback을 적용한다. 미지원 경로의 모든 CFG continuation에서 정상 복귀가 불가능함을
+증명하면 normal coverage를 유지하고 exception coverage만 Partial로 남길 수 있다.
+정상 복귀할 수 있는 catch는 이 예외에 해당하지 않는다. 상세 계약과 library/runtime
+모델의 범위는 DEV_TRANSFER_FUNCTION.md §7.1~7.2·8.2.1을 따른다.
 
 Caller 적용에서는 summary 표현 가능성과 domain 정제 가능성을 구분한다.
 변수 ± 상수 및 일부 변수끼리의 add/sub, 조건부 상수 곱셈·양의 상수 나눗셈,

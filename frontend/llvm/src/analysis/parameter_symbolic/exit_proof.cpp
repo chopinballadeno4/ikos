@@ -230,8 +230,8 @@ struct Path {
     i.meet_with(ranges.lookup(e));
     return i;
   }
-  // Keep all source comparisons, even if another atom implies them. Only
-  // literal constant comparisons and infeasible paths are eliminated.
+  // Preserve source checks through restoration. SymbolicCondition may remove
+  // equivalent scalar redundancies, while nonlinear source atoms stay intact.
   bool add(SymbolicConstraint c) {
     if (c.kind == SymbolicConstraint::KUnknown)
       return false;
@@ -758,6 +758,36 @@ struct ProofGroup {
   std::vector< std::pair< std::size_t, std::size_t > > alternatives;
 };
 
+// A failed value/runtime proof need not invalidate normal coverage if even
+// the overapproximated CFG suffix cannot return. In particular, a typed
+// handler that aborts, together with an unmatched resume, has no normal exit.
+// Follow every edge without assuming selector values or callee behavior.
+bool excludes_normal_return(const Path& path) {
+  // Returning/unwinding from an inlined constructor can resume its caller.
+  // The local CFG alone does not describe that continuation.
+  if (!path.frames.empty())
+    return false;
+  std::vector< ar::BasicBlock* > pending{path.block};
+  std::set< ar::BasicBlock* > visited;
+  unsigned statements = 0;
+  while (!pending.empty()) {
+    auto* block = pending.back();
+    pending.pop_back();
+    if (!visited.insert(block).second)
+      continue;
+    if (visited.size() > 1024 ||
+        block == block->code()->normal_exit_block_or_null())
+      return false;
+    for (auto* stmt : *block) {
+      if (++statements > 16384 || ar::isa< ar::ReturnValue >(stmt))
+        return false;
+    }
+    for (auto it = block->successor_begin(); it != block->successor_end(); ++it)
+      pending.push_back(*it);
+  }
+  return true;
+}
+
 bool enter_constructor(Path& path,
                        ar::CallBase* call,
                        std::size_t next,
@@ -844,6 +874,11 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
   auto incomplete = [&] {
     result.normal.complete = false;
     result.exception.complete = false;
+  };
+  auto unmodeled = [&](const Path& path) {
+    result.exception.complete = false;
+    if (!excludes_normal_return(path))
+      result.normal.complete = false;
   };
   while (!pending.empty()) {
     Path path = std::move(pending.back());
@@ -1294,7 +1329,7 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
       path.values.exec(stmt);
     }
     if (!modeled) {
-      incomplete();
+      unmodeled(path);
       continue;
     }
     if (terminated || path.condition.is_false())
@@ -1322,7 +1357,7 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
           if (normal != (flow == RuntimeFlow::Normal))
             continue;
         } else if (flow == RuntimeFlow::Unsupported) {
-          incomplete();
+          unmodeled(next);
           continue;
         } else {
           bool coverage = true;
@@ -1332,7 +1367,7 @@ FunctionSummary prove_exit_conditions(ar::Function* f,
                             store,
                             coverage,
                             result.memory_preconditions)) {
-            incomplete();
+            unmodeled(next);
             continue;
           }
           if (!coverage)

@@ -123,21 +123,237 @@ bool same_conjunction(const SymbolicCondition::Conjunction& lhs,
   return true;
 }
 
+// Exact truth sets for scalar parameter/constant comparisons. Using two
+// intervals for != preserves its interior hole, unlike an interval hull.
+using Segment = std::pair< core::ZNumber, core::ZNumber >;
+bool scalar_regions(const SymbolicConstraint& c, std::vector< Segment >& out) {
+  if (c.kind != SymbolicConstraint::KTyped || !c.typed_left.is_variable() ||
+      !c.typed_right.is_constant() ||
+      c.typed_left.bit_width() != c.typed_right.bit_width() ||
+      c.typed_left.sign() != c.typed_right.sign())
+    return false;
+  using P = ar::Comparison;
+  bool signed_predicate;
+  switch (c.predicate) {
+    case P::SIEQ:
+    case P::SINE:
+    case P::SIGT:
+    case P::SIGE:
+    case P::SILT:
+    case P::SILE:
+      signed_predicate = true;
+      break;
+    case P::UIEQ:
+    case P::UINE:
+    case P::UIGT:
+    case P::UIGE:
+    case P::UILT:
+    case P::UILE:
+      signed_predicate = false;
+      break;
+    default:
+      return false;
+  }
+  if (signed_predicate != (c.typed_left.sign() == core::Signed))
+    return false;
+  auto width = c.typed_left.bit_width();
+  auto sign = c.typed_left.sign();
+  auto lo = core::MachineInt::min(width, sign).to_z_number();
+  auto hi = core::MachineInt::max(width, sign).to_z_number();
+  auto k = c.typed_right.node().constant.to_z_number();
+  auto append = [&](core::ZNumber l, core::ZNumber h) {
+    if (l <= h)
+      out.emplace_back(std::move(l), std::move(h));
+  };
+  switch (c.predicate) {
+    case P::SIEQ:
+    case P::UIEQ:
+      append(k, k);
+      break;
+    case P::SINE:
+    case P::UINE:
+      append(lo, k - 1);
+      append(k + 1, hi);
+      break;
+    case P::SIGT:
+    case P::UIGT:
+      append(k + 1, hi);
+      break;
+    case P::SIGE:
+    case P::UIGE:
+      append(k, hi);
+      break;
+    case P::SILT:
+    case P::UILT:
+      append(lo, k - 1);
+      break;
+    case P::SILE:
+    case P::UILE:
+      append(lo, k);
+      break;
+    default:
+      return false;
+  }
+  return true;
+}
+
+bool atom_implies(const SymbolicConstraint& lhs,
+                  const SymbolicConstraint& rhs) {
+  if (same_constraint(lhs, rhs))
+    return true;
+  if (lhs.kind != SymbolicConstraint::KTyped || rhs.kind != lhs.kind ||
+      lhs.typed_left != rhs.typed_left)
+    return false;
+  std::vector< Segment > l, r;
+  if (!scalar_regions(lhs, l) || !scalar_regions(rhs, r))
+    return false;
+  return std::all_of(l.begin(), l.end(), [&](const Segment& a) {
+    return std::any_of(r.begin(), r.end(), [&](const Segment& b) {
+      return b.first <= a.first && a.second <= b.second;
+    });
+  });
+}
+
+bool tighten_excluded_endpoint(SymbolicConstraint& bound,
+                               const SymbolicConstraint& excluded) {
+  using P = ar::Comparison;
+  std::vector< Segment > regions;
+  if (!scalar_regions(bound, regions) ||
+      excluded.kind != SymbolicConstraint::KTyped ||
+      bound.typed_left != excluded.typed_left ||
+      bound.typed_right != excluded.typed_right)
+    return false;
+  if (excluded.predicate == P::SINE) {
+    if (bound.predicate == P::SIGE) {
+      bound.predicate = P::SIGT;
+      return true;
+    }
+    if (bound.predicate == P::SILE) {
+      bound.predicate = P::SILT;
+      return true;
+    }
+  } else if (excluded.predicate == P::UINE) {
+    if (bound.predicate == P::UIGE) {
+      bound.predicate = P::UIGT;
+      return true;
+    }
+    if (bound.predicate == P::UILE) {
+      bound.predicate = P::UILT;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool implies_atom(const SymbolicCondition::Conjunction& lhs,
+                  const SymbolicConstraint& rhs) {
+  return std::any_of(lhs.begin(), lhs.end(), [&](const SymbolicConstraint& c) {
+    return atom_implies(c, rhs);
+  });
+}
+
 bool conjunction_implies(const SymbolicCondition::Conjunction& lhs,
                          const SymbolicCondition::Conjunction& rhs) {
-  // A conjunction implies another conjunction when it contains all of the
-  // other's atoms. For an OR, the stronger conjunction is redundant.
-  if (lhs.size() != rhs.size()) {
-    for (const auto& c : lhs)
-      if (c.kind == SymbolicConstraint::KTyped &&
-          (!c.typed_left.is_variable() || !c.typed_right.is_constant()))
-        return false;
-  }
+  // Preserve source nonlinear checks (notably benchmarks 29/30), even when
+  // removing the disjunct would otherwise preserve its truth set.
+  for (const auto& c : lhs)
+    if (c.kind == SymbolicConstraint::KTyped &&
+        (!c.typed_left.is_variable() || !c.typed_right.is_constant()) &&
+        !contains_constraint(rhs, c))
+      return false;
   return std::all_of(rhs.begin(),
                      rhs.end(),
                      [&](const SymbolicConstraint& constraint) {
-                       return contains_constraint(lhs, constraint);
+                       return implies_atom(lhs, constraint);
                      });
+}
+
+void normalize_disjunction(std::vector< SymbolicCondition::Conjunction >& dnf) {
+  // Every successful rewrite is equivalent. Budget exhaustion simply keeps
+  // the remaining atoms/disjuncts; it does not change coverage.
+  unsigned budget = 16384;
+  bool changed = true;
+  while (changed && budget) {
+    changed = false;
+    for (auto& term : dnf) {
+      for (std::size_t i = 0; i < term.size() && budget;) {
+        bool redundant = false;
+        for (std::size_t j = 0; j < term.size() && budget; ++j) {
+          --budget;
+          if (i != j && tighten_excluded_endpoint(term[i], term[j]))
+            changed = true;
+          if (i != j && atom_implies(term[j], term[i])) {
+            redundant = true;
+            break;
+          }
+        }
+        if (redundant) {
+          term.erase(term.begin() + i);
+          changed = true;
+        } else {
+          ++i;
+        }
+      }
+    }
+    for (std::size_t i = 0; i < dnf.size() && budget; ++i) {
+      for (std::size_t j = 0; j < dnf.size() && budget; ++j) {
+        if (i == j)
+          continue;
+        --budget;
+        if (conjunction_implies(dnf[i], dnf[j])) {
+          dnf.erase(dnf.begin() + i);
+          changed = true;
+          // Restart after erasing a disjunct to avoid invalid indices.
+          break;
+        }
+        // K && c OR !c && R == K OR !c && R when K implies R.
+        // Only a scalar c may be removed; Rem/Div/USub/UMul stay opaque.
+        auto& term = dnf[i];
+        bool absorbed = false;
+        for (std::size_t k = 0; k < term.size() && budget; ++k) {
+          std::vector< Segment > regions;
+          if (!scalar_regions(term[k], regions))
+            continue;
+          const auto& witness = dnf[j];
+          for (std::size_t w = 0; w < witness.size() && budget; ++w) {
+            --budget;
+            if (!opposite(term[k], witness[w]))
+              continue;
+            bool covered = true;
+            for (std::size_t r = 0; r < witness.size() && covered; ++r) {
+              if (r == w)
+                continue;
+              covered = false;
+              for (std::size_t t = 0; t < term.size() && budget; ++t) {
+                --budget;
+                if (t != k && atom_implies(term[t], witness[r])) {
+                  covered = true;
+                  break;
+                }
+              }
+            }
+            if (covered) {
+              term.erase(term.begin() + k);
+              changed = absorbed = true;
+              break;
+            }
+          }
+          if (absorbed)
+            break;
+        }
+        if (absorbed)
+          break;
+      }
+      if (changed)
+        break;
+    }
+  }
+  if (std::any_of(dnf.begin(), dnf.end(), [](const auto& term) {
+        return term.empty();
+      })) {
+    dnf.clear();
+    dnf.emplace_back();
+  }
 }
 
 } // end anonymous namespace
@@ -161,7 +377,7 @@ bool SymbolicCondition::is_true() const {
 }
 
 void SymbolicCondition::join_with(const SymbolicCondition& other) {
-  if (this->is_true() || other.is_false())
+  if (this == &other || this->is_true() || other.is_false())
     return;
   if (other.is_true()) {
     *this = make_true();
@@ -187,6 +403,7 @@ void SymbolicCondition::join_with(const SymbolicCondition& other) {
                           this->disjuncts.end());
     this->disjuncts.push_back(incoming);
   }
+  normalize_disjunction(this->disjuncts);
 }
 
 void SymbolicCondition::meet_with(const SymbolicCondition& other) {
@@ -260,6 +477,7 @@ void SymbolicCondition::add_constraint(const SymbolicConstraint& constraint) {
       conjunction.push_back(constraint);
     }
   }
+  normalize_disjunction(this->disjuncts);
 }
 
 bool SymbolicCondition::equals(const SymbolicCondition& other) const {

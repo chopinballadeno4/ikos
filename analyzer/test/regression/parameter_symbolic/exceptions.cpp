@@ -53,6 +53,7 @@ struct OverlappingError {
 extern "C" {
 int fresh_exception_int();
 int* fresh_exception_pointer();
+short fresh_exception_short();
 
 void affine_leaf43(long v) {
   if (v <= 0)
@@ -90,6 +91,50 @@ void affine_explicit_limit43(long n) {
   if (n > LONG_MAX / 3)
     throw 1;
   affine_leaf43(n);
+}
+void scalar_explicit_limit45(long n) {
+  if (n > LONG_MAX / 3)
+    throw 1;
+}
+void scalar_strict45(int n) {
+  if (n == 0)
+    std::abort();
+  if (n < 0)
+    throw 1;
+  if (n > 300)
+    throw 2;
+}
+void scalar_hole45(int n) {
+  if (n == 0 || n < -5 || n > 5)
+    throw 1;
+}
+void scalar_residual45(int n, int k) {
+  if (n >= 6) {
+    if (k == 0)
+      throw 1;
+  } else if (k >= 8) {
+    throw 2;
+  }
+}
+void scalar_edge45(long n) {
+  if (n == LONG_MIN || n == LONG_MAX)
+    throw 1;
+  if (n <= LONG_MIN || n >= LONG_MAX)
+    throw 2;
+}
+void scalar_unsigned_edge45(unsigned n) {
+  if (n == UINT_MAX)
+    throw 1;
+  if (n > UINT_MAX - 1)
+    throw 2;
+}
+void scalar_upper_endpoint45(int n) {
+  if (n > 0 || n == 0)
+    throw 1;
+}
+void scalar_unsigned_endpoint45(unsigned n) {
+  if (n > 10 || n == 10)
+    throw 1;
 }
 long affine_overflow_before_call43(long n) {
   long value = n * 3;
@@ -144,6 +189,10 @@ void modular_col44(unsigned c) {
   unsigned step2 = step1 - 4;
   if (step2 >= 8)
     throw 1;
+}
+void scalar_cell45(unsigned r, unsigned c) {
+  modular_row44(r);
+  modular_col44(c);
 }
 void modular_shift_guard44(unsigned n) {
   if (n - 4 >= 8)
@@ -339,6 +388,92 @@ void typed_catch_fallback(int n) {
     positive31(n);
   } catch (double) {
   }
+}
+void typed_inner45(int n) {
+  if (n == 0)
+    std::abort();
+  if (n < 0)
+    throw 1;
+  if (n > 300)
+    throw 1L;
+}
+void typed_abort45(int n) {
+  int wide = n * 2;
+  int narrow = wide - n;
+  try {
+    typed_inner45(narrow);
+  } catch (long) {
+    std::abort();
+  }
+}
+void typed_rethrow45(int n) {
+  try {
+    typed_inner45(n);
+  } catch (long) {
+    throw;
+  }
+}
+void typed_swallow_zero45(int n) {
+  try {
+    if (n == 0)
+      throw 1L;
+    if (n < 0)
+      std::abort();
+  } catch (long) {
+  }
+}
+void typed_nested_swallow45(int n) {
+  try {
+    try {
+      if (n == 0)
+        throw 1L;
+      if (n < 0)
+        std::abort();
+    } catch (int) {
+      std::abort();
+    }
+  } catch (...) {
+  }
+}
+void unknown_before_abort45(int n) {
+  if (n <= 0) {
+    opaque_exception_call();
+    std::abort();
+  }
+}
+void unknown_before_return45(int n) {
+  if (n == 0)
+    opaque_exception_call();
+}
+int typed_abort_division_safe45() {
+  int n = fresh_exception_short();
+  typed_abort45(n);
+  return 100 / n;
+}
+int typed_rethrow_division_safe45() {
+  int n = fresh_exception_short();
+  typed_rethrow45(n);
+  return 100 / n;
+}
+int unknown_before_abort_division_safe45() {
+  int n = fresh_exception_int();
+  unknown_before_abort45(n);
+  return 100 / n;
+}
+int typed_swallow_zero_keeps_warning45() {
+  int n = fresh_exception_int();
+  typed_swallow_zero45(n);
+  return 100 / n;
+}
+int typed_nested_swallow_keeps_warning45() {
+  int n = fresh_exception_int();
+  typed_nested_swallow45(n);
+  return 100 / n;
+}
+int unknown_before_return_keeps_warning45() {
+  int n = fresh_exception_int();
+  unknown_before_return45(n);
+  return 100 / n;
 }
 int normal_division_safe() {
   int n = fresh_exception_int();

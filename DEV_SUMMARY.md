@@ -427,7 +427,9 @@ Importer가 식별한 예외 intrinsic은 unknown call fallback과 구분하여 
 조건 수집 규칙과 AR runtime 모델의 범위는 DEV_TRANSFER_FUNCTION.md §7.1~7.2를 따른다.
 이 범위의 명시적 throw를 일반 미지원 호출로 버리고 `false/Partial`로 남긴 결과를
 지원 완료로 보지 않는다. Typed catch, 미확인 생성자/cleanup 등 미지원 영역에는
-기존 fallback을 유지한다. 클래스 예외의 종류만으로 제외하지 않는다. 생성자는
+flow별 fallback을 적용한다. 미지원 경로가 정상 복귀할 수 없다는 별도 CFG 증명이
+있으면 normal coverage는 유지할 수 있지만 exception coverage는 Partial로 남긴다.
+상세 규칙은 DEV_TRANSFER_FUNCTION.md §8.2.1을 따른다. 클래스 예외의 종류만으로 제외하지 않는다. 생성자는
 본문의 제한적 문맥 분석 또는 검증된 declaration 모델로 인증하며, normal 생성
 후 throw와 생성자 실패의 예외 전파를 모두 확인한다. Nondeterministic 결과의
 충분조건은 결과별 보장 영역의 AND이고, 가능한 종료가 다르면 Complete로 내보내지
@@ -516,9 +518,10 @@ Cast는 그 operand 내부에서 먼저 단순화하되 cast 경계 너머의 �
 값 관계의 단순화는 정의된 실행의 의미론 안에서 적용한다. No-wrap 연산의 안전성을
 무조건 보장하는 입력 영역을 별도로 만들지 않으며, 두 배 width의 overflow 배제
 atom도 생성하지 않는다. 43번 mid_chain과 outer_guard는 정상 조건 `0<n<=200`,
-예외 조건 `n>200`을 요약한다. 원래 경로에서 얻은 `n>0 && n>200` 같은 동치 형태도
-허용한다. `n+bias<=INT64_MAX`나 `3*n<=INT64_MAX`를 자동으로 붙이지 않는다.
-반면 소스에 명시한 `if(n>INT64_MAX/3)` 검사는 실제 flow를 결정하므로 보존한다.
+예외 조건 `n>200`을 요약한다. 원래 경로의 `n>0 && n>200`은 아래의 scalar 조건
+단순화로 `n>200`으로 저장한다. `n+bias<=INT64_MAX`나 `3*n<=INT64_MAX`를 자동으로
+붙이지 않는다. 반면 소스에 명시한 `if(n>INT64_MAX/3)` 검사는 실제 flow를 결정하므로
+복원하며, 다른 조건과의 논리적 동치가 증명된 경우에만 중복을 제거한다.
 Unsigned wrapping은 정의된 연산이므로 modulo 의미를 유지하고, truncation이나
 29/30번의 원래 검사 atom도 삭제하지 않는다. 미지원 값 관계/호출/메모리/loop를
 정의된 실행 전제라는 이유로 생략하지 않으며, 기존 Partial fallback을 유지한다.
@@ -565,6 +568,30 @@ empty conjunction = true // 모든 입력에서의 종료가 증명된 경우에
 함의할 수 있더라도 생성·저장·출력하는 summary에서 삭제하지 않는다. 완전히 동일한
 atom의 중복 제거는 허용한다. Numerical domain의 적용 정밀도와 조건의 저장 여부는
 구분한다.
+
+DNF를 구성하고 합성할 때 동일 typed parameter와 상수 사이의 비교는 논리적으로
+중복된 항을 제거한다. Width/sign과 비교 predicate의 signedness가 일치하는 경우에만
+유한 정수 범위의 정확한 집합 포함 관계를 사용한다. `!=k`는 k를 제외한 두 구간으로
+취급하며 interval hull로 바꾸지 않는다. 예를 들어 `n!=0 && n>=0 && n>300`은
+`n>300`, `n!=0 && n<0`은 `n<0`으로 저장한다. `-5<=n<=5 && n!=0`의 내부 구멍은
+보존한다. 서로 다른 parameter, cast 및 복합 연산식의 비교에는 이 scalar 규칙을
+추측하여 적용하지 않는다.
+
+같은 scalar와 같은 상수 k에 대한 끝점 제외도 동치로 합친다.
+`n>=k && n!=k`는 `n>k`, `n<=k && n!=k`는 `n<k`이다. Signed/unsigned predicate와
+width/sign이 일치할 때만 적용하며 k±1을 machine integer로 계산하지 않는다.
+이 변환은 내부의 구멍을 제거하는 규칙이 아니다. 특히 45번의 정상 조건은
+`n!=0 && n>=0 && n<=300`에서 `n>0 && n<=300`으로 저장해야 하며,
+interval에 NE를 먼저 적용하여 0 제외를 놓치는 순서 의존성을 피한다.
+
+OR에서도 `A || (!A && B) = A || B`를 적용한다. 일반적으로 `K && c`의 c를
+제거하려면 다른 disjunct `!c && R`가 존재하고 K가 R를 함의함을 증명해야 한다.
+c는 위 scalar 비교로 제한한다. 따라서 44번 예외 조건은 `r>=6 || c>=8`, 45번 예외
+조건은 `n>300 || n<0`으로 저장한다. Residual 조건 R를 무시해서는 안 된다.
+논리 단순화는 동치 변환이므로 coverage를 바꾸지 않는다. 한 호출의 후보 검사 예산은
+16,384회이며 한도에 도달하면 남은 조건을 유지한다. §5.3·5.4의 parity·분기별 USub·UMul
+검사 보존은 계속 우선한다. 조건 저장의 단순화와 numerical state의 interval join은
+별개의 처리다.
 
 ### 5.1 Benchmark 21의 기준
 
@@ -686,6 +713,11 @@ SSA origin으로 정확한 CondExpr 복원을 먼저 시도한다. 그래도 조
 3. 대체 증명도 없으면 해당 **전체 conjunction의 기여를 생략**하고 Partial로
    표시한다. 이는 보장 영역을 얻지 못했다는 뜻이며 경로 불가능의 증거가 아니다.
 4. 신뢰할 수 있는 결과를 구성할 수 없으면 Unavailable로 저장한다.
+
+위 Partial 처리는 해당 flow의 입력 coverage를 놓쳤을 수 있기 때문이다. 미지원
+경로가 정상 복귀할 수 없다는 별도 증명이 있으면 C_normal에 새 disjunct를 추가하지
+않고 normal coverage를 유지할 수 있다(DEV_TRANSFER_FUNCTION.md §8.2.1).
+복원 실패만으로 그 증명을 대신하거나 exception coverage를 Complete로 올리지 않는다.
 
 예를 들어 다음 조건에서 x의 origin을 복원할 수 없고 다른 증명도 없다면:
 
