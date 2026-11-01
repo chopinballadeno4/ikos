@@ -1,5 +1,7 @@
 #include <ikos/frontend/llvm/analysis/parameter_symbolic/symbolic_state.hpp>
 
+#include <algorithm>
+
 #include <ikos/ar/semantic/bundle.hpp>
 #include <ikos/ar/semantic/function.hpp>
 #include <ikos/ar/semantic/statement.hpp>
@@ -8,6 +10,168 @@
 namespace ikos {
 namespace frontend {
 namespace parameter_symbolic {
+
+namespace {
+
+using Expr = ConditionExpr;
+using ZNumber = core::ZNumber;
+using MachineInt = core::MachineInt;
+using Bin = core::machine_int::BinaryOperator;
+
+// A polynomial of degree one over typed atoms in Z/(2^width). A cast or a
+// non-affine operation is an opaque atom, never an untyped parameter leaf.
+struct ModularAffine {
+  std::map< Expr, ZNumber > terms;
+  ZNumber constant{0};
+  bool valid = true;
+
+  void add(const ModularAffine& other, const ZNumber& factor) {
+    if (!other.valid) {
+      valid = false;
+      return;
+    }
+    constant += other.constant * factor;
+    for (const auto& term : other.terms)
+      terms[term.first] += term.second * factor;
+    if (terms.size() > 128)
+      valid = false;
+  }
+  static ModularAffine from(const Expr& e, unsigned& budget) {
+    ModularAffine result;
+    if (!budget) {
+      result.valid = false;
+      return result;
+    }
+    --budget;
+    if (e.is_constant()) {
+      result.constant = e.node().constant.to_z_number();
+    } else if (e.node().kind == Expr::Binary &&
+               (e.node().op == Bin::Add || e.node().op == Bin::AddNoWrap ||
+                e.node().op == Bin::Sub || e.node().op == Bin::SubNoWrap)) {
+      result = from(e.left(), budget);
+      result.add(from(e.right(), budget),
+                 e.node().op == Bin::Sub || e.node().op == Bin::SubNoWrap
+                     ? ZNumber(-1)
+                     : ZNumber(1));
+    } else if (e.node().kind == Expr::Binary &&
+               (e.node().op == Bin::Mul || e.node().op == Bin::MulNoWrap) &&
+               (e.left().is_constant() || e.right().is_constant())) {
+      auto factor = e.left().is_constant() ? e.left() : e.right();
+      auto operand = e.left().is_constant() ? e.right() : e.left();
+      result.add(from(operand, budget), factor.node().constant.to_z_number());
+    } else {
+      result.terms[e] = 1;
+    }
+    return result;
+  }
+  void normalize(uint64_t width) {
+    constant = MachineInt(constant, width, core::Unsigned).to_z_number();
+    for (auto it = terms.begin(); it != terms.end();) {
+      it->second = MachineInt(it->second, width, core::Unsigned).to_z_number();
+      if (it->second == 0)
+        it = terms.erase(it);
+      else
+        ++it;
+    }
+  }
+  Expr expression(uint64_t width, core::Signedness sign) const {
+    std::vector< Expr > values;
+    if (constant != 0 || terms.empty())
+      values.push_back(Expr::constant(MachineInt(constant, width, sign)));
+    for (const auto& term : terms) {
+      Expr value = term.first;
+      if (term.second != 1)
+        value =
+            Expr::binary(Bin::Mul,
+                         value,
+                         Expr::constant(MachineInt(term.second, width, sign)));
+      if (!value)
+        return {};
+      values.push_back(std::move(value));
+    }
+    // Balanced addition avoids exceeding the existing expression depth cap
+    // merely because the source used a balanced tree.
+    while (values.size() > 1) {
+      std::vector< Expr > next;
+      for (std::size_t i = 0; i < values.size(); i += 2) {
+        auto value = i + 1 < values.size()
+                         ? Expr::binary(Bin::Add, values[i], values[i + 1])
+                         : values[i];
+        if (!value)
+          return {};
+        next.push_back(std::move(value));
+      }
+      values = std::move(next);
+    }
+    return values.front();
+  }
+};
+
+unsigned expression_size(const Expr& e, unsigned& budget) {
+  if (!budget)
+    return 513;
+  --budget;
+  if (e.is_constant() || e.is_variable())
+    return 1;
+  unsigned size = 1 + expression_size(e.left(), budget);
+  if (e.node().kind == Expr::Binary)
+    size += expression_size(e.right(), budget);
+  return std::min(size, 513u);
+}
+
+Expr simplify_expression(const Expr& e, unsigned& budget) {
+  if (!e || !budget)
+    return e;
+  --budget;
+  if (e.is_constant() || e.is_variable())
+    return e;
+  auto left = simplify_expression(e.left(), budget);
+  if (e.node().kind == Expr::Cast) {
+    auto result = Expr::cast(left, e.bit_width(), e.sign());
+    return result ? result : e;
+  }
+  auto right = simplify_expression(e.right(), budget);
+  auto rebuilt = Expr::binary(e.node().op, left, right);
+  if (!rebuilt)
+    return e;
+  unsigned collection_budget = 512;
+  auto affine = ModularAffine::from(rebuilt, collection_budget);
+  if (!affine.valid)
+    return rebuilt;
+  affine.normalize(rebuilt.bit_width());
+  auto result = affine.expression(rebuilt.bit_width(), rebuilt.sign());
+  if (!result)
+    return rebuilt;
+  unsigned old_budget = 512, new_budget = 512;
+  // Preserve already simple source forms such as idx-1 and step*idx. In
+  // particular, do not replace a subtraction by addition of UINT_MAX on ties.
+  return expression_size(result, new_budget) <
+                 expression_size(rebuilt, old_budget)
+             ? result
+             : rebuilt;
+}
+
+} // namespace
+
+ConditionExpr simplify_condition_expr(const ConditionExpr& e) {
+  unsigned budget = 512;
+  return simplify_expression(e, budget);
+}
+
+bool equivalent_condition_expr(const ConditionExpr& candidate,
+                               const ConditionExpr& origin) {
+  if (!candidate || !origin || candidate.bit_width() != origin.bit_width() ||
+      candidate.sign() != origin.sign())
+    return false;
+  unsigned left_budget = 512, right_budget = 512;
+  auto left = ModularAffine::from(candidate, left_budget),
+       right = ModularAffine::from(origin, right_budget);
+  if (!left.valid || !right.valid)
+    return false;
+  left.normalize(candidate.bit_width());
+  right.normalize(origin.bit_width());
+  return left.constant == right.constant && left.terms == right.terms;
+}
 
 ConditionExpr condition_expr_from_affine(const SymbolicExpr& e,
                                          uint64_t width,

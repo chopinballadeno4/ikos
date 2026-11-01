@@ -947,6 +947,15 @@ No-wrap의 overflow 가능성만으로 coverage를 낮추지 않고, 정의된 �
 Unsigned wrapping이나 truncation의 의미를 제거하는 규칙도 아니다. 필요한 의미를
 복원하지 못하면 기존 Partial fallback을 따른다.
 
+Typed CondExpr를 복원한 뒤에는 DEV_SUMMARY.md §5의 bounded modular 단순화를
+적용한다. 동일 width/sign의 add/sub와 상수 배 mul만 계수로 모으며, cast와 비선형
+노드의 내부 의미를 경계 밖으로 옮기지 않는다. 더 작은 동치 식으로만 교체하고
+간단한 USub/UMul 및 나머지·나눗셈 검사는 유지한다. 이 과정은 σ와 별개이므로
+wrapping 연산 때문에 σ가 TOP이어도 `(c+4)-4=c`를 조건/argument로 사용할 수 있다.
+`SubstConstraint`뿐 아니라 caller actual을 넣는 typed substitution에도 같은 단순화를
+적용한다. Overflow 배제 조건을 새로 생성하거나 numerical domain의 interval hull을
+충분조건으로 바꾸는 규칙은 아니다.
+
 ```text
 Atom ::= Compare(predicate, CondExpr, CondExpr)
        | IsNull(P_i^0) | NonNull(P_i^0)

@@ -55,16 +55,19 @@ def main():
               "affine_large_coefficient43", "affine_reordered43",
               "affine_negative_scale43", "affine_wrapped_input43",
               "affine_truncated_input43", "affine_equivalent_bounds43",
-              "affine_explicit_limit43"]
+              "affine_explicit_limit43", "modular_row44", "modular_col44",
+              "modular_shift_guard44", "modular_composed44",
+              "modular_wrapped_product44", "modular_different_operands44",
+              "modular_opaque44", "modular_coefficient44"]
     safe = {"normal_division_safe", "caught_division_safe", "normal_bounds_safe",
             "caught_bounds_safe", "rethrow_pointer_safe", "memory_effects_safe",
             "class_normal_division_safe", "class_caught_division_safe",
-            "affine_chain_division_safe"}
+            "affine_chain_division_safe", "modular_bounds_safe44"}
     unsafe = {"swallowed_keeps_warning", "caught_zero_keeps_warning", "unknown_exception_keeps_warning",
               "unknown_argument_keeps_warning", "unknown_memory_pointer_keeps_warning",
               "null_memory_pointer_keeps_error", "offset_memory_pointer_keeps_error",
               "mismatched_memory_pointer_keeps_error", "class_zero_keeps_warning",
-              "affine_shift_keeps_zero"}
+              "affine_shift_keeps_zero", "modular_wrapped_product_bounds_keeps_warning44"}
     overflow = {"affine_overflow_before_call43", "affine_overflow_in_callee43"}
     with tempfile.TemporaryDirectory(prefix="ikos-exception-regression-") as folder:
         folder = pathlib.Path(folder)
@@ -181,6 +184,37 @@ def main():
                     expected_value = defined and (0 < value + 1 <= 200 if not which else value + 1 > 200)
                     assert evaluate(formula, n) == expected_value, (name, flow, formula, n)
         print("affine substitution: defined executions, source guards, casts and caller composition verified")
+        unsigned_max = (1 << 32) - 1
+        unsigned_samples = [*range(512), (1 << 31) - 1, 1 << 31,
+                            (1 << 31) + 1, *range(unsigned_max - 4, unsigned_max + 1)]
+        for flow in ("normal", "exception"):
+            formula, level = component(trace, "modular_coefficient44", flow)
+            assert level == "Complete" and formula == ("true" if flow == "normal" else "false"), (flow, level, formula)
+            for name, limit in (("modular_row44", 6), ("modular_col44", 8), ("modular_composed44", 8)):
+                formula, level = component(trace, name, flow)
+                expected_formula = "p00 u< " + str(limit) if flow == "normal" else "p00 u>= " + str(limit)
+                assert level == "Complete" and formula == expected_formula, (name, flow, level, formula)
+                for n in unsigned_samples:
+                    assert evaluate(formula, n) == (n < limit if flow == "normal" else n >= limit), (name, flow, n)
+            for name in ("modular_shift_guard44", "modular_wrapped_product44"):
+                formula, level = component(trace, name, flow)
+                assert level == "Complete", (name, flow, level, formula)
+                assert ("USub_32" if name == "modular_shift_guard44" else "UMul_32") in formula, formula
+                for n in unsigned_samples:
+                    result = (n - 4 if name == "modular_shift_guard44" else n * 2) % (1 << 32)
+                    assert evaluate(formula, n) == (result < 8 if flow == "normal" else result >= 8), (name, flow, formula, n)
+            for name in ("modular_different_operands44", "modular_opaque44"):
+                formula, level = component(trace, name, flow)
+                assert level == "Complete", (name, flow, level, formula)
+                if name == "modular_opaque44":
+                    assert "URem_32" in formula and "UMul_32" not in formula, formula
+                else:
+                    assert "p10" in formula, formula
+                for n in unsigned_samples:
+                    for k in (0, 1, 4, unsigned_max):
+                        normal = n % 3 == 0 if name == "modular_opaque44" else (n + 4 - k) % (1 << 32) < 8
+                        assert holds(formula, n, k) == (normal if flow == "normal" else not normal), (name, flow, formula, n, k)
+        print("modular simplification: cancellation, caller substitution, wrapping boundaries and opaque atoms verified")
         for name in ("pointer36", "rethrow36"):
             for flow, atom in (("normal", "NonNull(p00)"), ("exception", "IsNull(p00)")):
                 formula, level = component(trace, name, flow)

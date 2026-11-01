@@ -101,64 +101,6 @@ bool binary_operator(ar::BinaryOperation* s, Bin& op) {
   return true;
 }
 
-// Check an affine sigma candidate against the typed reaching definition in
-// the modular ring of its result width. Casts and non-affine operations stay
-// opaque: cancellation must not erase a sign extension or truncation.
-struct ModularAffine {
-  std::map< Expr, ZNumber > terms;
-  ZNumber constant{0};
-
-  void add(const ModularAffine& other, const ZNumber& factor) {
-    constant += other.constant * factor;
-    for (const auto& term : other.terms)
-      terms[term.first] += term.second * factor;
-  }
-  static ModularAffine from(const Expr& e) {
-    ModularAffine result;
-    if (e.is_constant()) {
-      result.constant = e.node().constant.to_z_number();
-    } else if (e.node().kind == Expr::Binary &&
-               (e.node().op == Bin::Add || e.node().op == Bin::AddNoWrap ||
-                e.node().op == Bin::Sub || e.node().op == Bin::SubNoWrap)) {
-      result = from(e.left());
-      result.add(from(e.right()),
-                 e.node().op == Bin::Sub || e.node().op == Bin::SubNoWrap
-                     ? ZNumber(-1)
-                     : ZNumber(1));
-    } else if (e.node().kind == Expr::Binary &&
-               (e.node().op == Bin::Mul || e.node().op == Bin::MulNoWrap) &&
-               (e.left().is_constant() || e.right().is_constant())) {
-      auto factor = e.left().is_constant() ? e.left() : e.right();
-      auto operand = e.left().is_constant() ? e.right() : e.left();
-      result.add(from(operand), factor.node().constant.to_z_number());
-    } else {
-      result.terms[e] = 1;
-    }
-    return result;
-  }
-  void normalize(uint64_t width) {
-    constant = MachineInt(constant, width, core::Unsigned).to_z_number();
-    for (auto it = terms.begin(); it != terms.end();) {
-      it->second = MachineInt(it->second, width, core::Unsigned).to_z_number();
-      if (it->second == 0)
-        it = terms.erase(it);
-      else
-        ++it;
-    }
-  }
-};
-
-bool same_affine_value(const Expr& candidate, const Expr& origin) {
-  if (!candidate || !origin || candidate.bit_width() != origin.bit_width() ||
-      candidate.sign() != origin.sign())
-    return false;
-  auto left = ModularAffine::from(candidate),
-       right = ModularAffine::from(origin);
-  left.normalize(candidate.bit_width());
-  right.normalize(origin.bit_width());
-  return left.constant == right.constant && left.terms == right.terms;
-}
-
 struct Path {
   using ExceptionToken = uint64_t;
   struct ExceptionRecord {
@@ -232,10 +174,10 @@ struct Path {
         if (value.is_expr()) {
           auto affine =
               condition_expr_from_affine(value.expr, t->bit_width(), t->sign());
-          if (same_affine_value(affine, it->second))
+          if (equivalent_condition_expr(affine, it->second))
             return affine;
         }
-        return it->second;
+        return simplify_condition_expr(it->second);
       }
     }
     return {};

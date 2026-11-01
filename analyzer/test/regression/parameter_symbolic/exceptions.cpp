@@ -133,6 +133,60 @@ long affine_shift_keeps_zero() {
   affine_leaf43(n + 1);
   return 100 / n;
 }
+void modular_row44(unsigned r) {
+  unsigned scaled = r * 2;
+  unsigned back = scaled - r;
+  if (back >= 6)
+    throw 1;
+}
+void modular_col44(unsigned c) {
+  unsigned step1 = c + 4;
+  unsigned step2 = step1 - 4;
+  if (step2 >= 8)
+    throw 1;
+}
+void modular_shift_guard44(unsigned n) {
+  if (n - 4 >= 8)
+    throw 1;
+}
+void modular_composed44(unsigned n) {
+  modular_shift_guard44(n + 4);
+}
+void modular_wrapped_product44(unsigned n) {
+  if (n * 2 >= 8)
+    throw 1;
+}
+void modular_coefficient44(unsigned n) {
+  unsigned first = n * 65536u;
+  unsigned second = first * 65536u;
+  if (second != 0)
+    throw 1;
+}
+void modular_different_operands44(unsigned n, unsigned k) {
+  if ((n + 4) - k >= 8)
+    throw 1;
+}
+void modular_opaque44(unsigned n, unsigned k) {
+  unsigned remainder = n % 3;
+  unsigned product = n * k;
+  unsigned value = ((remainder + product + 4) - product) - 4;
+  if (value != 0)
+    throw 1;
+}
+unsigned modular_bounds_safe44() {
+  unsigned r = static_cast< unsigned >(fresh_exception_int());
+  unsigned c = static_cast< unsigned >(fresh_exception_int());
+  modular_row44(r);
+  modular_col44(c);
+  unsigned array[6][8] = {};
+  return array[r][c];
+}
+unsigned modular_wrapped_product_bounds_keeps_warning44() {
+  unsigned n = static_cast< unsigned >(fresh_exception_int());
+  modular_wrapped_product44(n);
+  unsigned array[8] = {};
+  return array[n];
+}
 void opaque_exception_call();
 
 void positive31(int n) {

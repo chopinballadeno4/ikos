@@ -25,6 +25,12 @@ ConditionExpr condition_expr_from_affine(const SymbolicExpr& e,
                                          uint64_t width,
                                          core::Signedness sign);
 
+// Typed modular identities, interpreted over defined executions. Casts and
+// non-affine operations remain distinct atoms; failure keeps the original.
+ConditionExpr simplify_condition_expr(const ConditionExpr& e);
+bool equivalent_condition_expr(const ConditionExpr& left,
+                               const ConditionExpr& right);
+
 // ---------------------------------------------------------------------------
 // SymbolicState — Sigma = (sigma, mu, rho)
 //
@@ -157,6 +163,8 @@ struct SymbolicConstraint {
                                        ConditionExpr r) {
     if (!l || !r)
       return make_unknown();
+    l = simplify_condition_expr(l);
+    r = simplify_condition_expr(r);
     bool eq = p == ar::Comparison::SIEQ || p == ar::Comparison::UIEQ;
     bool ne = p == ar::Comparison::SINE || p == ar::Comparison::UINE;
     // Equality is bitwise. A same-width sign reinterpretation can be pushed

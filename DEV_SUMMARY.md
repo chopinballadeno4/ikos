@@ -497,6 +497,22 @@ invariant에 남아 있다고 가정하지 않는다.
 못하면 typed origin을 사용한다. Affine 계수의 구현상 표현 한도를 넘으면 TOP으로
 내리고 typed origin으로 복원하며, 계수 overflow를 관계로 저장하지 않는다.
 
+`σ=TOP`인 wrapping 연산도 복원된 CondExpr를 단순화할 수 있다. 같은 width/sign의
+add/sub와 상수 배 mul을 `Z/(2^w)`에서 계수·상수항으로 모아 상쇄하고, 더 작은
+동치 typed 식을 사용한다. 예를 들어 32비트 unsigned의 `(c+4)-4`와 `2*r-r`은
+wrap 발생 여부와 관계없이 각각 `c`, `r`이다. 비교를 생성할 때와 callee 조건을
+caller actual로 치환한 뒤에도 적용한다. 이 결과는 typed 조건/값 origin에 사용하고,
+wrapping 중간값을 수학적 affine σ에 저장하도록 σ의 정의를 넓히지는 않는다.
+
+Cast는 그 operand 내부에서 먼저 단순화하되 cast 경계 너머의 항을 합치지 않는다.
+나눗셈·나머지·변수끼리 곱셈 등은 typed opaque atom으로 보존하여 정확히 같은 항만
+상쇄한다. `(n%3 + n*k + 4) - n*k - 4`는 `n%3`이지만, wrapping `2*n<8`을
+`n<4`로 바꾸지 않는다. 이미 간단한 `idx-1`, `step*idx`는 형태를 유지한다. 이 변환은
+동치인 피연산자로의 교체이며, 원래 검사를 근거 없이 생략하거나 비교 항을 이항하는
+규칙이 아니다. 상수 비교로 환원되면 기존 상수 평가를 적용한다. 복원 순회와 계수 수집은
+각 512 node, 서로 다른 atom은 128개로 제한하며 한도/재구성 실패에서는 원래 식을
+유지한다. 44번 check_row/check_col은 각각 `r<6`, `c<8`로 요약해야 한다.
+
 값 관계의 단순화는 정의된 실행의 의미론 안에서 적용한다. No-wrap 연산의 안전성을
 무조건 보장하는 입력 영역을 별도로 만들지 않으며, 두 배 width의 overflow 배제
 atom도 생성하지 않는다. 43번 mid_chain과 outer_guard는 정상 조건 `0<n<=200`,

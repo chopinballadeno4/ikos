@@ -1313,6 +1313,10 @@ Partial로 낮추지 않는다(DEV_SUMMARY.md §1.1·5). 기존 오류 checker�
 σ의 정확한 affine actual을 우선 재사용하고 typed origin과의 값 동치를 확인한다.
 Wrapping 연산, cast/truncation 및 소스의 실제 검사는 정확히 보존한다. 미지원
 연산/호출/메모리를 정의된 실행 전제로 생략하지 않는다.
+Typed 조건 복원과 actual 치환 뒤에는 동일 width/sign의 modular add/sub·상수 배 mul을
+상쇄하여 더 작은 동치 식으로 단순화한다. Cast 경계 및 비선형 노드는 보존하고
+bounded 변환에 실패하면 기존 식을 유지한다(DEV_SUMMARY.md §5). 따라서 wrapping
+중간값이 σ에서 TOP이어도 최종 조건 `(c+4)-4<8`은 `c<8`로 적용할 수 있다.
 나눗셈과 나머지의 인증 범위는 양의 상수 제수다. 반환값 summary는 생성하지 않는다.
 
 현재 IKOS 본 분석 구현은 interprocedural dynamic inlining에서 callee가 정확히
