@@ -1,0 +1,55 @@
+{
+  "BehaviorTree.CPP": {
+    "commit": "90ce0a2ce97b858332c390c42d664f5c5a2ec7a8",
+    "status": "?? .idea/\n",
+    "files": {
+      "include/behaviortree_cpp/utils/convert_impl.hpp": "6e3c494d917a781dd1f77210420b4001e90240bad77d6959c1fc766aee1650bd",
+      "include/behaviortree_cpp/utils/safe_any.hpp": "c0adbe4ccea8098751087e1ec5fd63a99784cda6cc9eaa3ee8b35485927a6195"
+    }
+  },
+  "PX4-Autopilot": {
+    "commit": "1eccb08763904c7c731f9d694aba6eac75ee8c46",
+    "status": "",
+    "files": {
+      "src/lib/matrix/matrix/Matrix.hpp": "25fc20775feb8610513c89e768675cec3ac4b06c541093f7aede7ae9b2baeadf",
+      "src/lib/matrix/matrix/Vector.hpp": "5595c689b197060a62dcf4b9b7a9099404e32734a4153af92c2f87b47eafe6ca",
+      "platforms/common/include/px4_platform_common/defines.h": "d94441459d8692d223ef72c4e8b9664260e9c9a4dd833b212b6afb121eadba78"
+    }
+  },
+  "duckdb": {
+    "commit": "5a17f33fea410f904f10d899f6c4096af2c36d29",
+    "status": "",
+    "files": {
+      "src/common/assert.cpp": "d4e5e70763abb24619fe4f86e4e318df98deae40aa2a66a8256cbfb519be3403",
+      "src/include/duckdb/common/assert.hpp": "6a89a8a17b6baf68dfc54ad5491fec9a44e75d9a88f493ddd2718845008539b5",
+      "src/include/duckdb/common/vector.hpp": "0d36397cb952756e37c42cf143930eb7c658715cad50dc446c2b80ae435f24b2",
+      "src/common/memory_safety.cpp": "94ce65bb53635026a49700017cf8bbe965545493e13ccb8922000d35cf6f324c",
+      "src/include/duckdb/common/types/selection_vector.hpp": "2e5c186282963b8df636715589e1c8b79a9bb2eb60ab471b06577f21e01be1a0"
+    }
+  },
+  "fmt": {
+    "commit": "0fc31633e7d53ac895ae0a688b83b7d44f0b0c1f",
+    "status": "",
+    "files": {
+      "include/fmt/core.h": "897262b154a6c4233a6d134f3aca5796407fedbedbbcdaf644cd0b3c63cb635c",
+      "include/fmt/format-inl.h": "d888aa021ee32fb04d843c17e5a6653c85b1b242246adb242ec20dce9204b461"
+    }
+  },
+  "rclcpp": {
+    "commit": "55ec7931a7a16f7eb0dc6591bc095f5fc5b0cb72",
+    "status": "",
+    "files": {
+      "rclcpp/include/rclcpp/detail/qos_parameters.hpp": "24bdd45dca449242b246f2ae1039df2f984f319a4ad058be5af62cf961a43af2",
+      "rclcpp_action/src/types.cpp": "45cb670e4bc6bc69d020d75f510ec3c3e8eed1944570adbfa5da16ebeb2fff61",
+      "rclcpp_action/src/server.cpp": "8a55d7e0e7116ca3019ef24124743639b701a045e146dfc5dc732ca71cdbbcd5"
+    }
+  },
+  "tinyxml2": {
+    "commit": "8224e427b655b83dae5e2298f1e6919523a78737",
+    "status": "?? .DS_Store\n",
+    "files": {
+      "tinyxml2.h": "dc6903d27f5f8ff18f7de98179d979ee3986d12273c495b54f48ac385fcdd7c5",
+      "tinyxml2.cpp": "07b4e7a1d021256255b91a0844640f26508201b40cfc576b9499b068d981c39b"
+    }
+  }
+}

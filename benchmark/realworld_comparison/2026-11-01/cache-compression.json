@@ -1,0 +1,10 @@
+{
+  "files": 1892,
+  "bytes_before": 7946756064,
+  "bytes_after": 2250778049,
+  "preserved_uncompressed": [
+    "duckdb/cli.bc",
+    "duckdb/bitcode/0003.bc"
+  ],
+  "restore": "gunzip bitcode/*.bc.gz"
+}

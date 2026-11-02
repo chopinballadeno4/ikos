@@ -1,0 +1,3379 @@
+[
+  {
+    "run": "PX4-Autopilot/crc-all",
+    "entry_points": "*",
+    "original_summary": {
+      "ok": 65,
+      "error": 0,
+      "warning": 23,
+      "unreachable": 0
+    },
+    "dev_summary": {
+      "ok": 65,
+      "error": 0,
+      "warning": 23,
+      "unreachable": 0
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "duckdb/lambda-functions-extended",
+    "entry_points": "*",
+    "original_summary": {
+      "ok": 7977,
+      "error": 14,
+      "warning": 7264,
+      "unreachable": 166
+    },
+    "dev_summary": {
+      "ok": 7980,
+      "error": 14,
+      "warning": 7264,
+      "unreachable": 166
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 28,
+          "file": "/opt/homebrew/Cellar/llvm@14/14.0.6/include/c++/v1/__split_buffer",
+          "function": "_ZNSt3__114__split_bufferIN6duckdb15LambdaFunctions10ColumnInfoERNS_9allocatorIS3_EEEC2EmmS6_",
+          "kind": "pointer-overflow",
+          "line": 308,
+          "operands": null
+        },
+        "removed": [],
+        "added": [
+          {
+            "info": null,
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 28,
+          "file": "/opt/homebrew/Cellar/llvm@14/14.0.6/include/c++/v1/__split_buffer",
+          "function": "_ZNSt3__114__split_bufferIN6duckdb6VectorERNS_9allocatorIS2_EEEC2EmmS5_",
+          "kind": "pointer-overflow",
+          "line": 308,
+          "operands": null
+        },
+        "removed": [],
+        "added": [
+          {
+            "info": null,
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 28,
+          "file": "/opt/homebrew/Cellar/llvm@14/14.0.6/include/c++/v1/__split_buffer",
+          "function": "_ZNSt3__114__split_bufferINS_17reference_wrapperIN6duckdb15LambdaFunctions10ColumnInfoEEERNS_9allocatorIS5_EEEC2EmmS8_",
+          "kind": "pointer-overflow",
+          "line": 308,
+          "operands": null
+        },
+        "removed": [],
+        "added": [
+          {
+            "info": null,
+            "status": "ok"
+          }
+        ]
+      }
+    ],
+    "raw_checker_counts_equal": false
+  },
+  {
+    "run": "fmt/api-000",
+    "entry_points": "_ZN3fmt3v1211assert_failEPKciS2_",
+    "original_summary": {
+      "ok": 4,
+      "error": 0,
+      "warning": 8,
+      "unreachable": 0
+    },
+    "dev_summary": {
+      "ok": 4,
+      "error": 0,
+      "warning": 8,
+      "unreachable": 0
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-001",
+    "entry_points": "_ZN3fmt3v126detail8allocateEm",
+    "original_summary": {
+      "ok": 8,
+      "error": 0,
+      "warning": 2,
+      "unreachable": 0
+    },
+    "dev_summary": {
+      "ok": 8,
+      "error": 0,
+      "warning": 2,
+      "unreachable": 0
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-004",
+    "entry_points": "_ZN3fmt3v1212report_errorEPKc",
+    "original_summary": {
+      "ok": 19,
+      "error": 0,
+      "warning": 5,
+      "unreachable": 0
+    },
+    "dev_summary": {
+      "ok": 19,
+      "error": 0,
+      "warning": 5,
+      "unreachable": 0
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-005",
+    "entry_points": "_ZN3fmt3v126detail12is_printableEj",
+    "original_summary": {
+      "ok": 118,
+      "error": 0,
+      "warning": 9,
+      "unreachable": 0
+    },
+    "dev_summary": {
+      "ok": 118,
+      "error": 0,
+      "warning": 9,
+      "unreachable": 0
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-006",
+    "entry_points": "_ZN3fmt3v126detail9write_locENS0_14basic_appenderIcEENS0_9loc_valueERKNS0_12format_specsENS0_10locale_refE",
+    "original_summary": {
+      "ok": 334,
+      "error": 1,
+      "warning": 66,
+      "unreachable": 2
+    },
+    "dev_summary": {
+      "ok": 334,
+      "error": 1,
+      "warning": 66,
+      "unreachable": 2
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-007",
+    "entry_points": "_ZN3fmt3v126detail9dragonbox16get_cached_powerEi",
+    "original_summary": {
+      "ok": 24,
+      "error": 0,
+      "warning": 5,
+      "unreachable": 1
+    },
+    "dev_summary": {
+      "ok": 24,
+      "error": 0,
+      "warning": 5,
+      "unreachable": 1
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-009",
+    "entry_points": "_ZN3fmt3v126detail15do_report_errorEPFvRNS1_6bufferIcEEiPKcEiS6_",
+    "original_summary": {
+      "ok": 69,
+      "error": 0,
+      "warning": 17,
+      "unreachable": 2
+    },
+    "dev_summary": {
+      "ok": 69,
+      "error": 0,
+      "warning": 17,
+      "unreachable": 2
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-012",
+    "entry_points": "_ZN3fmt3v126detail13utf8_to_utf16C2ENS0_17basic_string_viewIcEE",
+    "original_summary": {
+      "ok": 347,
+      "error": 6,
+      "warning": 139,
+      "unreachable": 1
+    },
+    "dev_summary": {
+      "ok": 347,
+      "error": 6,
+      "warning": 139,
+      "unreachable": 1
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 0,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h",
+          "function": "_ZZN3fmt3v126detail13utf8_to_utf16C1ENS0_17basic_string_viewIcEEENK3$_2clEjS4_",
+          "kind": "uninitialized-variable",
+          "line": 0,
+          "operands": null
+        },
+        "removed": [],
+        "added": [
+          {
+            "info": null,
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 25,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h",
+          "function": "_ZZN3fmt3v126detail13utf8_to_utf16C1ENS0_17basic_string_viewIcEEENK3$_2clEjS4_",
+          "kind": "uninitialized-variable",
+          "line": 1431,
+          "operands": null
+        },
+        "removed": [
+          {
+            "info": null,
+            "status": "ok"
+          }
+        ],
+        "added": []
+      }
+    ],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-013",
+    "entry_points": "_ZN3fmt3v126detail13utf8_to_utf16C1ENS0_17basic_string_viewIcEE",
+    "original_summary": {
+      "ok": 354,
+      "error": 6,
+      "warning": 139,
+      "unreachable": 1
+    },
+    "dev_summary": {
+      "ok": 354,
+      "error": 6,
+      "warning": 139,
+      "unreachable": 1
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-016",
+    "entry_points": "_ZN3fmt3v126detail13write_consoleEiNS0_17basic_string_viewIcEE",
+    "original_summary": {
+      "ok": 1,
+      "error": 0,
+      "warning": 1,
+      "unreachable": 0
+    },
+    "dev_summary": {
+      "ok": 1,
+      "error": 0,
+      "warning": 1,
+      "unreachable": 0
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-017",
+    "entry_points": "_ZN3fmt3v126detail5printEP7__sFILENS0_17basic_string_viewIcEE",
+    "original_summary": {
+      "ok": 952,
+      "error": 8,
+      "warning": 105,
+      "unreachable": 102
+    },
+    "dev_summary": {
+      "ok": 952,
+      "error": 8,
+      "warning": 102,
+      "unreachable": 102
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-overflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-underflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 45,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "shift-count",
+          "line": 2575,
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint64_t)shift"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "lb": 0,
+              "type": "u64",
+              "ub": 4294967295
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      }
+    ],
+    "raw_checker_counts_equal": false
+  },
+  {
+    "run": "fmt/api-026",
+    "entry_points": "_ZN3fmt3v1213buffered_file5closeEv",
+    "original_summary": {
+      "ok": 950,
+      "error": 8,
+      "warning": 111,
+      "unreachable": 102
+    },
+    "dev_summary": {
+      "ok": 950,
+      "error": 8,
+      "warning": 108,
+      "unreachable": 102
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-overflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-underflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 45,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "shift-count",
+          "line": 2575,
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint64_t)shift"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "lb": 0,
+              "type": "u64",
+              "ub": 4294967295
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      }
+    ],
+    "raw_checker_counts_equal": false
+  },
+  {
+    "run": "fmt/api-027",
+    "entry_points": "_ZNK3fmt3v1213buffered_file10descriptorEv",
+    "original_summary": {
+      "ok": 945,
+      "error": 8,
+      "warning": 104,
+      "unreachable": 102
+    },
+    "dev_summary": {
+      "ok": 945,
+      "error": 8,
+      "warning": 101,
+      "unreachable": 102
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-overflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-underflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 45,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "shift-count",
+          "line": 2575,
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint64_t)shift"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "lb": 0,
+              "type": "u64",
+              "ub": 4294967295
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      }
+    ],
+    "raw_checker_counts_equal": false
+  },
+  {
+    "run": "fmt/api-032",
+    "entry_points": "_ZN3fmt3v124file5closeEv",
+    "original_summary": {
+      "ok": 949,
+      "error": 8,
+      "warning": 109,
+      "unreachable": 102
+    },
+    "dev_summary": {
+      "ok": 949,
+      "error": 8,
+      "warning": 106,
+      "unreachable": 102
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-overflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-underflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 45,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "shift-count",
+          "line": 2575,
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint64_t)shift"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "lb": 0,
+              "type": "u64",
+              "ub": 4294967295
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      }
+    ],
+    "raw_checker_counts_equal": false
+  },
+  {
+    "run": "fmt/api-033",
+    "entry_points": "_ZNK3fmt3v124file4sizeEv",
+    "original_summary": {
+      "ok": 949,
+      "error": 8,
+      "warning": 105,
+      "unreachable": 102
+    },
+    "dev_summary": {
+      "ok": 949,
+      "error": 8,
+      "warning": 102,
+      "unreachable": 102
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-overflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-underflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 45,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "shift-count",
+          "line": 2575,
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint64_t)shift"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "lb": 0,
+              "type": "u64",
+              "ub": 4294967295
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      }
+    ],
+    "raw_checker_counts_equal": false
+  },
+  {
+    "run": "fmt/api-034",
+    "entry_points": "_ZN3fmt3v124file4readEPvm",
+    "original_summary": {
+      "ok": 954,
+      "error": 8,
+      "warning": 110,
+      "unreachable": 102
+    },
+    "dev_summary": {
+      "ok": 954,
+      "error": 8,
+      "warning": 107,
+      "unreachable": 102
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-overflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-underflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 45,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "shift-count",
+          "line": 2575,
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint64_t)shift"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "lb": 0,
+              "type": "u64",
+              "ub": 4294967295
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      }
+    ],
+    "raw_checker_counts_equal": false
+  },
+  {
+    "run": "fmt/api-035",
+    "entry_points": "_ZN3fmt3v124file5writeEPKvm",
+    "original_summary": {
+      "ok": 955,
+      "error": 8,
+      "warning": 108,
+      "unreachable": 102
+    },
+    "dev_summary": {
+      "ok": 955,
+      "error": 8,
+      "warning": 105,
+      "unreachable": 102
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-overflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-underflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 45,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "shift-count",
+          "line": 2575,
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint64_t)shift"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "lb": 0,
+              "type": "u64",
+              "ub": 4294967295
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      }
+    ],
+    "raw_checker_counts_equal": false
+  },
+  {
+    "run": "fmt/api-038",
+    "entry_points": "_ZN3fmt3v124file4dup2EiRNSt3__110error_codeE",
+    "original_summary": {
+      "ok": 24,
+      "error": 0,
+      "warning": 16,
+      "unreachable": 0
+    },
+    "dev_summary": {
+      "ok": 24,
+      "error": 0,
+      "warning": 16,
+      "unreachable": 0
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-039",
+    "entry_points": "_ZN3fmt3v124file6fdopenEPKc",
+    "original_summary": {
+      "ok": 952,
+      "error": 8,
+      "warning": 112,
+      "unreachable": 102
+    },
+    "dev_summary": {
+      "ok": 952,
+      "error": 8,
+      "warning": 109,
+      "unreachable": 102
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-overflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-underflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 45,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "shift-count",
+          "line": 2575,
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint64_t)shift"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "lb": 0,
+              "type": "u64",
+              "ub": 4294967295
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      }
+    ],
+    "raw_checker_counts_equal": false
+  },
+  {
+    "run": "fmt/api-042",
+    "entry_points": "_ZN3fmt3v1211getpagesizeEv",
+    "original_summary": {
+      "ok": 945,
+      "error": 8,
+      "warning": 101,
+      "unreachable": 102
+    },
+    "dev_summary": {
+      "ok": 945,
+      "error": 8,
+      "warning": 98,
+      "unreachable": 102
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-overflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "signed-int-underflow",
+          "line": 2573,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "index"
+            },
+            {
+              "number": 1,
+              "repr": "4"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "left": {
+                "lb": -2147483648,
+                "type": "s32",
+                "ub": 2147483647
+              },
+              "right": {
+                "lb": 4,
+                "type": "s32",
+                "ub": 4
+              }
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      },
+      {
+        "site": {
+          "column": 45,
+          "file": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h",
+          "function": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi",
+          "kind": "shift-count",
+          "line": 2575,
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint64_t)shift"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "lb": 0,
+              "type": "u64",
+              "ub": 4294967295
+            },
+            "status": "warning"
+          }
+        ],
+        "added": []
+      }
+    ],
+    "raw_checker_counts_equal": false
+  },
+  {
+    "run": "fmt/api-043",
+    "entry_points": "_ZN3fmt3v127ostream4growERNS0_6detail6bufferIcEEm",
+    "original_summary": {
+      "ok": 1,
+      "error": 1,
+      "warning": 1,
+      "unreachable": 5
+    },
+    "dev_summary": {
+      "ok": 1,
+      "error": 1,
+      "warning": 1,
+      "unreachable": 5
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-044",
+    "entry_points": "_ZN3fmt3v127ostreamC2ENS0_18basic_cstring_viewIcEERKNS0_6detail14ostream_paramsE",
+    "original_summary": {
+      "ok": 3,
+      "error": 1,
+      "warning": 2,
+      "unreachable": 7
+    },
+    "dev_summary": {
+      "ok": 3,
+      "error": 1,
+      "warning": 2,
+      "unreachable": 7
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-045",
+    "entry_points": "_ZN3fmt3v127ostreamC1ENS0_18basic_cstring_viewIcEERKNS0_6detail14ostream_paramsE",
+    "original_summary": {
+      "ok": 10,
+      "error": 1,
+      "warning": 3,
+      "unreachable": 8
+    },
+    "dev_summary": {
+      "ok": 10,
+      "error": 1,
+      "warning": 3,
+      "unreachable": 8
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-046",
+    "entry_points": "_ZN3fmt3v127ostreamC2EOS1_",
+    "original_summary": {
+      "ok": 6,
+      "error": 1,
+      "warning": 4,
+      "unreachable": 7
+    },
+    "dev_summary": {
+      "ok": 6,
+      "error": 1,
+      "warning": 4,
+      "unreachable": 7
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-047",
+    "entry_points": "_ZN3fmt3v127ostreamC1EOS1_",
+    "original_summary": {
+      "ok": 8,
+      "error": 1,
+      "warning": 4,
+      "unreachable": 8
+    },
+    "dev_summary": {
+      "ok": 8,
+      "error": 1,
+      "warning": 4,
+      "unreachable": 8
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-048",
+    "entry_points": "_ZN3fmt3v127ostreamD2Ev",
+    "original_summary": {
+      "ok": 2,
+      "error": 1,
+      "warning": 1,
+      "unreachable": 15
+    },
+    "dev_summary": {
+      "ok": 2,
+      "error": 1,
+      "warning": 1,
+      "unreachable": 15
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "fmt/api-049",
+    "entry_points": "_ZN3fmt3v127ostreamD1Ev",
+    "original_summary": {
+      "ok": 3,
+      "error": 1,
+      "warning": 1,
+      "unreachable": 16
+    },
+    "dev_summary": {
+      "ok": 3,
+      "error": 1,
+      "warning": 1,
+      "unreachable": 16
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "rclcpp/file-event",
+    "entry_points": "*",
+    "original_summary": {
+      "ok": 93,
+      "error": 0,
+      "warning": 57,
+      "unreachable": 0
+    },
+    "dev_summary": {
+      "ok": 93,
+      "error": 0,
+      "warning": 57,
+      "unreachable": 0
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "rclcpp/file-future_return_code",
+    "entry_points": "*",
+    "original_summary": {
+      "ok": 480,
+      "error": 1,
+      "warning": 306,
+      "unreachable": 3
+    },
+    "dev_summary": {
+      "ok": 480,
+      "error": 1,
+      "warning": 306,
+      "unreachable": 3
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "rclcpp/file-global_event_id_provider",
+    "entry_points": "*",
+    "original_summary": {
+      "ok": 0,
+      "error": 0,
+      "warning": 0,
+      "unreachable": 0
+    },
+    "dev_summary": {
+      "ok": 0,
+      "error": 0,
+      "warning": 0,
+      "unreachable": 0
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "rclcpp/file-rmw_implementation_specific_payload",
+    "entry_points": "*",
+    "original_summary": {
+      "ok": 10,
+      "error": 0,
+      "warning": 12,
+      "unreachable": 0
+    },
+    "dev_summary": {
+      "ok": 10,
+      "error": 0,
+      "warning": 12,
+      "unreachable": 0
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "tinyxml2/library-no-rtti-all",
+    "entry_points": "*",
+    "original_summary": {
+      "ok": 5052,
+      "error": 1,
+      "warning": 4853,
+      "unreachable": 53
+    },
+    "dev_summary": {
+      "ok": 5052,
+      "error": 1,
+      "warning": 4853,
+      "unreachable": 53
+    },
+    "site_changes": [],
+    "raw_checker_counts_equal": true
+  },
+  {
+    "run": "tinyxml2/xmltest-no-rtti-main",
+    "entry_points": "main",
+    "original_summary": {
+      "ok": 1348,
+      "error": 6,
+      "warning": 106,
+      "unreachable": 2451
+    },
+    "dev_summary": {
+      "ok": 1348,
+      "error": 6,
+      "warning": 106,
+      "unreachable": 2451
+    },
+    "site_changes": [
+      {
+        "site": {
+          "column": 10,
+          "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+          "function": "_ZN8tinyxml211XMLDocument8IdentifyEPcPPNS_7XMLNodeEb",
+          "kind": "buffer-overflow",
+          "line": 705,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "p"
+            },
+            {
+              "number": -1,
+              "repr": "1"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ],
+        "added": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 11,
+          "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+          "function": "_ZN8tinyxml211XMLDocument5ParseEv",
+          "kind": "buffer-overflow",
+          "line": 2567,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "p"
+            },
+            {
+              "number": -1,
+              "repr": "1"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ],
+        "added": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 13,
+          "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+          "function": "_ZN8tinyxml27XMLUtil7ReadBOMEPKcPb",
+          "kind": "buffer-overflow",
+          "line": 399,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "pu"
+            },
+            {
+              "number": -1,
+              "repr": "1"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ],
+        "added": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 14,
+          "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+          "function": "_ZN8tinyxml27XMLNode9ParseDeepEPcPNS_7StrPairEPi",
+          "kind": "buffer-overflow",
+          "line": 1102,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "p"
+            },
+            {
+              "number": -1,
+              "repr": "1"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ],
+        "added": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 16,
+          "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+          "function": "_ZN8tinyxml27XMLUtil7ReadBOMEPKcPb",
+          "kind": "buffer-overflow",
+          "line": 400,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "&pu[1]"
+            },
+            {
+              "number": -1,
+              "repr": "1"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ],
+        "added": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 16,
+          "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+          "function": "_ZN8tinyxml27XMLUtil7ReadBOMEPKcPb",
+          "kind": "buffer-overflow",
+          "line": 401,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "&pu[2]"
+            },
+            {
+              "number": -1,
+              "repr": "1"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ],
+        "added": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 16,
+          "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.h",
+          "function": "_ZN8tinyxml27XMLUtil11StringEqualEPKcS2_i",
+          "kind": "buffer-overflow",
+          "line": 598,
+          "operands": [
+            {
+              "number": 1,
+              "repr": "p"
+            },
+            {
+              "number": -1,
+              "repr": "1"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ],
+        "added": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 23,
+          "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+          "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+          "kind": "buffer-overflow",
+          "line": 2418,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "&this->_prev[size]"
+            },
+            {
+              "number": -1,
+              "repr": "1"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 18446744073709551614
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 18446744073709551614
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ],
+        "added": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 9223372036854775807
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 9223372036854775807
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 29,
+          "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.h",
+          "function": "_ZN8tinyxml27XMLUtil14SkipWhiteSpaceEPKcPi",
+          "kind": "buffer-overflow",
+          "line": 549,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "p"
+            },
+            {
+              "number": -1,
+              "repr": "1"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ],
+        "added": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ]
+      },
+      {
+        "site": {
+          "column": 34,
+          "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.h",
+          "function": "_ZN8tinyxml27XMLUtil14SkipWhiteSpaceEPKcPi",
+          "kind": "buffer-overflow",
+          "line": 550,
+          "operands": [
+            {
+              "number": 0,
+              "repr": "p"
+            },
+            {
+              "number": -1,
+              "repr": "1"
+            }
+          ]
+        },
+        "removed": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ],
+        "added": [
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          },
+          {
+            "info": {
+              "access_size": {
+                "lb": 1,
+                "type": "u64",
+                "ub": 1
+              },
+              "offset": {
+                "lb": 0,
+                "type": "u64",
+                "ub": 18446744073709551615
+              },
+              "points_to": [
+                {
+                  "diff": {
+                    "lb": 0,
+                    "type": "u64",
+                    "ub": 18446744073709551615
+                  },
+                  "kind": 4,
+                  "location": {
+                    "column": 19,
+                    "file": "/Users/baesungmin/master/experiment/realworld/tinyxml2/tinyxml2.cpp",
+                    "function": "_ZN8tinyxml211XMLDocument8LoadFileEP7__sFILE",
+                    "kind": "allocation",
+                    "line": 2411
+                  },
+                  "size": {
+                    "lb": 2,
+                    "type": "u64",
+                    "ub": 9223372036854775808
+                  },
+                  "status": 1
+                }
+              ]
+            },
+            "status": "warning"
+          }
+        ]
+      }
+    ],
+    "raw_checker_counts_equal": true
+  }
+]

@@ -40,6 +40,7 @@
 #
 ###############################################################################
 import argparse
+import subprocess
 
 from ikos import settings
 
@@ -125,7 +126,13 @@ def parse_argument(parser, name, choices, groups, default, value):
 
 class VersionAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        print('ikos %s' % settings.VERSION)
+        from ikos import buildinfo
+        try:
+            for line in buildinfo.version_lines(settings.ikos_analyzer()):
+                print(line)
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            parser.exit(1, 'Cannot identify installed analyzer build: %s\n'
+                        'Rebuild and run ninja install.\n' % error)
         print('Copyright (c) 2011-2023 United States Government as represented'
               ' by the')
         print('Administrator of the National Aeronautics and Space '

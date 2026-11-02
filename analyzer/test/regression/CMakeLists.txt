@@ -26,6 +26,12 @@ add_analysis_test(function-call fca)
 add_analysis_test(double-free dfa)
 add_analysis_test(soundness sound)
 
+add_test(NAME "analyzer-build-info"
+  COMMAND ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/check_buildinfo.py"
+    --module "${CMAKE_CURRENT_SOURCE_DIR}/../../python/ikos/buildinfo.py"
+    --analyzer "$<TARGET_FILE:ikos-analyzer>")
+
 add_test(NAME "analysis-parameter-symbolic-expressions"
   COMMAND ${PYTHON_EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/parameter_symbolic/runtest-expressions.py"

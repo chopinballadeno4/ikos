@@ -1,0 +1,1129 @@
+{
+  "entry": "_ZN3fmt3v126detail5printEP7__sFILENS0_17basic_string_viewIcEE",
+  "bc": "/private/tmp/ikos-realworld-20261101-pou0ms1d/fmt/core.bc",
+  "bc_sha256": "253ec20316f3149d4b2290d025202196322c2fa37df1f818f7129e59de3c8325",
+  "tools": {
+    "original": {
+      "checks": [
+        {
+          "kind": 5,
+          "status": 0,
+          "statement_id": 853,
+          "call_context_id": 117,
+          "info": null
+        },
+        {
+          "kind": 7,
+          "status": 0,
+          "statement_id": 847,
+          "call_context_id": 117,
+          "info": null
+        },
+        {
+          "kind": 8,
+          "status": 0,
+          "statement_id": 847,
+          "call_context_id": 117,
+          "info": null
+        },
+        {
+          "kind": 5,
+          "status": 1,
+          "statement_id": 853,
+          "call_context_id": 136,
+          "info": "{\"type\":\"u64\",\"lb\":0,\"ub\":4294967295}"
+        },
+        {
+          "kind": 7,
+          "status": 1,
+          "statement_id": 847,
+          "call_context_id": 136,
+          "info": "{\"left\":{\"type\":\"s32\",\"lb\":-2147483648,\"ub\":2147483647},\"right\":{\"type\":\"s32\",\"lb\":4,\"ub\":4}}"
+        },
+        {
+          "kind": 8,
+          "status": 1,
+          "statement_id": 847,
+          "call_context_id": 136,
+          "info": "{\"left\":{\"type\":\"s32\",\"lb\":-2147483648,\"ub\":2147483647},\"right\":{\"type\":\"s32\",\"lb\":4,\"ub\":4}}"
+        },
+        {
+          "kind": 5,
+          "status": 1,
+          "statement_id": 853,
+          "call_context_id": 151,
+          "info": "{\"type\":\"u64\",\"lb\":0,\"ub\":4294967295}"
+        },
+        {
+          "kind": 7,
+          "status": 1,
+          "statement_id": 847,
+          "call_context_id": 151,
+          "info": "{\"left\":{\"type\":\"s32\",\"lb\":-2147483648,\"ub\":2147483647},\"right\":{\"type\":\"s32\",\"lb\":4,\"ub\":4}}"
+        },
+        {
+          "kind": 8,
+          "status": 1,
+          "statement_id": 847,
+          "call_context_id": 151,
+          "info": "{\"left\":{\"type\":\"s32\",\"lb\":-2147483648,\"ub\":2147483647},\"right\":{\"type\":\"s32\",\"lb\":4,\"ub\":4}}"
+        }
+      ],
+      "call_chains": {
+        "117": [
+          {
+            "parent_id": 0,
+            "call_id": 11,
+            "name": "_ZN3fmt3v126detail5printEP7__sFILENS0_17basic_string_viewIcEE",
+            "demangled": "fmt::v12::detail::print(__sFILE*, fmt::v12::basic_string_view<char>)",
+            "line": 1760,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 3,
+            "call_id": 80,
+            "name": "_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE",
+            "demangled": "fmt::v12::detail::fwrite_all(void const*, unsigned long, __sFILE*)",
+            "line": 127,
+            "column": 5,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 15,
+            "call_id": 119,
+            "name": "_ZN3fmt3v1212system_errorIJEEENSt3__112system_errorEiNS0_7fstringIJDpT_EE1tEDpOS5_",
+            "demangled": "std::__1::system_error fmt::v12::system_error<>(int, fmt::v12::fstring<>::t)",
+            "line": 4593,
+            "column": 10,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 20,
+            "call_id": 149,
+            "name": "_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vsystem_error(int, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 187,
+            "column": 32,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 23,
+            "call_id": 202,
+            "name": "_ZN3fmt3v127vformatENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vformat(fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 1462,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 30,
+            "call_id": 319,
+            "name": "_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE",
+            "demangled": "fmt::v12::detail::vformat_to(fmt::v12::detail::buffer<char>&, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>, fmt::v12::locale_ref)",
+            "line": 1473,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 38,
+            "call_id": 485,
+            "name": "_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_",
+            "demangled": "void fmt::v12::detail::parse_format_string<char, fmt::v12::detail::format_handler<char>>(fmt::v12::basic_string_view<char>, fmt::v12::detail::format_handler<char>&&)",
+            "line": 1651,
+            "column": 19,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 61,
+            "call_id": 816,
+            "name": "_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_",
+            "demangled": "char const* fmt::v12::detail::parse_replacement_field<char, fmt::v12::detail::format_handler<char>&>(char const*, char const*, fmt::v12::detail::format_handler<char>&)",
+            "line": 1608,
+            "column": 13,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 107,
+            "call_id": 818,
+            "name": "_ZN3fmt3v126detail14format_handlerIcE20on_replacement_fieldEiPKc",
+            "demangled": "fmt::v12::detail::format_handler<char>::on_replacement_field(int, char const*)",
+            "line": 4063,
+            "column": 9,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 108,
+            "call_id": 820,
+            "name": "_ZNK3fmt3v127context3argEi",
+            "demangled": "fmt::v12::context::arg(int) const",
+            "line": 2665,
+            "column": 69,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 109,
+            "call_id": 846,
+            "name": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE3getEi",
+            "demangled": "fmt::v12::basic_format_args<fmt::v12::context>::get(int) const",
+            "line": 2616,
+            "column": 17,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          }
+        ],
+        "136": [
+          {
+            "parent_id": 0,
+            "call_id": 11,
+            "name": "_ZN3fmt3v126detail5printEP7__sFILENS0_17basic_string_viewIcEE",
+            "demangled": "fmt::v12::detail::print(__sFILE*, fmt::v12::basic_string_view<char>)",
+            "line": 1760,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 3,
+            "call_id": 80,
+            "name": "_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE",
+            "demangled": "fmt::v12::detail::fwrite_all(void const*, unsigned long, __sFILE*)",
+            "line": 127,
+            "column": 5,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 15,
+            "call_id": 119,
+            "name": "_ZN3fmt3v1212system_errorIJEEENSt3__112system_errorEiNS0_7fstringIJDpT_EE1tEDpOS5_",
+            "demangled": "std::__1::system_error fmt::v12::system_error<>(int, fmt::v12::fstring<>::t)",
+            "line": 4593,
+            "column": 10,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 20,
+            "call_id": 149,
+            "name": "_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vsystem_error(int, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 187,
+            "column": 32,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 23,
+            "call_id": 202,
+            "name": "_ZN3fmt3v127vformatENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vformat(fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 1462,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 30,
+            "call_id": 319,
+            "name": "_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE",
+            "demangled": "fmt::v12::detail::vformat_to(fmt::v12::detail::buffer<char>&, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>, fmt::v12::locale_ref)",
+            "line": 1473,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 38,
+            "call_id": 485,
+            "name": "_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_",
+            "demangled": "void fmt::v12::detail::parse_format_string<char, fmt::v12::detail::format_handler<char>>(fmt::v12::basic_string_view<char>, fmt::v12::detail::format_handler<char>&&)",
+            "line": 1651,
+            "column": 19,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 61,
+            "call_id": 1000,
+            "name": "_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_",
+            "demangled": "char const* fmt::v12::detail::parse_replacement_field<char, fmt::v12::detail::format_handler<char>&>(char const*, char const*, fmt::v12::detail::format_handler<char>&)",
+            "line": 1636,
+            "column": 19,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 126,
+            "call_id": 1002,
+            "name": "_ZN3fmt3v126detail14format_handlerIcE15on_format_specsEiPKcS5_",
+            "demangled": "fmt::v12::detail::format_handler<char>::on_format_specs(int, char const*, char const*)",
+            "line": 4068,
+            "column": 20,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 127,
+            "call_id": 820,
+            "name": "_ZNK3fmt3v127context3argEi",
+            "demangled": "fmt::v12::context::arg(int) const",
+            "line": 2665,
+            "column": 69,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 128,
+            "call_id": 846,
+            "name": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE3getEi",
+            "demangled": "fmt::v12::basic_format_args<fmt::v12::context>::get(int) const",
+            "line": 2616,
+            "column": 17,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          }
+        ],
+        "151": [
+          {
+            "parent_id": 0,
+            "call_id": 11,
+            "name": "_ZN3fmt3v126detail5printEP7__sFILENS0_17basic_string_viewIcEE",
+            "demangled": "fmt::v12::detail::print(__sFILE*, fmt::v12::basic_string_view<char>)",
+            "line": 1760,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 3,
+            "call_id": 80,
+            "name": "_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE",
+            "demangled": "fmt::v12::detail::fwrite_all(void const*, unsigned long, __sFILE*)",
+            "line": 127,
+            "column": 5,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 15,
+            "call_id": 119,
+            "name": "_ZN3fmt3v1212system_errorIJEEENSt3__112system_errorEiNS0_7fstringIJDpT_EE1tEDpOS5_",
+            "demangled": "std::__1::system_error fmt::v12::system_error<>(int, fmt::v12::fstring<>::t)",
+            "line": 4593,
+            "column": 10,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 20,
+            "call_id": 149,
+            "name": "_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vsystem_error(int, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 187,
+            "column": 32,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 23,
+            "call_id": 202,
+            "name": "_ZN3fmt3v127vformatENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vformat(fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 1462,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 30,
+            "call_id": 319,
+            "name": "_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE",
+            "demangled": "fmt::v12::detail::vformat_to(fmt::v12::detail::buffer<char>&, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>, fmt::v12::locale_ref)",
+            "line": 1473,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 38,
+            "call_id": 485,
+            "name": "_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_",
+            "demangled": "void fmt::v12::detail::parse_format_string<char, fmt::v12::detail::format_handler<char>>(fmt::v12::basic_string_view<char>, fmt::v12::detail::format_handler<char>&&)",
+            "line": 1651,
+            "column": 19,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 61,
+            "call_id": 1072,
+            "name": "_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_",
+            "demangled": "char const* fmt::v12::detail::parse_replacement_field<char, fmt::v12::detail::format_handler<char>&>(char const*, char const*, fmt::v12::detail::format_handler<char>&)",
+            "line": 1626,
+            "column": 15,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 141,
+            "call_id": 818,
+            "name": "_ZN3fmt3v126detail14format_handlerIcE20on_replacement_fieldEiPKc",
+            "demangled": "fmt::v12::detail::format_handler<char>::on_replacement_field(int, char const*)",
+            "line": 4063,
+            "column": 9,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 142,
+            "call_id": 820,
+            "name": "_ZNK3fmt3v127context3argEi",
+            "demangled": "fmt::v12::context::arg(int) const",
+            "line": 2665,
+            "column": 69,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 143,
+            "call_id": 846,
+            "name": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE3getEi",
+            "demangled": "fmt::v12::basic_format_args<fmt::v12::context>::get(int) const",
+            "line": 2616,
+            "column": 17,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          }
+        ]
+      },
+      "focused": {
+        "tool": "original",
+        "rc": 0,
+        "command": [
+          "/Users/baesungmin/Projects/ikos/install/bin/ikos",
+          "/private/tmp/ikos-realworld-20261101-pou0ms1d/fmt/core.bc",
+          "-a",
+          "sio,shc",
+          "-e",
+          "_ZN3fmt3v126detail5printEP7__sFILENS0_17basic_string_viewIcEE",
+          "--domain=interval",
+          "--globals-init=all",
+          "--proc=inter",
+          "--opt=basic",
+          "-j",
+          "1",
+          "--color=no",
+          "--progress=no",
+          "--display-times=full",
+          "--format=no",
+          "-o",
+          "/private/tmp/ikos-fmt-first-warning-7h56ezrl/original.db",
+          "--display-inv=all",
+          "--display-checks=all"
+        ],
+        "seconds": 1.505207167007029,
+        "selected": [
+          "../realworld/fmt/include/fmt/core.h:2573:23: [ok] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [underflow]: lower_bound >= min",
+          "../realworld/fmt/include/fmt/core.h:2573:23: [ok] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [overflow]: upper_bound <= max",
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> I",
+              "id -> [0, 0]",
+              "id -> [0, 0]",
+              "index -> [0, 0]",
+              "id -> [0, 0]"
+            ],
+            "state_suffix": "lMemoryLocation{$_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE.agg.tmp11} -> A; LocalMemoryLocation{$_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE.agg.tmp2} -> A; LocalMemoryLocation{$_ZN3fmt3v126detail13get_containerINS0_14basic_appenderIcEEEERNT_14container_typeES5_.ref.tmp} -> DA; LocalMemoryLocation{$_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_.fmt} -> A}), caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> I",
+              "id -> [0, 0]",
+              "id -> [0, 0]",
+              "index -> [0, 0]",
+              "id -> [0, 0]"
+            ],
+            "state_suffix": "lMemoryLocation{$_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE.agg.tmp11} -> A; LocalMemoryLocation{$_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE.agg.tmp2} -> A; LocalMemoryLocation{$_ZN3fmt3v126detail13get_containerINS0_14basic_appenderIcEEEERNT_14container_typeES5_.ref.tmp} -> DA; LocalMemoryLocation{$_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_.fmt} -> A}), caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2575:45: [ok] check_shc(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.shr = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.2 ulshr %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.sh_prom): \u2200c \u2208 shift_count, 0 <= c < 64",
+          "../realworld/fmt/include/fmt/core.h:2575:45: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> I",
+              "id -> [0, 0]",
+              "id -> [0, 0]",
+              "index -> [0, 0]",
+              "id -> [0, 0]"
+            ],
+            "state_suffix": "lMemoryLocation{$_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE.agg.tmp11} -> A; LocalMemoryLocation{$_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE.agg.tmp2} -> A; LocalMemoryLocation{$_ZN3fmt3v126detail13get_containerINS0_14basic_appenderIcEEEERNT_14container_typeES5_.ref.tmp} -> DA; LocalMemoryLocation{$_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_.fmt} -> A}), caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2573:23: [warning] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [underflow]: lower_bound < min",
+          "../realworld/fmt/include/fmt/core.h:2573:23: [warning] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [overflow]: upper_bound > max",
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> I"
+            ],
+            "state_suffix": "lMemoryLocation{$_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE.agg.tmp11} -> A; LocalMemoryLocation{$_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE.agg.tmp2} -> A; LocalMemoryLocation{$_ZN3fmt3v126detail13get_containerINS0_14basic_appenderIcEEEERNT_14container_typeES5_.ref.tmp} -> DA; LocalMemoryLocation{$_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_.fmt} -> A}), caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> I"
+            ],
+            "state_suffix": "lMemoryLocation{$_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE.agg.tmp11} -> A; LocalMemoryLocation{$_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE.agg.tmp2} -> A; LocalMemoryLocation{$_ZN3fmt3v126detail13get_containerINS0_14basic_appenderIcEEEERNT_14container_typeES5_.ref.tmp} -> DA; LocalMemoryLocation{$_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_.fmt} -> A}), caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2575:45: [warning] check_shc(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.shr = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.2 ulshr %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.sh_prom): \u2203c \u2208 shift_count, c >= 64",
+          "../realworld/fmt/include/fmt/core.h:2575:45: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> I"
+            ],
+            "state_suffix": "lMemoryLocation{$_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE.agg.tmp11} -> A; LocalMemoryLocation{$_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE.agg.tmp2} -> A; LocalMemoryLocation{$_ZN3fmt3v126detail13get_containerINS0_14basic_appenderIcEEEERNT_14container_typeES5_.ref.tmp} -> DA; LocalMemoryLocation{$_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_.fmt} -> A}), caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2573:23: [warning] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [underflow]: lower_bound < min",
+          "../realworld/fmt/include/fmt/core.h:2573:23: [warning] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [overflow]: upper_bound > max",
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> I"
+            ],
+            "state_suffix": "lMemoryLocation{$_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE.agg.tmp11} -> A; LocalMemoryLocation{$_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE.agg.tmp2} -> A; LocalMemoryLocation{$_ZN3fmt3v126detail13get_containerINS0_14basic_appenderIcEEEERNT_14container_typeES5_.ref.tmp} -> DA; LocalMemoryLocation{$_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_.fmt} -> A}), caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> I"
+            ],
+            "state_suffix": "lMemoryLocation{$_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE.agg.tmp11} -> A; LocalMemoryLocation{$_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE.agg.tmp2} -> A; LocalMemoryLocation{$_ZN3fmt3v126detail13get_containerINS0_14basic_appenderIcEEEERNT_14container_typeES5_.ref.tmp} -> DA; LocalMemoryLocation{$_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_.fmt} -> A}), caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2575:45: [warning] check_shc(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.shr = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.2 ulshr %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.sh_prom): \u2203c \u2208 shift_count, c >= 64",
+          "../realworld/fmt/include/fmt/core.h:2575:45: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> I"
+            ],
+            "state_suffix": "lMemoryLocation{$_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE.agg.tmp11} -> A; LocalMemoryLocation{$_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE.agg.tmp2} -> A; LocalMemoryLocation{$_ZN3fmt3v126detail13get_containerINS0_14basic_appenderIcEEEERNT_14container_typeES5_.ref.tmp} -> DA; LocalMemoryLocation{$_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_.fmt} -> A}), caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          }
+        ]
+      },
+      "intra_control": {
+        "command": [
+          "/Users/baesungmin/Projects/ikos/install/bin/ikos",
+          "/private/tmp/ikos-fmt-first-warning-7h56ezrl/cast_only.bc",
+          "-a",
+          "sio,shc",
+          "-e",
+          "probe",
+          "--proc=intra",
+          "--domain=interval",
+          "--opt=basic",
+          "--color=no",
+          "--progress=no",
+          "--format=no",
+          "-o",
+          "/private/tmp/ikos-fmt-first-warning-7h56ezrl/original-cast-only.db"
+        ],
+        "rc": 0,
+        "raw_checks": [
+          [
+            5,
+            1,
+            1
+          ],
+          [
+            7,
+            1,
+            1
+          ],
+          [
+            8,
+            1,
+            1
+          ]
+        ]
+      }
+    },
+    "dev": {
+      "checks": [
+        {
+          "kind": 5,
+          "status": 0,
+          "statement_id": 853,
+          "call_context_id": 117,
+          "info": null
+        },
+        {
+          "kind": 7,
+          "status": 0,
+          "statement_id": 847,
+          "call_context_id": 117,
+          "info": null
+        },
+        {
+          "kind": 8,
+          "status": 0,
+          "statement_id": 847,
+          "call_context_id": 117,
+          "info": null
+        },
+        {
+          "kind": 5,
+          "status": 0,
+          "statement_id": 853,
+          "call_context_id": 136,
+          "info": null
+        },
+        {
+          "kind": 7,
+          "status": 0,
+          "statement_id": 847,
+          "call_context_id": 136,
+          "info": null
+        },
+        {
+          "kind": 8,
+          "status": 0,
+          "statement_id": 847,
+          "call_context_id": 136,
+          "info": null
+        },
+        {
+          "kind": 5,
+          "status": 0,
+          "statement_id": 853,
+          "call_context_id": 151,
+          "info": null
+        },
+        {
+          "kind": 7,
+          "status": 0,
+          "statement_id": 847,
+          "call_context_id": 151,
+          "info": null
+        },
+        {
+          "kind": 8,
+          "status": 0,
+          "statement_id": 847,
+          "call_context_id": 151,
+          "info": null
+        }
+      ],
+      "call_chains": {
+        "117": [
+          {
+            "parent_id": 0,
+            "call_id": 11,
+            "name": "_ZN3fmt3v126detail5printEP7__sFILENS0_17basic_string_viewIcEE",
+            "demangled": "fmt::v12::detail::print(__sFILE*, fmt::v12::basic_string_view<char>)",
+            "line": 1760,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 3,
+            "call_id": 80,
+            "name": "_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE",
+            "demangled": "fmt::v12::detail::fwrite_all(void const*, unsigned long, __sFILE*)",
+            "line": 127,
+            "column": 5,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 15,
+            "call_id": 119,
+            "name": "_ZN3fmt3v1212system_errorIJEEENSt3__112system_errorEiNS0_7fstringIJDpT_EE1tEDpOS5_",
+            "demangled": "std::__1::system_error fmt::v12::system_error<>(int, fmt::v12::fstring<>::t)",
+            "line": 4593,
+            "column": 10,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 20,
+            "call_id": 149,
+            "name": "_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vsystem_error(int, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 187,
+            "column": 32,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 23,
+            "call_id": 202,
+            "name": "_ZN3fmt3v127vformatENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vformat(fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 1462,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 30,
+            "call_id": 319,
+            "name": "_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE",
+            "demangled": "fmt::v12::detail::vformat_to(fmt::v12::detail::buffer<char>&, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>, fmt::v12::locale_ref)",
+            "line": 1473,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 38,
+            "call_id": 485,
+            "name": "_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_",
+            "demangled": "void fmt::v12::detail::parse_format_string<char, fmt::v12::detail::format_handler<char>>(fmt::v12::basic_string_view<char>, fmt::v12::detail::format_handler<char>&&)",
+            "line": 1651,
+            "column": 19,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 61,
+            "call_id": 816,
+            "name": "_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_",
+            "demangled": "char const* fmt::v12::detail::parse_replacement_field<char, fmt::v12::detail::format_handler<char>&>(char const*, char const*, fmt::v12::detail::format_handler<char>&)",
+            "line": 1608,
+            "column": 13,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 107,
+            "call_id": 818,
+            "name": "_ZN3fmt3v126detail14format_handlerIcE20on_replacement_fieldEiPKc",
+            "demangled": "fmt::v12::detail::format_handler<char>::on_replacement_field(int, char const*)",
+            "line": 4063,
+            "column": 9,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 108,
+            "call_id": 820,
+            "name": "_ZNK3fmt3v127context3argEi",
+            "demangled": "fmt::v12::context::arg(int) const",
+            "line": 2665,
+            "column": 69,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 109,
+            "call_id": 846,
+            "name": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE3getEi",
+            "demangled": "fmt::v12::basic_format_args<fmt::v12::context>::get(int) const",
+            "line": 2616,
+            "column": 17,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          }
+        ],
+        "136": [
+          {
+            "parent_id": 0,
+            "call_id": 11,
+            "name": "_ZN3fmt3v126detail5printEP7__sFILENS0_17basic_string_viewIcEE",
+            "demangled": "fmt::v12::detail::print(__sFILE*, fmt::v12::basic_string_view<char>)",
+            "line": 1760,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 3,
+            "call_id": 80,
+            "name": "_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE",
+            "demangled": "fmt::v12::detail::fwrite_all(void const*, unsigned long, __sFILE*)",
+            "line": 127,
+            "column": 5,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 15,
+            "call_id": 119,
+            "name": "_ZN3fmt3v1212system_errorIJEEENSt3__112system_errorEiNS0_7fstringIJDpT_EE1tEDpOS5_",
+            "demangled": "std::__1::system_error fmt::v12::system_error<>(int, fmt::v12::fstring<>::t)",
+            "line": 4593,
+            "column": 10,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 20,
+            "call_id": 149,
+            "name": "_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vsystem_error(int, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 187,
+            "column": 32,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 23,
+            "call_id": 202,
+            "name": "_ZN3fmt3v127vformatENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vformat(fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 1462,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 30,
+            "call_id": 319,
+            "name": "_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE",
+            "demangled": "fmt::v12::detail::vformat_to(fmt::v12::detail::buffer<char>&, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>, fmt::v12::locale_ref)",
+            "line": 1473,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 38,
+            "call_id": 485,
+            "name": "_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_",
+            "demangled": "void fmt::v12::detail::parse_format_string<char, fmt::v12::detail::format_handler<char>>(fmt::v12::basic_string_view<char>, fmt::v12::detail::format_handler<char>&&)",
+            "line": 1651,
+            "column": 19,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 61,
+            "call_id": 1000,
+            "name": "_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_",
+            "demangled": "char const* fmt::v12::detail::parse_replacement_field<char, fmt::v12::detail::format_handler<char>&>(char const*, char const*, fmt::v12::detail::format_handler<char>&)",
+            "line": 1636,
+            "column": 19,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 126,
+            "call_id": 1002,
+            "name": "_ZN3fmt3v126detail14format_handlerIcE15on_format_specsEiPKcS5_",
+            "demangled": "fmt::v12::detail::format_handler<char>::on_format_specs(int, char const*, char const*)",
+            "line": 4068,
+            "column": 20,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 127,
+            "call_id": 820,
+            "name": "_ZNK3fmt3v127context3argEi",
+            "demangled": "fmt::v12::context::arg(int) const",
+            "line": 2665,
+            "column": 69,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 128,
+            "call_id": 846,
+            "name": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE3getEi",
+            "demangled": "fmt::v12::basic_format_args<fmt::v12::context>::get(int) const",
+            "line": 2616,
+            "column": 17,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          }
+        ],
+        "151": [
+          {
+            "parent_id": 0,
+            "call_id": 11,
+            "name": "_ZN3fmt3v126detail5printEP7__sFILENS0_17basic_string_viewIcEE",
+            "demangled": "fmt::v12::detail::print(__sFILE*, fmt::v12::basic_string_view<char>)",
+            "line": 1760,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 3,
+            "call_id": 80,
+            "name": "_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE",
+            "demangled": "fmt::v12::detail::fwrite_all(void const*, unsigned long, __sFILE*)",
+            "line": 127,
+            "column": 5,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 15,
+            "call_id": 119,
+            "name": "_ZN3fmt3v1212system_errorIJEEENSt3__112system_errorEiNS0_7fstringIJDpT_EE1tEDpOS5_",
+            "demangled": "std::__1::system_error fmt::v12::system_error<>(int, fmt::v12::fstring<>::t)",
+            "line": 4593,
+            "column": 10,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 20,
+            "call_id": 149,
+            "name": "_ZN3fmt3v1213vsystem_errorEiNS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vsystem_error(int, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 187,
+            "column": 32,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 23,
+            "call_id": 202,
+            "name": "_ZN3fmt3v127vformatENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEE",
+            "demangled": "fmt::v12::vformat(fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>)",
+            "line": 1462,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 30,
+            "call_id": 319,
+            "name": "_ZN3fmt3v126detail10vformat_toERNS1_6bufferIcEENS0_17basic_string_viewIcEENS0_17basic_format_argsINS0_7contextEEENS0_10locale_refE",
+            "demangled": "fmt::v12::detail::vformat_to(fmt::v12::detail::buffer<char>&, fmt::v12::basic_string_view<char>, fmt::v12::basic_format_args<fmt::v12::context>, fmt::v12::locale_ref)",
+            "line": 1473,
+            "column": 3,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format-inl.h"
+          },
+          {
+            "parent_id": 38,
+            "call_id": 485,
+            "name": "_ZN3fmt3v126detail19parse_format_stringIcNS1_14format_handlerIcEEEEvNS0_17basic_string_viewIT_EEOT0_",
+            "demangled": "void fmt::v12::detail::parse_format_string<char, fmt::v12::detail::format_handler<char>>(fmt::v12::basic_string_view<char>, fmt::v12::detail::format_handler<char>&&)",
+            "line": 1651,
+            "column": 19,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 61,
+            "call_id": 1072,
+            "name": "_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_",
+            "demangled": "char const* fmt::v12::detail::parse_replacement_field<char, fmt::v12::detail::format_handler<char>&>(char const*, char const*, fmt::v12::detail::format_handler<char>&)",
+            "line": 1626,
+            "column": 15,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 141,
+            "call_id": 818,
+            "name": "_ZN3fmt3v126detail14format_handlerIcE20on_replacement_fieldEiPKc",
+            "demangled": "fmt::v12::detail::format_handler<char>::on_replacement_field(int, char const*)",
+            "line": 4063,
+            "column": 9,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/format.h"
+          },
+          {
+            "parent_id": 142,
+            "call_id": 820,
+            "name": "_ZNK3fmt3v127context3argEi",
+            "demangled": "fmt::v12::context::arg(int) const",
+            "line": 2665,
+            "column": 69,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          },
+          {
+            "parent_id": 143,
+            "call_id": 846,
+            "name": "_ZNK3fmt3v1217basic_format_argsINS0_7contextEE3getEi",
+            "demangled": "fmt::v12::basic_format_args<fmt::v12::context>::get(int) const",
+            "line": 2616,
+            "column": 17,
+            "path": "/Users/baesungmin/master/experiment/realworld/fmt/include/fmt/core.h"
+          }
+        ]
+      },
+      "focused": {
+        "tool": "dev",
+        "rc": 0,
+        "command": [
+          "/Users/baesungmin/.local/bin/ikos-dev",
+          "/private/tmp/ikos-realworld-20261101-pou0ms1d/fmt/core.bc",
+          "-a",
+          "sio,shc",
+          "-e",
+          "_ZN3fmt3v126detail5printEP7__sFILENS0_17basic_string_viewIcEE",
+          "--domain=interval",
+          "--globals-init=all",
+          "--proc=inter",
+          "--opt=basic",
+          "-j",
+          "1",
+          "--color=no",
+          "--progress=no",
+          "--display-times=full",
+          "--format=no",
+          "-o",
+          "/private/tmp/ikos-fmt-first-warning-7h56ezrl/dev.db",
+          "--display-inv=all",
+          "--display-checks=all"
+        ],
+        "seconds": 3.5977284996770322,
+        "selected": [
+          "../realworld/fmt/include/fmt/core.h:2573:23: [ok] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [underflow]: lower_bound >= min",
+          "../realworld/fmt/include/fmt/core.h:2573:23: [ok] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [overflow]: upper_bound <= max",
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> [0, 0]",
+              "id -> [0, 0]",
+              "id -> [0, 0]",
+              "index -> [0, 0]"
+            ],
+            "state_suffix": "IcEEEEPKT_S8_S8_OT0_.2)=>[125, 125], SCast_32(UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1)))=>[0, 0], UCast_32(%_ZN3fmt3v1213parse_contextIcE11next_arg_idEv.3)=>[0, 0], UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1))=>[0, 0], SCast_64(UAnd_64(9223372036854775808, %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE9is_packedEv.2))=>[0, 0], UCast_64(%_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE.3)=>[0, 18446744073709551614]}, caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> [0, 0]",
+              "id -> [0, 0]",
+              "id -> [0, 0]",
+              "index -> [0, 0]"
+            ],
+            "state_suffix": "IcEEEEPKT_S8_S8_OT0_.2)=>[125, 125], SCast_32(UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1)))=>[0, 0], UCast_32(%_ZN3fmt3v1213parse_contextIcE11next_arg_idEv.3)=>[0, 0], UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1))=>[0, 0], SCast_64(UAnd_64(9223372036854775808, %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE9is_packedEv.2))=>[0, 0], UCast_64(%_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE.3)=>[0, 18446744073709551614]}, caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2575:45: [ok] check_shc(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.shr = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.2 ulshr %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.sh_prom): \u2200c \u2208 shift_count, 0 <= c < 64",
+          "../realworld/fmt/include/fmt/core.h:2575:45: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> [0, 0]",
+              "id -> [0, 0]",
+              "id -> [0, 0]",
+              "index -> [0, 0]"
+            ],
+            "state_suffix": "UCast_32(%_ZN3fmt3v1213parse_contextIcE11next_arg_idEv.3)=>[0, 0], UCast_32(SMul_32(4, %_ZN3fmt3v1213parse_contextIcE11next_arg_idEv.3))=>[0, 0], UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1))=>[0, 0], SCast_64(UAnd_64(9223372036854775808, %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE9is_packedEv.2))=>[0, 0], UCast_64(%_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE.3)=>[0, 18446744073709551614], UCast_64(UCast_32(SMul_32(4, %_ZN3fmt3v1213parse_contextIcE11next_arg_idEv.3)))=>[0, 0]}, caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2573:23: [ok] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [underflow]: lower_bound >= min",
+          "../realworld/fmt/include/fmt/core.h:2573:23: [ok] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [overflow]: upper_bound <= max",
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "index -> [0, 14]"
+            ],
+            "state_suffix": "t_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1)))=>[0, 0], UCast_32(%_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_.arg_id.0)=>[0, 14], UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1))=>[0, 0], SCast_64(UAnd_64(9223372036854775808, %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE9is_packedEv.2))=>[0, 0], UCast_64(%_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE.3)=>[0, 18446744073709551614]}, caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "index -> [0, 14]"
+            ],
+            "state_suffix": "t_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1)))=>[0, 0], UCast_32(%_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_.arg_id.0)=>[0, 14], UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1))=>[0, 0], SCast_64(UAnd_64(9223372036854775808, %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE9is_packedEv.2))=>[0, 0], UCast_64(%_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE.3)=>[0, 18446744073709551614]}, caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2575:45: [ok] check_shc(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.shr = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.2 ulshr %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.sh_prom): \u2200c \u2208 shift_count, 0 <= c < 64",
+          "../realworld/fmt/include/fmt/core.h:2575:45: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "index -> [0, 14]"
+            ],
+            "state_suffix": "detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_.arg_id.0))=>[0, 56], UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1))=>[0, 0], SCast_64(UAnd_64(9223372036854775808, %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE9is_packedEv.2))=>[0, 0], UCast_64(%_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE.3)=>[0, 18446744073709551614], UCast_64(UCast_32(SMul_32(4, %_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_.arg_id.0)))=>[0, 56]}, caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2573:23: [ok] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [underflow]: lower_bound >= min",
+          "../realworld/fmt/include/fmt/core.h:2573:23: [ok] check_sio(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.mul = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.index smul.nw 4) [overflow]: upper_bound <= max",
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "index -> [0, 14]"
+            ],
+            "state_suffix": "32(UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1)))=>[0, 0], UCast_32(%_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_.3)=>[0, 14], UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1))=>[0, 0], SCast_64(UAnd_64(9223372036854775808, %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE9is_packedEv.2))=>[0, 0], UCast_64(%_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE.3)=>[0, 18446744073709551614]}, caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2573:23: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "index -> [0, 14]"
+            ],
+            "state_suffix": "32(UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1)))=>[0, 0], UCast_32(%_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_.3)=>[0, 14], UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1))=>[0, 0], SCast_64(UAnd_64(9223372036854775808, %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE9is_packedEv.2))=>[0, 0], UCast_64(%_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE.3)=>[0, 18446744073709551614]}, caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          },
+          "../realworld/fmt/include/fmt/core.h:2575:45: [ok] check_shc(%_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.shr = %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.2 ulshr %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE4typeEi.sh_prom): \u2200c \u2208 shift_count, 0 <= c < 64",
+          "../realworld/fmt/include/fmt/core.h:2575:45: Invariant:",
+          {
+            "target_variables": [
+              "id -> I",
+              "id -> I",
+              "id -> I",
+              "index -> I",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "id -> [0, 14]",
+              "index -> [0, 14]"
+            ],
+            "state_suffix": " %_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_.3))=>[0, 56], UCast_32(UCast_8(%_ZN3fmt3v126detail22compile_string_to_viewIcLm21EEENS0_17basic_string_viewIT_EERAT0__KS4_.1))=>[0, 0], SCast_64(UAnd_64(9223372036854775808, %_ZNK3fmt3v1217basic_format_argsINS0_7contextEE9is_packedEv.2))=>[0, 0], UCast_64(%_ZN3fmt3v126detail10fwrite_allEPKvmP7__sFILE.3)=>[0, 18446744073709551614], UCast_64(UCast_32(SMul_32(4, %_ZN3fmt3v126detail23parse_replacement_fieldIcRNS1_14format_handlerIcEEEEPKT_S8_S8_OT0_.3)))=>[0, 56]}, caught_exceptions=\u22a5, propagated_exceptions=\u22a5)\n"
+          }
+        ]
+      },
+      "intra_control": {
+        "command": [
+          "/Users/baesungmin/.local/bin/ikos-dev",
+          "/private/tmp/ikos-fmt-first-warning-7h56ezrl/cast_only.bc",
+          "-a",
+          "sio,shc",
+          "-e",
+          "probe",
+          "--proc=intra",
+          "--domain=interval",
+          "--opt=basic",
+          "--color=no",
+          "--progress=no",
+          "--format=no",
+          "-o",
+          "/private/tmp/ikos-fmt-first-warning-7h56ezrl/dev-cast-only.db"
+        ],
+        "rc": 0,
+        "raw_checks": [
+          [
+            5,
+            0,
+            1
+          ],
+          [
+            7,
+            0,
+            1
+          ],
+          [
+            8,
+            0,
+            1
+          ]
+        ]
+      }
+    }
+  },
+  "focused_run_root": "/private/tmp/ikos-fmt-first-warning-7h56ezrl",
+  "intra_control_source": "#include <ikos/analyzer/intrinsic.h>\nextern \"C\" unsigned long probe() {\n  int id = __ikos_nondet_int();\n  if (static_cast<unsigned>(id) >= 15) return 0;\n  int shift = id * 4;\n  return static_cast<unsigned long>(__ikos_nondet_uint()) >> shift;\n}\n"
+}

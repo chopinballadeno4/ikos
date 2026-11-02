@@ -311,6 +311,28 @@ if (APRON_FOUND)
 endif()
 install(TARGETS ikos-analyzer RUNTIME DESTINATION bin)
 
+# Recompute the source identity on every build, including uncommitted edits.
+# The generator keeps outputs unchanged on no-op builds, avoiding relinks.
+set(IKOS_BUILD_INFO_CPP "${CMAKE_CURRENT_BINARY_DIR}/build-info.cpp")
+string(TOUPPER "${CMAKE_BUILD_TYPE}" IKOS_BUILD_MODE_UPPER)
+add_custom_target(ikos-build-info
+  COMMAND ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/python/ikos/buildinfo.py"
+    --output "${IKOS_BUILD_INFO_CPP}"
+    --source-root "${CMAKE_CURRENT_SOURCE_DIR}/.."
+    --build-binary "${CMAKE_CURRENT_BINARY_DIR}/ikos-analyzer${CMAKE_EXECUTABLE_SUFFIX}"
+    --upstream "${PACKAGE_VERSION}"
+    --build-mode "${CMAKE_BUILD_TYPE}"
+    --compiler "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
+    "--build-flags=${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${IKOS_BUILD_MODE_UPPER}}"
+    --llvm-version "${LLVM_VERSION}"
+    --features "APRON=${APRON_FOUND},LLVM_DYLIB=${IKOS_LINK_LLVM_DYLIB}"
+  BYPRODUCTS "${IKOS_BUILD_INFO_CPP}" "${CMAKE_CURRENT_BINARY_DIR}/build-info.json"
+  VERBATIM)
+set_source_files_properties("${IKOS_BUILD_INFO_CPP}" PROPERTIES GENERATED TRUE)
+target_sources(ikos-analyzer PRIVATE "${IKOS_BUILD_INFO_CPP}")
+add_dependencies(ikos-analyzer ikos-build-info)
+
 # python wrapper
 option(APPEND_GIT_VERSION "Append the current git commit to the version number" OFF)
 option(FORCE_UPDATE_VERSION "Force the update of the version on every build" OFF)

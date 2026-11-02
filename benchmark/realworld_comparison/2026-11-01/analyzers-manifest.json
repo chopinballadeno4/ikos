@@ -1,0 +1,26 @@
+{
+  "original": {
+    "launcher": "/Users/baesungmin/Projects/ikos/install/bin/ikos",
+    "native_analyzer": "/Users/baesungmin/Projects/ikos/install/bin/ikos-analyzer",
+    "sha256": "57a8b1af296f100fb113af4c35977378287c444cdd8eadd52432700a446be7dc",
+    "version": "ikos 3.5\nCopyright (c) 2011-2023 United States Government as represented by the\nAdministrator of the National Aeronautics and Space Administration.\nAll Rights Reserved.\n",
+    "settings": {
+      "BUILD_MODE": "Release",
+      "LLVM_VERSION": "14.0.6",
+      "CLANG_VERSION": "14.0.6",
+      "VERSION": "3.5"
+    }
+  },
+  "dev": {
+    "launcher": "/Users/baesungmin/master/experiment/ikos/install/bin/ikos",
+    "native_analyzer": "/Users/baesungmin/master/experiment/ikos/install/bin/ikos-analyzer",
+    "sha256": "51eadfbb3bc2a99f95e40090e54787cb45b6a0e8c485caaf05b02e2ba6112faf",
+    "version": "ikos-dev 0.1.0 (IKOS 3.5)\nBuild ID: 0df12a65a2013de5\nGit: 4ebc64f71df5-dirty\nBuilt UTC: 2026-11-01T11:45:39Z\nBuild mode: Debug\nSource SHA256: bc74c0c75abec611ebb2ab9ed16a7d6ee48f062ee86070152e0a4ce1362a6ee8\nAnalyzer: /Users/baesungmin/master/experiment/ikos/install/bin/ikos-analyzer\nSource check: MATCH\nInstall check: MATCH\nCopyright (c) 2011-2023 United States Government as represented by the\nAdministrator of the National Aeronautics and Space Administration.\nAll Rights Reserved.\n",
+    "settings": {
+      "BUILD_MODE": "Debug",
+      "LLVM_VERSION": "14.0.6",
+      "CLANG_VERSION": "14.0.6",
+      "VERSION": "3.5"
+    }
+  }
+}

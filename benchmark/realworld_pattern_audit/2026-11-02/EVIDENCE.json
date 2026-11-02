@@ -1,0 +1,2697 @@
+{
+  "roots": [
+    "/private/tmp/ikos-pattern-audit-g4r7jm4y",
+    "/private/tmp/ikos-pattern-audit-k4hbk3e3",
+    "/private/tmp/ikos-pattern-audit-e6_tzp6r"
+  ],
+  "runs": [
+    {
+      "case": "fmt",
+      "entry": "probe_normal",
+      "tool": "original",
+      "rc": 0,
+      "summary": {
+        "safe": 17,
+        "unsafe": 0,
+        "warning": 4,
+        "unreachable": 0
+      },
+      "bc_sha256": "3ad383dcf6d7e0189e93b5a817b008620ef0acefaa8d88041836976d1bd7469c",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/fmt/probe_normal-original.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/fmt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 3,
+          "statement_id": 17,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n >= 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "prover",
+        "dbz",
+        "uio",
+        "dca",
+        "sio",
+        "nullity",
+        "dfa",
+        "pcmp",
+        "fca",
+        "uva",
+        "watch",
+        "upa",
+        "sound",
+        "shc",
+        "boa",
+        "dbg",
+        "poa"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/fmt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 3,
+          "statement_id": 17,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n >= 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": []
+    },
+    {
+      "case": "fmt",
+      "entry": "probe_normal",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 18,
+        "unsafe": 0,
+        "warning": 3,
+        "unreachable": 0
+      },
+      "bc_sha256": "3ad383dcf6d7e0189e93b5a817b008620ef0acefaa8d88041836976d1bd7469c",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/fmt/probe_normal-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/fmt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 3,
+          "statement_id": 17,
+          "kind": "assert",
+          "status": "ok",
+          "operands": null,
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "fca",
+        "dca",
+        "boa",
+        "dbg",
+        "prover",
+        "sio",
+        "dfa",
+        "upa",
+        "shc",
+        "sound",
+        "uva",
+        "watch",
+        "dbz",
+        "poa",
+        "pcmp",
+        "uio",
+        "nullity"
+      ],
+      "probe_warnings": [],
+      "native_summaries": [
+        {
+          "function": "_ZN3fmt3v1211assert_failEPKciS2_",
+          "flow": "normal",
+          "coverage": "Complete",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN3fmt3v1211assert_failEPKciS2_",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN3fmt3v126detail11to_unsignedIiEENSt3__113make_unsignedIT_E4typeES5_",
+          "flow": "normal",
+          "coverage": "Partial",
+          "condition": "value0 >= 0"
+        },
+        {
+          "function": "_ZN3fmt3v126detail11to_unsignedIiEENSt3__113make_unsignedIT_E4typeES5_",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "fmt-ndebug",
+      "entry": "probe_normal",
+      "tool": "original",
+      "rc": 0,
+      "summary": {
+        "safe": 13,
+        "unsafe": 0,
+        "warning": 1,
+        "unreachable": 0
+      },
+      "bc_sha256": "eda5349ca342ff6f10a58188cf874fe6c227426b804c30aead4f70578142ecee",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/fmt-ndebug/probe_normal-original.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/fmt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 3,
+          "statement_id": 12,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n >= 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "poa",
+        "prover",
+        "sio",
+        "dbz",
+        "nullity",
+        "boa",
+        "dca",
+        "fca",
+        "dfa",
+        "uva",
+        "shc",
+        "dbg",
+        "uio",
+        "upa",
+        "pcmp",
+        "sound",
+        "watch"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/fmt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 3,
+          "statement_id": 12,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n >= 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": []
+    },
+    {
+      "case": "fmt-ndebug",
+      "entry": "probe_normal",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 13,
+        "unsafe": 0,
+        "warning": 1,
+        "unreachable": 0
+      },
+      "bc_sha256": "eda5349ca342ff6f10a58188cf874fe6c227426b804c30aead4f70578142ecee",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/fmt-ndebug/probe_normal-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/fmt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 3,
+          "statement_id": 12,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n >= 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "uva",
+        "dfa",
+        "watch",
+        "upa",
+        "prover",
+        "dbg",
+        "fca",
+        "nullity",
+        "shc",
+        "sound",
+        "sio",
+        "uio",
+        "pcmp",
+        "dca",
+        "dbz",
+        "boa",
+        "poa"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/fmt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 3,
+          "statement_id": 12,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n >= 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": [
+        {
+          "function": "_ZN3fmt3v126detail11to_unsignedIiEENSt3__113make_unsignedIT_E4typeES5_",
+          "flow": "normal",
+          "coverage": "Complete",
+          "condition": "true"
+        },
+        {
+          "function": "_ZN3fmt3v126detail11to_unsignedIiEENSt3__113make_unsignedIT_E4typeES5_",
+          "flow": "exception",
+          "coverage": "Complete",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "bt",
+      "entry": "probe_normal",
+      "tool": "original",
+      "rc": 5,
+      "summary": null,
+      "bc_sha256": "01ad574717fe9611e666dee3426fe4c1067d721bd26f7e91086ca0a3c253bacd",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/bt/probe_normal-original.log",
+      "assertions": [],
+      "native_summaries": []
+    },
+    {
+      "case": "bt",
+      "entry": "probe_normal",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 53,
+        "unsafe": 0,
+        "warning": 9,
+        "unreachable": 0
+      },
+      "bc_sha256": "01ad574717fe9611e666dee3426fe4c1067d721bd26f7e91086ca0a3c253bacd",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/bt/probe_normal-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/bt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 13,
+          "column": 3,
+          "statement_id": 59,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)({entry: 0, land.rhs: n <= 127})"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "upa",
+        "sound",
+        "nullity",
+        "dca",
+        "dfa",
+        "boa",
+        "fca",
+        "pcmp",
+        "watch",
+        "sio",
+        "poa",
+        "shc",
+        "dbz",
+        "uio",
+        "dbg",
+        "prover",
+        "uva"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/bt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 13,
+          "column": 3,
+          "statement_id": 59,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)({entry: 0, land.rhs: n <= 127})"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": [
+        {
+          "function": "_ZN7SafeAny7details15checkLowerLimitIiaEEvRKT_",
+          "flow": "normal",
+          "coverage": "Partial",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN7SafeAny7details15checkLowerLimitIiaEEvRKT_",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN7SafeAny7details15checkUpperLimitIiaEEvRKT_",
+          "flow": "normal",
+          "coverage": "Partial",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN7SafeAny7details15checkUpperLimitIiaEEvRKT_",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN7SafeAny7details13convertNumberIiaEEvRKT_RT0_",
+          "flow": "normal",
+          "coverage": "Partial",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN7SafeAny7details13convertNumberIiaEEvRKT_RT0_",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "bt",
+      "entry": "probe_exception",
+      "tool": "original",
+      "rc": 5,
+      "summary": null,
+      "bc_sha256": "01ad574717fe9611e666dee3426fe4c1067d721bd26f7e91086ca0a3c253bacd",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/bt/probe_exception-original.log",
+      "assertions": [],
+      "native_summaries": []
+    },
+    {
+      "case": "bt",
+      "entry": "probe_exception",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 28,
+        "unsafe": 0,
+        "warning": 7,
+        "unreachable": 0
+      },
+      "bc_sha256": "01ad574717fe9611e666dee3426fe4c1067d721bd26f7e91086ca0a3c253bacd",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/bt/probe_exception-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/bt_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 21,
+          "column": 5,
+          "statement_id": 33,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n > 127)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "nullity",
+        "dfa",
+        "sound",
+        "watch",
+        "boa",
+        "fca",
+        "pcmp",
+        "uva",
+        "poa",
+        "upa",
+        "dbg",
+        "shc",
+        "dca",
+        "uio",
+        "sio",
+        "prover",
+        "dbz"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/bt_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 23,
+          "column": 1,
+          "statement_id": 26,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "__current_exception"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/bt_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 20,
+          "column": 3,
+          "statement_id": 27,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "__current_exception.0"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/bt_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 21,
+          "column": 5,
+          "statement_id": 33,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n > 127)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": [
+        {
+          "function": "_ZN7SafeAny7details15checkUpperLimitIiaEEvRKT_",
+          "flow": "normal",
+          "coverage": "Partial",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN7SafeAny7details15checkUpperLimitIiaEEvRKT_",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "px4",
+      "entry": "probe_normal",
+      "tool": "original",
+      "rc": 0,
+      "summary": {
+        "safe": 42,
+        "unsafe": 0,
+        "warning": 8,
+        "unreachable": 2
+      },
+      "bc_sha256": "0ac20645bdbe32652cec4b8b090344b2cf6441f46e2babbc4ae38f3af2dcb11d",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/px4/probe_normal-original.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 9,
+          "column": 3,
+          "statement_id": 47,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(i < 4)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "sound",
+        "boa",
+        "poa",
+        "nullity",
+        "dbz",
+        "pcmp",
+        "dfa",
+        "sio",
+        "fca",
+        "dbg",
+        "prover",
+        "uio",
+        "watch",
+        "upa",
+        "shc",
+        "dca",
+        "uva"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 11,
+          "statement_id": 43,
+          "kind": "unaligned-pointer",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "matrix::Matrix<int, 4ul, 1ul>::operator()(unsigned long, unsigned long)(&m, (uint64_t)i, 0)"
+            }
+          ],
+          "info": {
+            "requirement": {
+              "type": "u64",
+              "a": 4,
+              "b": 0
+            },
+            "offset": {
+              "type": "u64",
+              "a": 1,
+              "b": 0
+            },
+            "points_to": [
+              {
+                "congruence": {
+                  "type": "u64",
+                  "a": 4,
+                  "b": 0
+                },
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "m"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 9,
+          "column": 3,
+          "statement_id": 47,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(i < 4)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 11,
+          "column": 8,
+          "statement_id": 52,
+          "kind": "buffer-overflow",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "&a[(uint64_t)i]"
+            },
+            {
+              "number": -1,
+              "repr": "4"
+            }
+          ],
+          "info": {
+            "offset": {
+              "type": "u64",
+              "lb": 0,
+              "ub": 17179869180
+            },
+            "access_size": {
+              "type": "u64",
+              "lb": 4,
+              "ub": 4
+            },
+            "array_element_size": 4,
+            "points_to": [
+              {
+                "size": {
+                  "type": "u64",
+                  "lb": 16,
+                  "ub": 16
+                },
+                "diff": {
+                  "type": "u64",
+                  "lb": 0,
+                  "ub": 18446744073709551615
+                },
+                "status": 1,
+                "kind": 4,
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "a"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 11,
+          "column": 8,
+          "statement_id": 52,
+          "kind": "unaligned-pointer",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "&a[(uint64_t)i]"
+            }
+          ],
+          "info": {
+            "requirement": {
+              "type": "u64",
+              "a": 4,
+              "b": 0
+            },
+            "offset": {
+              "type": "u64",
+              "a": 1,
+              "b": 0
+            },
+            "points_to": [
+              {
+                "congruence": {
+                  "type": "u64",
+                  "a": 4,
+                  "b": 0
+                },
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "a"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        }
+      ],
+      "native_summaries": []
+    },
+    {
+      "case": "px4",
+      "entry": "probe_normal",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 43,
+        "unsafe": 0,
+        "warning": 6,
+        "unreachable": 2
+      },
+      "bc_sha256": "0ac20645bdbe32652cec4b8b090344b2cf6441f46e2babbc4ae38f3af2dcb11d",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/px4/probe_normal-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 9,
+          "column": 3,
+          "statement_id": 47,
+          "kind": "assert",
+          "status": "ok",
+          "operands": null,
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "watch",
+        "sound",
+        "pcmp",
+        "poa",
+        "shc",
+        "upa",
+        "prover",
+        "nullity",
+        "sio",
+        "dca",
+        "dbz",
+        "uva",
+        "uio",
+        "dbg",
+        "fca",
+        "boa",
+        "dfa"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 11,
+          "statement_id": 43,
+          "kind": "unaligned-pointer",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "matrix::Matrix<int, 4ul, 1ul>::operator()(unsigned long, unsigned long)(&m, (uint64_t)i, 0)"
+            }
+          ],
+          "info": {
+            "requirement": {
+              "type": "u64",
+              "a": 4,
+              "b": 0
+            },
+            "offset": {
+              "type": "u64",
+              "a": 1,
+              "b": 0
+            },
+            "points_to": [
+              {
+                "congruence": {
+                  "type": "u64",
+                  "a": 4,
+                  "b": 0
+                },
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "m"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 11,
+          "column": 8,
+          "statement_id": 52,
+          "kind": "unaligned-pointer",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "&a[(uint64_t)i]"
+            }
+          ],
+          "info": {
+            "requirement": {
+              "type": "u64",
+              "a": 4,
+              "b": 0
+            },
+            "offset": {
+              "type": "u64",
+              "a": 1,
+              "b": 0
+            },
+            "points_to": [
+              {
+                "congruence": {
+                  "type": "u64",
+                  "a": 4,
+                  "b": 0
+                },
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "a"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        }
+      ],
+      "native_summaries": [
+        {
+          "function": "_ZN6matrix6MatrixIiLm4ELm1EEclEmm",
+          "flow": "normal",
+          "coverage": "Complete",
+          "condition": "i0 u< 4 && j0 u< 1"
+        },
+        {
+          "function": "_ZN6matrix6MatrixIiLm4ELm1EEclEmm",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "px4-ndebug",
+      "entry": "probe_normal",
+      "tool": "original",
+      "rc": 0,
+      "summary": {
+        "safe": 26,
+        "unsafe": 0,
+        "warning": 8,
+        "unreachable": 0
+      },
+      "bc_sha256": "2d97e04ecc062bd240ce3b300b5623a48345f7e671f94850ae0d521ec6eee9c9",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/px4-ndebug/probe_normal-original.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 9,
+          "column": 3,
+          "statement_id": 25,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(i < 4)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "dfa",
+        "upa",
+        "dca",
+        "uva",
+        "dbz",
+        "poa",
+        "sio",
+        "nullity",
+        "sound",
+        "prover",
+        "boa",
+        "dbg",
+        "uio",
+        "fca",
+        "shc",
+        "watch",
+        "pcmp"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 11,
+          "statement_id": 21,
+          "kind": "unaligned-pointer",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "matrix::Matrix<int, 4ul, 1ul>::operator()(unsigned long, unsigned long)(&m, (uint64_t)i, 0)"
+            }
+          ],
+          "info": {
+            "requirement": {
+              "type": "u64",
+              "a": 4,
+              "b": 0
+            },
+            "offset": {
+              "type": "u64",
+              "a": 1,
+              "b": 0
+            },
+            "points_to": [
+              {
+                "congruence": {
+                  "type": "u64",
+                  "a": 4,
+                  "b": 0
+                },
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "m"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 11,
+          "statement_id": 21,
+          "kind": "buffer-overflow",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "matrix::Matrix<int, 4ul, 1ul>::operator()(unsigned long, unsigned long)(&m, (uint64_t)i, 0)"
+            },
+            {
+              "number": -1,
+              "repr": "4"
+            }
+          ],
+          "info": {
+            "offset": {
+              "type": "u64",
+              "lb": 0,
+              "ub": 17179869180
+            },
+            "access_size": {
+              "type": "u64",
+              "lb": 4,
+              "ub": 4
+            },
+            "points_to": [
+              {
+                "size": {
+                  "type": "u64",
+                  "lb": 16,
+                  "ub": 16
+                },
+                "diff": {
+                  "type": "u64",
+                  "lb": 0,
+                  "ub": 18446744073709551615
+                },
+                "status": 1,
+                "kind": 4,
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "m"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 9,
+          "column": 3,
+          "statement_id": 25,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(i < 4)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 11,
+          "column": 8,
+          "statement_id": 30,
+          "kind": "buffer-overflow",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "&a[(uint64_t)i]"
+            },
+            {
+              "number": -1,
+              "repr": "4"
+            }
+          ],
+          "info": {
+            "offset": {
+              "type": "u64",
+              "lb": 0,
+              "ub": 17179869180
+            },
+            "access_size": {
+              "type": "u64",
+              "lb": 4,
+              "ub": 4
+            },
+            "array_element_size": 4,
+            "points_to": [
+              {
+                "size": {
+                  "type": "u64",
+                  "lb": 16,
+                  "ub": 16
+                },
+                "diff": {
+                  "type": "u64",
+                  "lb": 0,
+                  "ub": 18446744073709551615
+                },
+                "status": 1,
+                "kind": 4,
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "a"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 11,
+          "column": 8,
+          "statement_id": 30,
+          "kind": "unaligned-pointer",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "&a[(uint64_t)i]"
+            }
+          ],
+          "info": {
+            "requirement": {
+              "type": "u64",
+              "a": 4,
+              "b": 0
+            },
+            "offset": {
+              "type": "u64",
+              "a": 1,
+              "b": 0
+            },
+            "points_to": [
+              {
+                "congruence": {
+                  "type": "u64",
+                  "a": 4,
+                  "b": 0
+                },
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "a"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        }
+      ],
+      "native_summaries": []
+    },
+    {
+      "case": "px4-ndebug",
+      "entry": "probe_normal",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 26,
+        "unsafe": 0,
+        "warning": 8,
+        "unreachable": 0
+      },
+      "bc_sha256": "2d97e04ecc062bd240ce3b300b5623a48345f7e671f94850ae0d521ec6eee9c9",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/px4-ndebug/probe_normal-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 9,
+          "column": 3,
+          "statement_id": 25,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(i < 4)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "boa",
+        "uio",
+        "nullity",
+        "prover",
+        "dfa",
+        "sio",
+        "poa",
+        "uva",
+        "upa",
+        "sound",
+        "dbz",
+        "fca",
+        "shc",
+        "pcmp",
+        "dca",
+        "dbg",
+        "watch"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 11,
+          "statement_id": 21,
+          "kind": "buffer-overflow",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "matrix::Matrix<int, 4ul, 1ul>::operator()(unsigned long, unsigned long)(&m, (uint64_t)i, 0)"
+            },
+            {
+              "number": -1,
+              "repr": "4"
+            }
+          ],
+          "info": {
+            "offset": {
+              "type": "u64",
+              "lb": 0,
+              "ub": 17179869180
+            },
+            "access_size": {
+              "type": "u64",
+              "lb": 4,
+              "ub": 4
+            },
+            "points_to": [
+              {
+                "size": {
+                  "type": "u64",
+                  "lb": 16,
+                  "ub": 16
+                },
+                "diff": {
+                  "type": "u64",
+                  "lb": 0,
+                  "ub": 18446744073709551615
+                },
+                "status": 1,
+                "kind": 4,
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "m"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 11,
+          "statement_id": 21,
+          "kind": "unaligned-pointer",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "matrix::Matrix<int, 4ul, 1ul>::operator()(unsigned long, unsigned long)(&m, (uint64_t)i, 0)"
+            }
+          ],
+          "info": {
+            "requirement": {
+              "type": "u64",
+              "a": 4,
+              "b": 0
+            },
+            "offset": {
+              "type": "u64",
+              "a": 1,
+              "b": 0
+            },
+            "points_to": [
+              {
+                "congruence": {
+                  "type": "u64",
+                  "a": 4,
+                  "b": 0
+                },
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "m"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 9,
+          "column": 3,
+          "statement_id": 25,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(i < 4)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 11,
+          "column": 8,
+          "statement_id": 30,
+          "kind": "unaligned-pointer",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "&a[(uint64_t)i]"
+            }
+          ],
+          "info": {
+            "requirement": {
+              "type": "u64",
+              "a": 4,
+              "b": 0
+            },
+            "offset": {
+              "type": "u64",
+              "a": 1,
+              "b": 0
+            },
+            "points_to": [
+              {
+                "congruence": {
+                  "type": "u64",
+                  "a": 4,
+                  "b": 0
+                },
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "a"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/px4_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 11,
+          "column": 8,
+          "statement_id": 30,
+          "kind": "buffer-overflow",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "&a[(uint64_t)i]"
+            },
+            {
+              "number": -1,
+              "repr": "4"
+            }
+          ],
+          "info": {
+            "offset": {
+              "type": "u64",
+              "lb": 0,
+              "ub": 17179869180
+            },
+            "access_size": {
+              "type": "u64",
+              "lb": 4,
+              "ub": 4
+            },
+            "array_element_size": 4,
+            "points_to": [
+              {
+                "size": {
+                  "type": "u64",
+                  "lb": 16,
+                  "ub": 16
+                },
+                "diff": {
+                  "type": "u64",
+                  "lb": 0,
+                  "ub": 18446744073709551615
+                },
+                "status": 1,
+                "kind": 4,
+                "location": {
+                  "kind": 0,
+                  "info": {
+                    "name": "a"
+                  }
+                }
+              }
+            ]
+          },
+          "contexts": 1
+        }
+      ],
+      "native_summaries": [
+        {
+          "function": "_ZN6matrix6MatrixIiLm4ELm1EEclEmm",
+          "flow": "normal",
+          "coverage": "Complete",
+          "condition": "true"
+        },
+        {
+          "function": "_ZN6matrix6MatrixIiLm4ELm1EEclEmm",
+          "flow": "exception",
+          "coverage": "Complete",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "tinyxml2",
+      "entry": "probe_normal",
+      "tool": "original",
+      "rc": 0,
+      "summary": {
+        "safe": 41,
+        "unsafe": 0,
+        "warning": 2,
+        "unreachable": 7
+      },
+      "bc_sha256": "87771ab855dd18b3988f37c3fada778e157f323fd705fda766d5e088747474c5",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/tinyxml2/probe_normal-original.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 10,
+          "column": 3,
+          "statement_id": 57,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p != NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "fca",
+        "pcmp",
+        "shc",
+        "sound",
+        "dca",
+        "nullity",
+        "boa",
+        "upa",
+        "sio",
+        "dbg",
+        "dfa",
+        "dbz",
+        "watch",
+        "uva",
+        "poa",
+        "prover",
+        "uio"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 10,
+          "column": 3,
+          "statement_id": 57,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p != NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": []
+    },
+    {
+      "case": "tinyxml2",
+      "entry": "probe_normal",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 41,
+        "unsafe": 0,
+        "warning": 2,
+        "unreachable": 7
+      },
+      "bc_sha256": "87771ab855dd18b3988f37c3fada778e157f323fd705fda766d5e088747474c5",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/tinyxml2/probe_normal-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 10,
+          "column": 3,
+          "statement_id": 57,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p != NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "shc",
+        "dbz",
+        "fca",
+        "uio",
+        "sound",
+        "boa",
+        "prover",
+        "nullity",
+        "watch",
+        "dca",
+        "upa",
+        "poa",
+        "dbg",
+        "pcmp",
+        "dfa",
+        "uva",
+        "sio"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 10,
+          "column": 3,
+          "statement_id": 57,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p != NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": [
+        {
+          "function": "_ZN8tinyxml27XMLUtil7ReadBOMEPKcPb",
+          "flow": "normal",
+          "coverage": "Partial",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN8tinyxml27XMLUtil7ReadBOMEPKcPb",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "tinyxml2",
+      "entry": "probe_set",
+      "tool": "original",
+      "rc": 0,
+      "summary": {
+        "safe": 86,
+        "unsafe": 0,
+        "warning": 6,
+        "unreachable": 2
+      },
+      "bc_sha256": "87771ab855dd18b3988f37c3fada778e157f323fd705fda766d5e088747474c5",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/tinyxml2/probe_set-original.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_set",
+          "function_display": "probe_set",
+          "line": 19,
+          "column": 3,
+          "statement_id": 92,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p != NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "nullity",
+        "uio",
+        "dbg",
+        "pcmp",
+        "shc",
+        "upa",
+        "sio",
+        "prover",
+        "watch",
+        "boa",
+        "poa",
+        "dfa",
+        "dbz",
+        "sound",
+        "fca",
+        "uva",
+        "dca"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_set",
+          "function_display": "probe_set",
+          "line": 20,
+          "column": 1,
+          "statement_id": 77,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "__current_exception"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_set",
+          "function_display": "probe_set",
+          "line": 20,
+          "column": 1,
+          "statement_id": 86,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 2,
+              "repr": "__current_exception.0"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_set",
+          "function_display": "probe_set",
+          "line": 20,
+          "column": 1,
+          "statement_id": 87,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 2,
+              "repr": "__current_exception.1"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_set",
+          "function_display": "probe_set",
+          "line": 19,
+          "column": 3,
+          "statement_id": 92,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p != NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": []
+    },
+    {
+      "case": "tinyxml2",
+      "entry": "probe_set",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 86,
+        "unsafe": 0,
+        "warning": 6,
+        "unreachable": 2
+      },
+      "bc_sha256": "87771ab855dd18b3988f37c3fada778e157f323fd705fda766d5e088747474c5",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/tinyxml2/probe_set-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_set",
+          "function_display": "probe_set",
+          "line": 19,
+          "column": 3,
+          "statement_id": 92,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p != NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "prover",
+        "dfa",
+        "pcmp",
+        "nullity",
+        "dbz",
+        "shc",
+        "uva",
+        "poa",
+        "dbg",
+        "sio",
+        "boa",
+        "uio",
+        "sound",
+        "dca",
+        "upa",
+        "watch",
+        "fca"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_set",
+          "function_display": "probe_set",
+          "line": 20,
+          "column": 1,
+          "statement_id": 77,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "__current_exception"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_set",
+          "function_display": "probe_set",
+          "line": 20,
+          "column": 1,
+          "statement_id": 86,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 2,
+              "repr": "__current_exception.0"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_set",
+          "function_display": "probe_set",
+          "line": 20,
+          "column": 1,
+          "statement_id": 87,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 2,
+              "repr": "__current_exception.1"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_set",
+          "function_display": "probe_set",
+          "line": 19,
+          "column": 3,
+          "statement_id": 92,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p != NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": [
+        {
+          "function": "_ZN8tinyxml27StrPair6SetStrEPKci",
+          "flow": "normal",
+          "coverage": "Partial",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN8tinyxml27StrPair6SetStrEPKci",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "duckdb",
+      "entry": "probe_normal",
+      "tool": "original",
+      "rc": 5,
+      "summary": null,
+      "bc_sha256": "50e892aa706928cbebe45d3a535d300ef824884539a0e76dba89963d4e8665b5",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/duckdb/probe_normal-original.log",
+      "assertions": [],
+      "native_summaries": []
+    },
+    {
+      "case": "duckdb",
+      "entry": "probe_normal",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 692,
+        "unsafe": 2,
+        "warning": 105,
+        "unreachable": 9
+      },
+      "bc_sha256": "50e892aa706928cbebe45d3a535d300ef824884539a0e76dba89963d4e8665b5",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/duckdb/probe_normal-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/duckdb_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 7,
+          "column": 3,
+          "statement_id": 763,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n > 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "watch",
+        "dca",
+        "nullity",
+        "upa",
+        "prover",
+        "dbz",
+        "sound",
+        "pcmp",
+        "poa",
+        "dfa",
+        "boa",
+        "dbg",
+        "sio",
+        "uio",
+        "uva",
+        "fca",
+        "shc"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/duckdb_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 7,
+          "column": 3,
+          "statement_id": 763,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n > 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": [
+        {
+          "function": "_ZN6duckdb20DuckDBAssertInternalEbPKcS1_i",
+          "flow": "normal",
+          "coverage": "Partial",
+          "condition": "condition0 u== 1"
+        },
+        {
+          "function": "_ZN6duckdb20DuckDBAssertInternalEbPKcS1_i",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "duckdb",
+      "entry": "probe_exception",
+      "tool": "original",
+      "rc": 5,
+      "summary": null,
+      "bc_sha256": "50e892aa706928cbebe45d3a535d300ef824884539a0e76dba89963d4e8665b5",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/duckdb/probe_exception-original.log",
+      "assertions": [],
+      "native_summaries": []
+    },
+    {
+      "case": "duckdb",
+      "entry": "probe_exception",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 694,
+        "unsafe": 2,
+        "warning": 107,
+        "unreachable": 9
+      },
+      "bc_sha256": "50e892aa706928cbebe45d3a535d300ef824884539a0e76dba89963d4e8665b5",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/duckdb/probe_exception-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/duckdb_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 15,
+          "column": 5,
+          "statement_id": 767,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n <= 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "dbz",
+        "dca",
+        "sio",
+        "uio",
+        "nullity",
+        "upa",
+        "dbg",
+        "watch",
+        "pcmp",
+        "shc",
+        "fca",
+        "dfa",
+        "boa",
+        "sound",
+        "prover",
+        "uva",
+        "poa"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/duckdb_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 17,
+          "column": 1,
+          "statement_id": 761,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "__current_exception"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/duckdb_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 14,
+          "column": 3,
+          "statement_id": 762,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "__current_exception.0"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/duckdb_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 15,
+          "column": 5,
+          "statement_id": 767,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n <= 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": [
+        {
+          "function": "_ZN6duckdb20DuckDBAssertInternalEbPKcS1_i",
+          "flow": "normal",
+          "coverage": "Partial",
+          "condition": "condition0 u== 1"
+        },
+        {
+          "function": "_ZN6duckdb20DuckDBAssertInternalEbPKcS1_i",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "rclcpp-fragment",
+      "entry": "probe_normal",
+      "tool": "original",
+      "rc": 5,
+      "summary": null,
+      "bc_sha256": "bc70e8afa301f86714ea11f09c7855e6b16bfbe2fbe1fd8b1fe0bc86ddc61051",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/rclcpp-fragment/probe_normal-original.log",
+      "assertions": [],
+      "native_summaries": []
+    },
+    {
+      "case": "rclcpp-fragment",
+      "entry": "probe_normal",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 850,
+        "unsafe": 1,
+        "warning": 194,
+        "unreachable": 5
+      },
+      "bc_sha256": "bc70e8afa301f86714ea11f09c7855e6b16bfbe2fbe1fd8b1fe0bc86ddc61051",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/rclcpp-fragment/probe_normal-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/rclcpp_fragment_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 6,
+          "column": 3,
+          "statement_id": 1007,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p != NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "boa",
+        "pcmp",
+        "uva",
+        "sound",
+        "dfa",
+        "upa",
+        "dca",
+        "prover",
+        "shc",
+        "dbg",
+        "uio",
+        "dbz",
+        "sio",
+        "watch",
+        "nullity",
+        "fca",
+        "poa"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/rclcpp_fragment_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 6,
+          "column": 3,
+          "statement_id": 1007,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p != NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": []
+    },
+    {
+      "case": "rclcpp-fragment",
+      "entry": "probe_return",
+      "tool": "original",
+      "rc": 5,
+      "summary": null,
+      "bc_sha256": "bc70e8afa301f86714ea11f09c7855e6b16bfbe2fbe1fd8b1fe0bc86ddc61051",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/rclcpp-fragment/probe_return-original.log",
+      "assertions": [],
+      "native_summaries": []
+    },
+    {
+      "case": "rclcpp-fragment",
+      "entry": "probe_return",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 851,
+        "unsafe": 1,
+        "warning": 193,
+        "unreachable": 5
+      },
+      "bc_sha256": "bc70e8afa301f86714ea11f09c7855e6b16bfbe2fbe1fd8b1fe0bc86ddc61051",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/rclcpp-fragment/probe_return-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/rclcpp_fragment_probe.cpp",
+          "function": "probe_return",
+          "function_display": "probe_return",
+          "line": 13,
+          "column": 3,
+          "statement_id": 1007,
+          "kind": "assert",
+          "status": "ok",
+          "operands": null,
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "watch",
+        "dbz",
+        "shc",
+        "uio",
+        "boa",
+        "sound",
+        "nullity",
+        "poa",
+        "dbg",
+        "prover",
+        "sio",
+        "dca",
+        "fca",
+        "pcmp",
+        "dfa",
+        "uva",
+        "upa"
+      ],
+      "probe_warnings": [],
+      "native_summaries": []
+    },
+    {
+      "case": "rclcpp-fragment",
+      "entry": "probe_exception",
+      "tool": "original",
+      "rc": 5,
+      "summary": null,
+      "bc_sha256": "bc70e8afa301f86714ea11f09c7855e6b16bfbe2fbe1fd8b1fe0bc86ddc61051",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/rclcpp-fragment/probe_exception-original.log",
+      "assertions": [],
+      "native_summaries": []
+    },
+    {
+      "case": "rclcpp-fragment",
+      "entry": "probe_exception",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 852,
+        "unsafe": 1,
+        "warning": 196,
+        "unreachable": 5
+      },
+      "bc_sha256": "bc70e8afa301f86714ea11f09c7855e6b16bfbe2fbe1fd8b1fe0bc86ddc61051",
+      "log": "/private/tmp/ikos-pattern-audit-g4r7jm4y/rclcpp-fragment/probe_exception-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/rclcpp_fragment_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 20,
+          "column": 17,
+          "statement_id": 1011,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p == NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "boa",
+        "upa",
+        "dfa",
+        "dca",
+        "poa",
+        "sio",
+        "watch",
+        "nullity",
+        "dbz",
+        "uva",
+        "pcmp",
+        "fca",
+        "prover",
+        "sound",
+        "uio",
+        "dbg",
+        "shc"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/rclcpp_fragment_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 21,
+          "column": 1,
+          "statement_id": 1005,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 0,
+              "repr": "__current_exception"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/rclcpp_fragment_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 19,
+          "column": 74,
+          "statement_id": 1006,
+          "kind": "uninitialized-variable",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "__current_exception.0"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        },
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/rclcpp_fragment_probe.cpp",
+          "function": "probe_exception",
+          "function_display": "probe_exception",
+          "line": 20,
+          "column": 17,
+          "statement_id": 1011,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(p == NULL)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": []
+    },
+    {
+      "case": "fmt-declaration",
+      "entry": "probe_normal",
+      "tool": "original",
+      "rc": 0,
+      "summary": {
+        "safe": 12,
+        "unsafe": 0,
+        "warning": 2,
+        "unreachable": 0
+      },
+      "bc_sha256": "1fcba6d75c345d746efb214720fd3274b1620030b91c94dc341e2faf6b85f6ef",
+      "log": "/private/tmp/ikos-pattern-audit-k4hbk3e3/fmt-declaration/probe_normal-original.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/fmt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 3,
+          "statement_id": 12,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n >= 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "dca",
+        "shc",
+        "nullity",
+        "watch",
+        "fca",
+        "prover",
+        "pcmp",
+        "boa",
+        "uva",
+        "sound",
+        "upa",
+        "sio",
+        "poa",
+        "uio",
+        "dbg",
+        "dbz",
+        "dfa"
+      ],
+      "probe_warnings": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/fmt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 3,
+          "statement_id": 12,
+          "kind": "assert",
+          "status": "warning",
+          "operands": [
+            {
+              "number": 1,
+              "repr": "(uint32_t)(n >= 0)"
+            }
+          ],
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "native_summaries": []
+    },
+    {
+      "case": "fmt-declaration",
+      "entry": "probe_normal",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 13,
+        "unsafe": 0,
+        "warning": 1,
+        "unreachable": 0
+      },
+      "bc_sha256": "1fcba6d75c345d746efb214720fd3274b1620030b91c94dc341e2faf6b85f6ef",
+      "log": "/private/tmp/ikos-pattern-audit-k4hbk3e3/fmt-declaration/probe_normal-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/fmt_probe.cpp",
+          "function": "probe_normal",
+          "function_display": "probe_normal",
+          "line": 8,
+          "column": 3,
+          "statement_id": 12,
+          "kind": "assert",
+          "status": "ok",
+          "operands": null,
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "dfa",
+        "dbg",
+        "uva",
+        "shc",
+        "fca",
+        "poa",
+        "sio",
+        "upa",
+        "prover",
+        "sound",
+        "nullity",
+        "boa",
+        "dca",
+        "dbz",
+        "watch",
+        "uio",
+        "pcmp"
+      ],
+      "probe_warnings": [],
+      "native_summaries": [
+        {
+          "function": "_ZN3fmt3v126detail11to_unsignedIiEENSt3__113make_unsignedIT_E4typeES5_",
+          "flow": "normal",
+          "coverage": "Complete",
+          "condition": "value0 >= 0"
+        },
+        {
+          "function": "_ZN3fmt3v126detail11to_unsignedIiEENSt3__113make_unsignedIT_E4typeES5_",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        }
+      ]
+    },
+    {
+      "case": "tinyxml2",
+      "entry": "probe_return",
+      "tool": "original",
+      "rc": 0,
+      "summary": {
+        "safe": 42,
+        "unsafe": 0,
+        "warning": 1,
+        "unreachable": 7
+      },
+      "bc_sha256": "b98f6d3cfa43cf23ef82c1ac7ce9d0da4765977d6d6e9aa79c371b0429f197d5",
+      "log": "/private/tmp/ikos-pattern-audit-e6_tzp6r/tinyxml2/probe_return-original.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_return",
+          "function_display": "probe_return",
+          "line": 28,
+          "column": 3,
+          "statement_id": 57,
+          "kind": "assert",
+          "status": "ok",
+          "operands": null,
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "dbz",
+        "dca",
+        "uva",
+        "watch",
+        "prover",
+        "uio",
+        "pcmp",
+        "upa",
+        "shc",
+        "fca",
+        "nullity",
+        "dfa",
+        "boa",
+        "poa",
+        "sio",
+        "dbg",
+        "sound"
+      ],
+      "probe_warnings": [],
+      "native_summaries": []
+    },
+    {
+      "case": "tinyxml2",
+      "entry": "probe_return",
+      "tool": "dev",
+      "rc": 0,
+      "summary": {
+        "safe": 42,
+        "unsafe": 0,
+        "warning": 1,
+        "unreachable": 7
+      },
+      "bc_sha256": "b98f6d3cfa43cf23ef82c1ac7ce9d0da4765977d6d6e9aa79c371b0429f197d5",
+      "log": "/private/tmp/ikos-pattern-audit-e6_tzp6r/tinyxml2/probe_return-dev.log",
+      "assertions": [
+        {
+          "file": "/Users/baesungmin/master/experiment/ikos/benchmark/realworld_pattern_audit/2026-11-02/tinyxml2_probe.cpp",
+          "function": "probe_return",
+          "function_display": "probe_return",
+          "line": 28,
+          "column": 3,
+          "statement_id": 57,
+          "kind": "assert",
+          "status": "ok",
+          "operands": null,
+          "info": null,
+          "contexts": 1
+        }
+      ],
+      "analyses": [
+        "fca",
+        "sound",
+        "uio",
+        "upa",
+        "prover",
+        "dbz",
+        "dfa",
+        "dbg",
+        "uva",
+        "nullity",
+        "poa",
+        "sio",
+        "watch",
+        "shc",
+        "dca",
+        "boa",
+        "pcmp"
+      ],
+      "probe_warnings": [],
+      "native_summaries": [
+        {
+          "function": "_ZN8tinyxml27XMLUtil7ReadBOMEPKcPb",
+          "flow": "normal",
+          "coverage": "Partial",
+          "condition": "false"
+        },
+        {
+          "function": "_ZN8tinyxml27XMLUtil7ReadBOMEPKcPb",
+          "flow": "exception",
+          "coverage": "Partial",
+          "condition": "false"
+        }
+      ]
+    }
+  ],
+  "rclcpp_frontend_only_summaries": [
+    {
+      "function": "_ZN6rclcpp6detail35check_if_stringified_policy_is_nullEPKcNS_13QosPolicyKindE",
+      "flow": "normal",
+      "coverage": "Partial",
+      "condition": "NonNull(policy_value_stringified0)"
+    },
+    {
+      "function": "_ZN6rclcpp6detail35check_if_stringified_policy_is_nullEPKcNS_13QosPolicyKindE",
+      "flow": "exception",
+      "coverage": "Partial",
+      "condition": "false"
+    }
+  ]
+}

@@ -90,6 +90,7 @@
 #include <ikos/analyzer/analysis/widening_hint.hpp>
 #include <ikos/analyzer/checker/name.hpp>
 #include <ikos/analyzer/database/output.hpp>
+#include <ikos/analyzer/util/build_info.hpp>
 #include <ikos/analyzer/util/color.hpp>
 #include <ikos/analyzer/util/log.hpp>
 #include <ikos/analyzer/util/timer.hpp>
@@ -866,6 +867,15 @@ static void generate_dot(ar::Bundle* bundle,
 /// \brief Main for ikos-analyzer
 int main(int argc, char** argv) {
   llvm::InitLLVM x(argc, argv);
+  llvm::cl::SetVersionPrinter([](llvm::raw_ostream& output) {
+    output << analyzer::build_version_banner();
+  });
+  // The Python launcher queries the snapshot in the actual native executable,
+  // without providing an input module or trusting live checkout metadata.
+  if (argc == 2 && std::string(argv[1]) == "--build-info") {
+    llvm::outs() << analyzer::build_info_json() << '\n';
+    return 0;
+  }
 
   // Program name
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
