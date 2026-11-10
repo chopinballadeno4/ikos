@@ -172,15 +172,26 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
     it++;
   }
 
-  // For bitcast chains with a signed original variable, only less-than
-  // predicates are safe. The true branch of y < C (C <= 2^(N-1)-1) guarantees
-  // the value is in [0, C-1], so x sige 0 holds. Greater-than predicates allow
-  // x < 0 on the true branch (the bit-pattern maps to a large unsigned value).
   auto orig_type = cast< IntegerType >(upcast->operand()->type());
+
+  // si_N → bitcast → ui_N (signed original): only LT/LE predicates are safe.
+  // y < C with C <= 2^(N-1)-1 guarantees y in [0,C-1], so x >= 0 holds.
+  // GT/GE allows y < 0 on the true branch (large unsigned bit-pattern).
   if (bitcast && orig_type->is_signed()) {
     auto pred = cmp->predicate();
     if (pred != Comparison::UILT && pred != Comparison::UILE &&
         pred != Comparison::SILT && pred != Comparison::SILE) {
+      return false;
+    }
+  }
+
+  // ui_N → bitcast → si_N (unsigned original): only signed GT/GE are safe.
+  // y > C with C >= 0 guarantees y in [C+1, 2^(N-1)-1], so y is positive and
+  // x (= same bits) is also in [C+1, 2^(N-1)-1].
+  // LT/LE allows negative y on the true branch, which maps to large unsigned x.
+  if (bitcast && !orig_type->is_signed()) {
+    auto pred = cmp->predicate();
+    if (pred != Comparison::SIGT && pred != Comparison::SIGE) {
       return false;
     }
   }
