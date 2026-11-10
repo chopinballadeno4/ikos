@@ -145,6 +145,8 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
         break;
       } else if (bitcast && upcast->op() == UnaryOperation::ZExt) {
         break;
+      } else if (bitcast && upcast->op() == UnaryOperation::SExt) {
+        break;
       } else {
         return false;
       }
@@ -153,9 +155,13 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
     it++;
   }
 
-  // pure bitcast (si -> ui): only handle uilt/uile since these give a bounded
-  // range on the true branch that falls within the safe range [0, 2^(N-1)-1]
-  if (pure_bitcast) {
+  // For bitcast chains where the original variable is signed (pure si->ui
+  // bitcast or si->sext->bitcast->ui), only uilt/uile are safe: on the true
+  // branch y < C (< 2^(N-1)-1) guarantees the sign bit is 0, so x >= 0 holds.
+  // Other predicates (uigt, uige) allow x < 0 on the true branch, which makes
+  // inserting x sige 0 unsound.
+  if (bitcast &&
+      cast< IntegerType >(upcast->operand()->type())->is_signed()) {
     auto pred = cmp->predicate();
     if (pred != Comparison::UILT && pred != Comparison::UILE) {
       return false;
@@ -264,19 +270,21 @@ void SimplifyUpcastComparisonPass::insert_assert(Comparison* cmp,
   auto it = bb->begin();
   bb->insert_after(it, std::move(c));
 
-  // pure bitcast (si -> ui) with uilt/uile: also insert x sige 0
-  // because uilt/uile on the unsigned side gives y in [0, C-1],
-  // but the flipped predicate alone only gives the upper bound on x
-  if (pure_bitcast) {
+  // For chains that end with bitcast and the original variable is signed,
+  // the flipped predicate only gives the upper bound. Also insert x sige 0.
+  // Covers: pure bitcast (si -> ui) and sext -> bitcast (si -> si -> ui).
+  if (bitcast) {
     auto type = cast< IntegerType >(tracked_variable->type());
-    auto zero = IntegerConstant::get(cmp->context(),
-                                     type,
-                                     MachineInt(0,
-                                                type->bit_width(),
-                                                type->sign()));
-    auto zero_cmp = Comparison::create(Comparison::SIGE, tracked_variable, zero);
-    auto it2 = bb->begin();
-    bb->insert_after(it2, std::move(zero_cmp));
+    if (type->is_signed()) {
+      auto zero = IntegerConstant::get(cmp->context(),
+                                       type,
+                                       MachineInt(0,
+                                                  type->bit_width(),
+                                                  type->sign()));
+      auto zero_cmp = Comparison::create(Comparison::SIGE, tracked_variable, zero);
+      auto it2 = bb->begin();
+      bb->insert_after(it2, std::move(zero_cmp));
+    }
   }
 }
 
