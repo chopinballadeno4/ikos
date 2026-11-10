@@ -109,7 +109,7 @@ private:
 
   /// \brief Insert an assert for simplifying an upcast comparison
   void insert_assert(
-      Comparison*, Value*, IntegerConstant*, IntegerConstant*, bool);
+      Comparison*, Value*, IntegerConstant*, IntegerConstant*, bool, bool = false);
 
 }; // end class SimplifyUpcastComparisonPass
 

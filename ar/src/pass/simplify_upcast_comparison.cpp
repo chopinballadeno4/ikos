@@ -97,7 +97,9 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
   // track variable if bitcast occurs
   Value* tracked_variable = var;
   bool bitcast = false;
+  bool pure_bitcast = false;
   UnaryOperation* upcast = nullptr;
+  UnaryOperation* saved_bitcast = nullptr;
 
   // backtrace and find the upcast
   while (true) {
@@ -110,6 +112,12 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
         et = bb->rend();
         continue;
       } else {
+        // pure bitcast: no predecessor to search further
+        if (bitcast && saved_bitcast) {
+          upcast = saved_bitcast;
+          pure_bitcast = true;
+          break;
+        }
         return false;
       }
     }
@@ -118,10 +126,17 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
 
     if (stmt->result_or_null() == tracked_variable) {
       if (!isa< UnaryOperation >(stmt)) {
+        // pure bitcast: operand defined by non-cast instruction
+        if (bitcast && saved_bitcast) {
+          upcast = saved_bitcast;
+          pure_bitcast = true;
+          break;
+        }
         return false;
       }
       upcast = cast< UnaryOperation >(stmt);
       if (!bitcast && upcast->op() == UnaryOperation::Bitcast) {
+        saved_bitcast = upcast;
         tracked_variable = upcast->operand();
         upcast = nullptr;
         bitcast = true;
@@ -138,6 +153,15 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
     it++;
   }
 
+  // pure bitcast (si -> ui): only handle uilt/uile since these give a bounded
+  // range on the true branch that falls within the safe range [0, 2^(N-1)-1]
+  if (pure_bitcast) {
+    auto pred = cmp->predicate();
+    if (pred != Comparison::UILT && pred != Comparison::UILE) {
+      return false;
+    }
+  }
+
   if (auto new_constant =
           this->run_on_upcast(cmp->context(), upcast->operand(), constant)) {
     // add assert
@@ -145,7 +169,8 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
                         upcast->operand(),
                         constant,
                         *new_constant,
-                        bitcast);
+                        bitcast,
+                        pure_bitcast);
     return true;
   } else {
     return false;
@@ -178,7 +203,8 @@ void SimplifyUpcastComparisonPass::insert_assert(Comparison* cmp,
                                                  Value* tracked_variable,
                                                  IntegerConstant* constant,
                                                  IntegerConstant* new_constant,
-                                                 bool bitcast) {
+                                                 bool bitcast,
+                                                 bool pure_bitcast) {
   Value* left;
   Value* right;
   if (cmp->left() == constant) {
@@ -237,6 +263,21 @@ void SimplifyUpcastComparisonPass::insert_assert(Comparison* cmp,
   auto bb = cmp->parent();
   auto it = bb->begin();
   bb->insert_after(it, std::move(c));
+
+  // pure bitcast (si -> ui) with uilt/uile: also insert x sige 0
+  // because uilt/uile on the unsigned side gives y in [0, C-1],
+  // but the flipped predicate alone only gives the upper bound on x
+  if (pure_bitcast) {
+    auto type = cast< IntegerType >(tracked_variable->type());
+    auto zero = IntegerConstant::get(cmp->context(),
+                                     type,
+                                     MachineInt(0,
+                                                type->bit_width(),
+                                                type->sign()));
+    auto zero_cmp = Comparison::create(Comparison::SIGE, tracked_variable, zero);
+    auto it2 = bb->begin();
+    bb->insert_after(it2, std::move(zero_cmp));
+  }
 }
 
 } // end namespace ar
