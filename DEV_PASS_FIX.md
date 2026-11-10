@@ -22,8 +22,11 @@
 (5) x: si_N  →  sext  →  t: si_M  →  bitcast  →  y: ui_M
     y uilt/uile C  →  insert: x sige 0, x silt/sile C   (predicate flip: UI→SI)
 
-(6) x: si_N  →  bitcast  →  t: ui_N  →  zext  →  u: ui_M  →  bitcast  →  y: si_Mw
-    y silt/sile C  →  insert: x sige 0, x silt/sile C   (flip 없음: SI→SI)
+(6) x: si_N  →  bitcast  →  t: ui_N  →  zext  →  u: ui_M  →  bitcast  →  y: si_M
+    y silt/sile C  →  insert: t uilt/uile C        (중간 삽입, predicate flip: SI→UI)
+                       insert: x sige 0, x silt/sile C   (원본 삽입, flip 없음: SI→SI)
+    t에 중간 삽입이 필요한 이유: ptrshift가 t를 직접 경유하는 경우
+    (예: bitcast(t) → sext → 인덱스) 에서 t의 구간이 좁혀져야 전파 가능.
 ```
 
 ---

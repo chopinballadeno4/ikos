@@ -97,6 +97,7 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
   Value* tracked_variable = var;
   bool bitcast = false;           // saw outer bitcast
   bool inner_zext_found = false;  // saw zext after outer bitcast
+  bool triple_chain = false;      // pattern 6: inner bitcast found after zext
   UnaryOperation* upcast = nullptr;
   UnaryOperation* saved_bitcast = nullptr;
   UnaryOperation* saved_zext = nullptr;
@@ -158,6 +159,7 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
         break;  // pattern 5 (si → sext → bitcast → ui)
       } else if (bitcast && inner_zext_found &&
                  upcast->op() == UnaryOperation::Bitcast) {
+        triple_chain = true;
         break;  // triple chain: inner bitcast found (si_N → ui_N)
       } else if (bitcast && inner_zext_found) {
         upcast = saved_zext;  // no inner bitcast; fall back to pattern 3
@@ -194,6 +196,21 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
                          cmp->predicate() == Comparison::SINE);
   bool flip_predicate = (pred_is_signed != orig_type->is_signed());
   bool needs_lower_bound = bitcast && orig_type->is_signed();
+
+  // For pattern 6 (triple chain), also insert on the zext input (ui_N).
+  // The ptrshift may use variables derived from ui_N directly (e.g. bitcast
+  // then sext), so asserting on ui_N enables forward interval propagation to
+  // reach those variables, which asserting on the deeper si_N alone cannot do.
+  if (triple_chain) {
+    Value* zext_input = saved_zext->operand();
+    auto zext_input_type = cast< IntegerType >(zext_input->type());
+    bool flip_mid = (pred_is_signed != zext_input_type->is_signed());
+    if (auto mid_constant =
+            this->run_on_upcast(cmp->context(), zext_input, constant)) {
+      this->insert_assert(cmp, zext_input, constant, *mid_constant, flip_mid,
+                          false);
+    }
+  }
 
   if (auto new_constant =
           this->run_on_upcast(cmp->context(), upcast->operand(), constant)) {
