@@ -108,8 +108,17 @@ private:
                                                     IntegerConstant*);
 
   /// \brief Insert an assert for simplifying an upcast comparison
-  void insert_assert(
-      Comparison*, Value*, IntegerConstant*, IntegerConstant*, bool, bool = false);
+  ///
+  /// flip_predicate: flip the sign of the predicate (SI<->UI) when the
+  ///   comparison type sign differs from the original variable's type sign.
+  /// needs_lower_bound: also insert x sige 0 (for signed originals in a
+  ///   bitcast chain where the true branch guarantees x >= 0).
+  void insert_assert(Comparison*,
+                     Value*,
+                     IntegerConstant*,
+                     IntegerConstant*,
+                     bool flip_predicate,
+                     bool needs_lower_bound = false);
 
 }; // end class SimplifyUpcastComparisonPass
 

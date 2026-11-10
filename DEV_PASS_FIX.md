@@ -1,60 +1,63 @@
 # SimplifyUpcastComparisonPass 수정 사항
 
-## 기존 지원 패턴
-
-```
-(1) x: si_N  →  sext  →  y: si_M              │  y silt C   →  insert: x silt C
-(2) x: ui_N  →  zext  →  y: ui_M              │  y uilt C   →  insert: x uilt C
-(3) x: ui_N  →  zext  →  t: ui_M
-              →  bitcast  →  y: si_M           │  y silt C   →  insert: x uilt C
-```
-
-## 추가된 패턴
-
-### (4) 순수 bitcast — si → ui
-
-```
-x: si_N  →  bitcast  →  y: ui_N               │  y uilt/uile C
-```
-
-**안전 조건**: C ≤ 2^(N-1) − 1
-
-**삽입 assertion** (2개):
-```
-x sige 0        ← 하한
-x silt/sile C   ← 상한 (predicate flip)
-```
-
-**근거**: y uilt C이고 C < 2^(N-1)이면 sign bit = 0 → 비트 패턴 동일 → x ∈ [0, C-1] as si_N.
+모든 패턴은 임의의 비트 폭 N, M에 대해 동작 (`type->bit_width()` 기반, 32비트 고정 아님).
 
 ---
 
-### (5) sext → bitcast — si → si → ui
+## 지원 패턴
 
 ```
-x: si_N  →  sext  →  t: si_M  →  bitcast  →  y: ui_M   │  y uilt/uile C
+(1) x: si_N  →  sext  →  y: si_M
+    y silt/sige C  →  insert: x silt/sige C
+
+(2) x: ui_N  →  zext  →  y: ui_M
+    y uilt/uige C  →  insert: x uilt/uige C
+
+(3) x: ui_N  →  zext  →  t: ui_M  →  bitcast  →  y: si_M
+    y silt C  →  insert: x uilt C          (predicate flip: SI→UI)
+
+(4) x: si_N  →  bitcast  →  y: ui_N
+    y uilt/uile C  →  insert: x sige 0, x silt/sile C   (predicate flip: UI→SI)
+
+(5) x: si_N  →  sext  →  t: si_M  →  bitcast  →  y: ui_M
+    y uilt/uile C  →  insert: x sige 0, x silt/sile C   (predicate flip: UI→SI)
+
+(6) x: si_N  →  bitcast  →  t: ui_N  →  zext  →  u: ui_M  →  bitcast  →  y: si_Mw
+    y silt/sile C  →  insert: x sige 0, x silt/sile C   (flip 없음: SI→SI)
 ```
 
-**안전 조건**: C ≤ 2^(N-1) − 1 (원본 타입 si_N 의 양수 범위 안)
+---
 
-**삽입 assertion** (2개):
-```
-x sige 0        ← 하한
-x silt/sile C   ← 상한 (predicate flip: uilt → silt)
-```
+## 안전 조건 (공통)
 
-**근거**: y uilt C이고 C < 2^(M-1)이면 ui_M sign bit = 0 → t ≥ 0 as si_M → sext 역전파로 x ≥ 0 as si_N, 그리고 t = x (값 보존) → x < C.
+- C ≤ 2^(N-1) − 1  (원본 타입의 양수 범위 안)
+- `run_on_upcast` 가 `IntInterval::top(N, sign).contains(C)` 로 자동 검사
 
-## 미지원 케이스
+## Predicate 제한
 
-### ui → si 방향 bitcast
+signed 원본(`is_signed()`)이 bitcast 체인에 있을 때:
+- **패턴 4, 5**: 비교 변수가 unsigned → UILT/UILE만 허용
+- **패턴 6**: 비교 변수가 signed → SILT/SILE만 허용
+- GT/GE 계열 거부: `x < 0`도 참 분기를 만족하므로 `x sige 0`이 사운드하지 않음
+
+## Predicate Flip 규칙
+
+`flip = (비교 predicate 부호) ≠ (원본 변수 타입 부호)`
+
+| 패턴 | 비교 부호 | 원본 부호 | flip |
+|------|-----------|-----------|------|
+| 1    | S         | S         | ✗   |
+| 2    | U         | U         | ✗   |
+| 3    | S         | U         | ✓   |
+| 4    | U         | S         | ✓   |
+| 5    | U         | S         | ✓   |
+| 6    | S         | S         | ✗   |
+
+---
+
+## 미지원
 
 ```
 x: ui_N  →  bitcast  →  y: si_N   │  y silt C
 ```
-
 `silt C` 단독으로는 y ≥ 0 보장 없음 (y = -1도 만족). x 범위 추론 불가.
-
-### uigt / uige / uieq / uine predicate (패턴 4, 5 한정)
-
-`y uigt C` 참 분기에서 x < 0이어도 y = bitcast(sext(x))가 매우 큰 값이 되어 조건 만족 가능. `x sige 0` assertion이 사운드하지 않음.

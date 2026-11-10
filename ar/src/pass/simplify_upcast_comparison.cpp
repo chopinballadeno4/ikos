@@ -94,28 +94,27 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
   auto it = bb->rend();
   auto et = bb->rend();
 
-  // track variable if bitcast occurs
   Value* tracked_variable = var;
-  bool bitcast = false;
-  bool pure_bitcast = false;
+  bool bitcast = false;           // saw outer bitcast
+  bool inner_zext_found = false;  // saw zext after outer bitcast
   UnaryOperation* upcast = nullptr;
   UnaryOperation* saved_bitcast = nullptr;
+  UnaryOperation* saved_zext = nullptr;
 
-  // backtrace and find the upcast
   while (true) {
-    // beginning of a block
     if (it == et) {
       if (bb->num_predecessors() == 1) {
-        // move to the parent
         bb = *bb->predecessor_begin();
         it = bb->rbegin();
         et = bb->rend();
         continue;
       } else {
-        // pure bitcast: no predecessor to search further
+        if (bitcast && inner_zext_found) {
+          upcast = saved_zext;
+          break;
+        }
         if (bitcast && saved_bitcast) {
           upcast = saved_bitcast;
-          pure_bitcast = true;
           break;
         }
         return false;
@@ -126,26 +125,42 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
 
     if (stmt->result_or_null() == tracked_variable) {
       if (!isa< UnaryOperation >(stmt)) {
-        // pure bitcast: operand defined by non-cast instruction
+        if (bitcast && inner_zext_found) {
+          upcast = saved_zext;
+          break;
+        }
         if (bitcast && saved_bitcast) {
           upcast = saved_bitcast;
-          pure_bitcast = true;
           break;
         }
         return false;
       }
       upcast = cast< UnaryOperation >(stmt);
       if (!bitcast && upcast->op() == UnaryOperation::Bitcast) {
+        // outer bitcast: begin of a cast chain
         saved_bitcast = upcast;
         tracked_variable = upcast->operand();
         upcast = nullptr;
         bitcast = true;
       } else if (!bitcast && (upcast->op() == UnaryOperation::SExt ||
                               upcast->op() == UnaryOperation::ZExt)) {
-        break;
-      } else if (bitcast && upcast->op() == UnaryOperation::ZExt) {
-        break;
-      } else if (bitcast && upcast->op() == UnaryOperation::SExt) {
+        break;  // pattern 1 (sext) or 2 (zext)
+      } else if (bitcast && !inner_zext_found &&
+                 upcast->op() == UnaryOperation::ZExt) {
+        // zext after outer bitcast: continue to look for inner bitcast
+        // (triple chain: si_N → bitcast → ui_N → zext → ui_M → bitcast → si_M)
+        saved_zext = upcast;
+        inner_zext_found = true;
+        tracked_variable = upcast->operand();
+        upcast = nullptr;
+      } else if (bitcast && !inner_zext_found &&
+                 upcast->op() == UnaryOperation::SExt) {
+        break;  // pattern 5 (si → sext → bitcast → ui)
+      } else if (bitcast && inner_zext_found &&
+                 upcast->op() == UnaryOperation::Bitcast) {
+        break;  // triple chain: inner bitcast found (si_N → ui_N)
+      } else if (bitcast && inner_zext_found) {
+        upcast = saved_zext;  // no inner bitcast; fall back to pattern 3
         break;
       } else {
         return false;
@@ -155,28 +170,39 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
     it++;
   }
 
-  // For bitcast chains where the original variable is signed (pure si->ui
-  // bitcast or si->sext->bitcast->ui), only uilt/uile are safe: on the true
-  // branch y < C (< 2^(N-1)-1) guarantees the sign bit is 0, so x >= 0 holds.
-  // Other predicates (uigt, uige) allow x < 0 on the true branch, which makes
-  // inserting x sige 0 unsound.
-  if (bitcast &&
-      cast< IntegerType >(upcast->operand()->type())->is_signed()) {
+  // For bitcast chains with a signed original variable, only less-than
+  // predicates are safe. The true branch of y < C (C <= 2^(N-1)-1) guarantees
+  // the value is in [0, C-1], so x sige 0 holds. Greater-than predicates allow
+  // x < 0 on the true branch (the bit-pattern maps to a large unsigned value).
+  auto orig_type = cast< IntegerType >(upcast->operand()->type());
+  if (bitcast && orig_type->is_signed()) {
     auto pred = cmp->predicate();
-    if (pred != Comparison::UILT && pred != Comparison::UILE) {
+    if (pred != Comparison::UILT && pred != Comparison::UILE &&
+        pred != Comparison::SILT && pred != Comparison::SILE) {
       return false;
     }
   }
 
+  // Flip the predicate sign when the comparison type sign differs from the
+  // original variable's sign (one bitcast in the chain changes the sign).
+  // Two bitcasts cancel out (e.g. triple chain: si → ui → si), so no flip.
+  bool pred_is_signed = (cmp->predicate() == Comparison::SILT ||
+                         cmp->predicate() == Comparison::SILE ||
+                         cmp->predicate() == Comparison::SIGT ||
+                         cmp->predicate() == Comparison::SIGE ||
+                         cmp->predicate() == Comparison::SIEQ ||
+                         cmp->predicate() == Comparison::SINE);
+  bool flip_predicate = (pred_is_signed != orig_type->is_signed());
+  bool needs_lower_bound = bitcast && orig_type->is_signed();
+
   if (auto new_constant =
           this->run_on_upcast(cmp->context(), upcast->operand(), constant)) {
-    // add assert
     this->insert_assert(cmp,
                         upcast->operand(),
                         constant,
                         *new_constant,
-                        bitcast,
-                        pure_bitcast);
+                        flip_predicate,
+                        needs_lower_bound);
     return true;
   } else {
     return false;
@@ -209,8 +235,8 @@ void SimplifyUpcastComparisonPass::insert_assert(Comparison* cmp,
                                                  Value* tracked_variable,
                                                  IntegerConstant* constant,
                                                  IntegerConstant* new_constant,
-                                                 bool bitcast,
-                                                 bool pure_bitcast) {
+                                                 bool flip_predicate,
+                                                 bool needs_lower_bound) {
   Value* left;
   Value* right;
   if (cmp->left() == constant) {
@@ -221,48 +247,21 @@ void SimplifyUpcastComparisonPass::insert_assert(Comparison* cmp,
     right = new_constant;
   }
   Comparison::Predicate predicate = cmp->predicate();
-  if (bitcast) {
+  if (flip_predicate) {
     switch (cmp->predicate()) {
-      case Comparison::UIGT:
-        predicate = Comparison::SIGT;
-        break;
-      case Comparison::UIGE:
-        predicate = Comparison::SIGE;
-        break;
-      case Comparison::UILT:
-        predicate = Comparison::SILT;
-        break;
-      case Comparison::UILE:
-        predicate = Comparison::SILE;
-        break;
-
-      case Comparison::SIGT:
-        predicate = Comparison::UIGT;
-        break;
-      case Comparison::SIGE:
-        predicate = Comparison::UIGE;
-        break;
-      case Comparison::SILT:
-        predicate = Comparison::UILT;
-        break;
-      case Comparison::SILE:
-        predicate = Comparison::UILE;
-        break;
-
-      case Comparison::UIEQ:
-        predicate = Comparison::SIEQ;
-        break;
-      case Comparison::UINE:
-        predicate = Comparison::SINE;
-        break;
-      case Comparison::SIEQ:
-        predicate = Comparison::UIEQ;
-        break;
-      case Comparison::SINE:
-        predicate = Comparison::UINE;
-        break;
-      default:
-        ikos_unreachable("unreachable");
+      case Comparison::UIGT: predicate = Comparison::SIGT; break;
+      case Comparison::UIGE: predicate = Comparison::SIGE; break;
+      case Comparison::UILT: predicate = Comparison::SILT; break;
+      case Comparison::UILE: predicate = Comparison::SILE; break;
+      case Comparison::SIGT: predicate = Comparison::UIGT; break;
+      case Comparison::SIGE: predicate = Comparison::UIGE; break;
+      case Comparison::SILT: predicate = Comparison::UILT; break;
+      case Comparison::SILE: predicate = Comparison::UILE; break;
+      case Comparison::UIEQ: predicate = Comparison::SIEQ; break;
+      case Comparison::UINE: predicate = Comparison::SINE; break;
+      case Comparison::SIEQ: predicate = Comparison::UIEQ; break;
+      case Comparison::SINE: predicate = Comparison::UINE; break;
+      default: ikos_unreachable("unreachable");
     }
   }
   auto c = Comparison::create(predicate, left, right);
@@ -270,21 +269,16 @@ void SimplifyUpcastComparisonPass::insert_assert(Comparison* cmp,
   auto it = bb->begin();
   bb->insert_after(it, std::move(c));
 
-  // For chains that end with bitcast and the original variable is signed,
-  // the flipped predicate only gives the upper bound. Also insert x sige 0.
-  // Covers: pure bitcast (si -> ui) and sext -> bitcast (si -> si -> ui).
-  if (bitcast) {
+  if (needs_lower_bound) {
     auto type = cast< IntegerType >(tracked_variable->type());
-    if (type->is_signed()) {
-      auto zero = IntegerConstant::get(cmp->context(),
-                                       type,
-                                       MachineInt(0,
-                                                  type->bit_width(),
-                                                  type->sign()));
-      auto zero_cmp = Comparison::create(Comparison::SIGE, tracked_variable, zero);
-      auto it2 = bb->begin();
-      bb->insert_after(it2, std::move(zero_cmp));
-    }
+    auto zero = IntegerConstant::get(cmp->context(),
+                                     type,
+                                     MachineInt(0,
+                                                type->bit_width(),
+                                                type->sign()));
+    auto zero_cmp = Comparison::create(Comparison::SIGE, tracked_variable, zero);
+    auto it2 = bb->begin();
+    bb->insert_after(it2, std::move(zero_cmp));
   }
 }
 
