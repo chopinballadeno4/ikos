@@ -185,11 +185,13 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
     }
   }
 
-  // ui_N → bitcast → si_N (unsigned original): only signed GT/GE are safe.
-  // y > C with C >= 0 guarantees y in [C+1, 2^(N-1)-1], so y is positive and
-  // x (= same bits) is also in [C+1, 2^(N-1)-1].
+  // ui_N → bitcast → si_N (direct bitcast, no intermediate zext): only signed
+  // GT/GE are safe. y > C with C >= 0 guarantees y in [C+1, 2^(N-1)-1], so y
+  // is positive and x (= same bits) is also in [C+1, 2^(N-1)-1].
   // LT/LE allows negative y on the true branch, which maps to large unsigned x.
-  if (bitcast && !orig_type->is_signed()) {
+  // Note: inner_zext_found distinguishes this from pattern 3
+  // (ui_N → zext → ui_M → bitcast → si_M) which allows all predicates.
+  if (bitcast && !inner_zext_found && !orig_type->is_signed()) {
     auto pred = cmp->predicate();
     if (pred != Comparison::SIGT && pred != Comparison::SIGE) {
       return false;
