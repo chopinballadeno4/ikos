@@ -172,6 +172,9 @@ bool SimplifyUpcastComparisonPass::run_on_comparison(Comparison* cmp,
     it++;
   }
 
+  if (!isa< IntegerType >(upcast->operand()->type())) {
+    return false;
+  }
   auto orig_type = cast< IntegerType >(upcast->operand()->type());
 
   // si_N → bitcast → ui_N (signed original): only LT/LE predicates are safe.
